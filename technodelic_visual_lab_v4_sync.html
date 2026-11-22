@@ -1,0 +1,2580 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Technodelic Visual Lab</title>
+<style>
+/*
+ VOICE: 静かな計測ラボ。刺激ではなく観察のための暗い計器盤
+ IDEA: Neural Mantra Studio v6 と同じ暗色パネル＋シアンの計器
+ PICTURE: 全画面の連続ビジュアル（6モード）そのもの
+ COLOUR and TYPE: #0d0f12 / #161a22 / accent #00e5ff / secondary #ff3366、システムフォント
+ LAYOUT: 左に操作HUD、右にログ、スマホでは下からのシート
+*/
+:root{
+  --bg:#0d0f12;--panel:rgba(22,26,34,.88);--panel-solid:#161a22;--panel-border:#262c36;
+  --accent:#00e5ff;--accent-glow:rgba(0,229,255,.25);--accent-secondary:#ff3366;--amber:#f5a623;
+  --text-main:#f0f6fc;--text-muted:#8b949e;--code-bg:#090c10;
+}
+*{box-sizing:border-box;min-width:0}
+html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text-main);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;user-select:none}
+#canvas-container{position:fixed;inset:0;z-index:0}
+body.idle{cursor:none}
+#topbar{position:fixed;top:12px;left:16px;right:16px;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:8px;pointer-events:none;flex-wrap:wrap}
+.topbar-group{display:flex;align-items:center;gap:8px;pointer-events:auto;flex-wrap:wrap}
+.brand-pill{background:var(--panel);backdrop-filter:blur(12px);border:1px solid var(--panel-border);border-radius:8px;padding:8px 14px;display:flex;align-items:center;gap:10px}
+.brand-title{font-size:13px;font-weight:700;letter-spacing:.08em;color:var(--accent);text-shadow:0 0 10px var(--accent-glow);white-space:nowrap}
+.brand-sub{font-size:11px;color:var(--text-muted);white-space:nowrap}
+.brand-sub.vac{color:var(--amber)}
+.btn{background:var(--panel);backdrop-filter:blur(12px);color:var(--text-main);border:1px solid var(--panel-border);border-radius:6px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;transition:border-color .18s,color .18s,background .18s;font-family:inherit}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn:focus-visible,.mode-btn:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.btn-accent{background:rgba(0,229,255,.12);border-color:var(--accent);color:var(--accent)}
+.btn-danger{background:rgba(255,51,102,.14);border-color:var(--accent-secondary);color:#ff6b8b}
+.btn-danger:hover{background:rgba(255,51,102,.28);color:#fff}
+.btn.on{background:rgba(245,166,35,.16);border-color:var(--amber);color:var(--amber)}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+#timer-display{font-size:12px;color:var(--text-muted);background:var(--panel);padding:6px 10px;border-radius:6px;border:1px solid var(--panel-border)}
+.ui-fade{transition:opacity .6s ease}
+body.idle .ui-fade{opacity:0;pointer-events:none}
+
+#hud-panel{position:fixed;top:64px;left:16px;bottom:16px;width:360px;z-index:15;background:var(--panel);backdrop-filter:blur(16px);border:1px solid var(--panel-border);border-radius:10px;padding:16px;overflow-y:auto;transition:transform .28s ease,opacity .28s ease}
+#hud-panel.hidden{transform:translateX(-400px);opacity:0;pointer-events:none}
+#hud-panel::-webkit-scrollbar,#log-modal::-webkit-scrollbar{width:6px}
+#hud-panel::-webkit-scrollbar-thumb,#log-modal::-webkit-scrollbar-thumb{background:#2c3340;border-radius:3px}
+.sheet-grip{display:none}
+.section{margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,.06)}
+.section:last-child{border-bottom:none;margin-bottom:0}
+.section-title{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--text-muted);margin:0 0 10px;display:flex;justify-content:space-between;align-items:center;gap:6px}
+.mode-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.mode-btn{background:var(--code-bg);border:1px solid var(--panel-border);color:var(--text-muted);border-radius:6px;padding:8px 4px;font-size:11px;font-weight:600;cursor:pointer;text-align:center;transition:all .15s;font-family:inherit;line-height:1.3}
+.mode-btn.dim{opacity:.55}.mode-btn.active{background:rgba(0,229,255,.14);border-color:var(--accent);color:var(--accent)}
+.mode-btn .ph{display:block;font-size:9px;color:var(--amber);font-weight:500}
+select,input[type=text],textarea{width:100%;background:var(--code-bg);border:1px solid var(--panel-border);color:var(--text-main);border-radius:6px;padding:7px 9px;font-size:12px;outline:none;font-family:inherit}
+select:focus,input[type=text]:focus,textarea:focus{border-color:var(--accent)}
+textarea{user-select:text}
+.control-row{margin-bottom:10px}
+.control-header{display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px;gap:6px}
+.control-val{color:var(--accent);font-family:ui-monospace,Menlo,monospace}
+.hint{font-size:10px;color:var(--text-muted);line-height:1.5;margin-top:4px}
+input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer;height:4px}
+.check{display:flex;align-items:center;gap:8px;font-size:11px;margin-bottom:8px;cursor:pointer}
+.check input{accent-color:var(--accent);width:15px;height:15px}
+.audio-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
+.file-label{display:block;text-align:center;background:var(--code-bg);border:1px dashed #394252;border-radius:6px;padding:9px;font-size:11px;color:var(--text-muted);cursor:pointer;margin-bottom:8px}
+.file-label:hover,.drop-active{border-color:var(--accent)!important;color:var(--accent);background:rgba(0,229,255,.08)!important}
+.meter-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:8px}
+.meter-col{background:var(--code-bg);border:1px solid var(--panel-border);border-radius:5px;padding:5px;text-align:center}
+.meter-bar-wrap{height:30px;display:flex;align-items:flex-end;justify-content:center;margin-bottom:3px}
+.meter-bar{width:10px;height:2px;background:var(--accent);border-radius:2px}
+.meter-name{font-size:9px;color:var(--text-muted);line-height:1.3}
+.readout{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:6px;font-size:10px;color:var(--text-muted)}
+.readout b{display:block;color:var(--text-main);font-weight:600;font-family:ui-monospace,Menlo,monospace;font-size:11px}
+.balance{position:relative;height:6px;background:var(--code-bg);border:1px solid var(--panel-border);border-radius:4px;margin-top:8px}
+.balance i{position:absolute;top:-3px;width:10px;height:10px;border-radius:50%;background:var(--accent);left:calc(50% - 5px)}
+.balance:before{content:"";position:absolute;left:50%;top:0;bottom:0;width:1px;background:#394252}
+.bal-lab{display:flex;justify-content:space-between;font-size:9px;color:var(--text-muted);margin-top:3px}
+.playlist-box{max-height:120px;overflow-y:auto;background:var(--code-bg);border:1px solid var(--panel-border);border-radius:6px;margin-top:8px;display:none}
+.playlist-box.has-items{display:block}
+.playlist-item{padding:6px 8px;font-size:11px;color:var(--text-muted);cursor:pointer;border-bottom:1px solid rgba(255,255,255,.04);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.playlist-item:hover{background:rgba(0,229,255,.08);color:var(--text-main)}
+.playlist-item.active{background:rgba(0,229,255,.16);color:var(--accent);font-weight:600}
+details.drive{margin-top:10px;padding:8px;background:var(--code-bg);border:1px solid var(--panel-border);border-radius:6px}
+details.drive summary{font-size:10px;color:var(--accent);font-weight:700;letter-spacing:.05em;cursor:pointer}
+.status-line{font-size:10px;color:var(--text-muted);margin-top:4px;min-height:13px}
+.quick-split{display:flex;gap:6px;margin-top:6px}
+.quick-split .btn{flex:1;padding:5px 6px;font-size:10px}
+.beat-dot{width:12px;height:12px;border-radius:50%;background:var(--accent);margin:4px auto 0;transform:scale(.6);opacity:.7}
+.layer-row{display:grid;grid-template-columns:6.6em minmax(0,1fr) 46px;gap:6px;align-items:center;margin-bottom:5px;font-size:11px}
+.layer-row select{padding:4px 6px;font-size:11px}
+.layer-row .lv{height:6px;background:var(--code-bg);border:1px solid var(--panel-border);border-radius:3px;overflow:hidden}
+.layer-row .lv i{display:block;height:100%;width:0;background:var(--accent)}
+.layer-row.on .ln{color:var(--accent)}
+.src-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;margin:8px 0}
+.src-grid .meter-bar-wrap{height:26px}
+@media (max-width:760px){.layer-row select{font-size:16px;padding:6px}}
+.drive-bars{display:grid;gap:5px;margin:8px 0 10px}
+.dbar{display:grid;grid-template-columns:4.5em minmax(0,1fr) 2.8em;align-items:center;gap:6px;font-size:10px;color:var(--text-muted)}
+.dbar .track{height:6px;background:var(--code-bg);border:1px solid var(--panel-border);border-radius:3px;overflow:hidden}
+.dbar .fill{height:100%;width:0;background:var(--accent);border-radius:3px}
+.dbar .fill.mag{background:var(--accent-secondary)}.dbar .fill.amb{background:var(--amber)}
+.dbar b{color:var(--text-main);font-family:ui-monospace,Menlo,monospace;font-weight:600;text-align:right}
+.tap-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px;margin-top:6px}
+.seq-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px;margin-bottom:6px}
+.seq-grid label{font-size:10px;color:var(--text-muted)}
+
+#log-modal{position:fixed;top:64px;right:16px;width:350px;max-height:calc(100vh - 80px);z-index:18;background:var(--panel);backdrop-filter:blur(16px);border:1px solid var(--panel-border);border-radius:10px;padding:16px;overflow-y:auto;display:none}
+#log-modal.open{display:block}
+.btn-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:6px}
+.btn-row .btn{padding:7px 4px;font-size:11px}
+
+#safety-overlay{position:fixed;inset:0;z-index:50;background:rgba(9,12,16,.94);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto}
+.safety-card{max-width:540px;background:var(--panel-solid);border:1px solid var(--panel-border);border-radius:12px;padding:24px;box-shadow:0 20px 50px rgba(0,0,0,.6)}
+.safety-card h2{margin:0 0 12px;font-size:18px;color:var(--accent)}
+.safety-card p,.safety-card li{font-size:13px;line-height:1.7;color:#c9d1d9}
+.safety-card ul{padding-left:18px;margin:10px 0 18px}
+kbd{font-family:ui-monospace,Menlo,monospace;font-size:11px;background:var(--code-bg);border:1px solid var(--panel-border);border-radius:4px;padding:1px 5px}
+
+@media (max-width:760px){
+  #topbar{top:max(8px,env(safe-area-inset-top));left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));flex-wrap:nowrap}
+  #timer-display{display:none}
+  .topbar-group{gap:6px;flex-wrap:nowrap}
+  .brand-title .long,.btn .long,#fullscreen-btn{display:none}
+  .btn{white-space:nowrap}
+  .btn{padding:8px 9px;font-size:12px}
+  .brand-pill{padding:6px 10px}
+  .brand-title{font-size:11px}
+  .brand-sub{display:none}
+  .btn{padding:8px 10px;min-height:38px}
+  #timer-display{padding:8px}
+  #hud-panel,#log-modal{top:auto;left:0;right:0;bottom:0;width:100%;height:58vh;height:58dvh;max-height:none;border-radius:14px 14px 0 0;padding:10px 14px calc(24px + env(safe-area-inset-bottom))}
+  #hud-panel.hidden{transform:translateY(105%)}
+  #hud-panel.full,#log-modal.full{height:calc(100vh - 60px);height:calc(100dvh - 60px - env(safe-area-inset-top))}
+  .layer-row{grid-template-columns:5.6em minmax(0,1fr) 36px}
+  .src-grid .meter-name{font-size:8px}
+  #calm-stop-btn{background:rgba(40,10,20,.85)}
+  .sheet-grip{display:block;width:100%;height:22px;background:none;border:0;cursor:pointer;margin:-4px 0 6px}
+  .sheet-grip:before{content:"";display:block;width:44px;height:4px;border-radius:2px;background:#3a4250;margin:8px auto}
+  select,input[type=text],textarea{font-size:16px}
+  .mode-btn{padding:10px 4px;font-size:12px}
+  input[type=range]{height:22px}
+}
+@media (prefers-reduced-motion:reduce){.ui-fade,#hud-panel{transition:none}}
+
+  /* --- Sync layer (v4_sync): PULSE TEST ring --- */
+  #sync-pulse-ring{position:fixed;left:50%;top:50%;width:120px;height:120px;margin:-60px 0 0 -60px;border:3px solid var(--accent);border-radius:50%;opacity:0;pointer-events:none;z-index:60}
+  #sync-pulse-ring.pulse-fire{animation:syncPulseRing .45s ease-out}
+  @keyframes syncPulseRing{0%{opacity:.9;transform:scale(.6)}100%{opacity:0;transform:scale(1.6)}}
+</style>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}
+</script>
+</head>
+<body>
+<div id="canvas-container"></div>
+<div id="sync-pulse-ring"></div>
+
+<div id="topbar">
+  <div class="topbar-group ui-fade">
+    <div class="brand-pill">
+      <span class="brand-title">TECHNODELIC<span class="long"> VISUAL LAB</span></span>
+      <span class="brand-sub" id="status-badge">READY (NO STROBE)</span>
+    </div>
+    <button class="btn" id="toggle-hud-btn" title="Shortcut: H">操作<span class="long"> [H]</span></button>
+  </div>
+  <div class="topbar-group">
+    <span id="timer-display" class="mono ui-fade">00:00</span>
+    <button class="btn ui-fade" id="toggle-log-btn" title="Shortcut: L">Log</button>
+    <button class="btn ui-fade" id="fullscreen-btn" title="Shortcut: F">全画面</button>
+    <button class="btn btn-danger" id="calm-stop-btn" title="Space: 停止/再開 · Esc: 停止">Calm-Stop</button>
+  </div>
+</div>
+
+<aside id="hud-panel" class="ui-fade">
+  <button class="sheet-grip" data-sheet="hud-panel" aria-label="シートの高さ切替"></button>
+
+  <div class="section">
+    <h3 class="section-title"><span>Visual Mode</span><span class="mono" style="font-size:10px">1–6</span></h3>
+    <div class="mode-tabs">
+      <button class="mode-btn active" data-mode="RAINBOW_FLOW">1. Rainbow<br>Fluid</button>
+      <button class="mode-btn" data-mode="FRACTAL_SPACE">2. Fractal<br>Space</button>
+      <button class="mode-btn" data-mode="CONVERGENCE_DIFFUSION">3. Converge<br>/ Diffuse</button>
+      <button class="mode-btn" data-mode="CYMATICS">4. Cymatics<br>Plate</button>
+      <button class="mode-btn" data-mode="TORUS_MANDALA">5. Torus<br>Mandala</button>
+      <button class="mode-btn" data-mode="IRIDESCENT_MEMBRANE">6. Iridescent<br>Membrane</button>
+    </div>
+    <div class="hint">質感はパターンごとに違います：Rainbow・Membrane は<b>ぬるっと</b>（音を長くならし、出入りもゆっくり）、Fractal は<b>なめらか</b>、Particles は<b>弾む</b>（曲の区切りで輪・球殻・渦巻き・螺旋の柱・雲へ変形し、盛り上がると散らばり、キックで外へはじける）、Cymatics・Mandala は<b>ソリッド</b>（打音で形がカチッと動いて止まり、線も硬め）。ソリッド系も明るさは打音で点滅させず、形だけが動きます。ボタンを押すとそのパターンだけを表示する「単体」になります。<kbd>M</kbd> キーでレイヤーミックスと単体を切り替え。</div>
+  </div>
+
+  <div class="section" id="mix-section">
+    <h3 class="section-title"><span>Layer Mix（音ハメ）</span><span id="anal-src" style="font-size:10px;color:var(--accent);text-transform:none;letter-spacing:0">—</span></h3>
+    <div class="control-row">
+      <select id="param-viewMode">
+        <option value="mix">レイヤーミックス：パートに合わせて出し入れ</option>
+        <option value="single">単体：選んだパターン1つだけ</option>
+      </select>
+    </div>
+    <div class="src-grid" id="src-meters"></div>
+    <div id="layer-rows"></div>
+    <div class="seq-grid" style="margin-top:8px">
+      <div><label for="param-quantize">出入りのタイミング</label>
+        <select id="param-quantize"><option value="beat">拍に合わせる</option><option value="bar">小節頭に合わせる</option><option value="free">すぐ</option></select></div>
+      <div><label for="param-maxLayers">同時に出す数（背景以外）</label>
+        <select id="param-maxLayers"><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option></select></div>
+    </div>
+    <div class="seq-grid">
+      <button class="btn" id="mix-default-btn">おすすめ割当</button>
+      <button class="btn" id="mix-shuffle-btn">割当をシャッフル</button>
+    </div>
+    <div class="hint" id="section-info"></div>
+    <div class="hint">パートが鳴り始めた次の拍（または小節頭）でそのパターンが現れ、鳴り止んで少し経つと消えます。切り替わる瞬間の音の強さで出入りの速さが変わり、キックやスネアが鳴った瞬間や盛り上がりの頭ではパリッと速く（約0.1〜0.3秒）、静かな流れの中ではふわっとゆっくり（2〜4秒）入れ替わります。曲の区切りでの背景交代も同じで、盛り上がりに入るときは素早く、落ちるときは長いクロスフェードです。鳴っている間はそのパートの強さで濃さが揺れます。枠が埋まっているときは、4小節以上出ていたものが小節頭で入れ替わります（ボーカルが入ってきたら優先）。「背景」に割り当てたものは常に1枚だけ出ていて、曲の区切り（Aメロ→サビなど）で次の背景に交代します。前景が増えると背景は少し下がります。同梱曲は事前解析したタイミング、読み込んだ曲は周波数帯からのリアルタイム推定です。ボーカルの判定は「中央に定位した中音域」を手がかりにしているので、楽器が混ざると反応することがあります。</div>
+  </div>
+
+  <div class="section">
+    <h3 class="section-title">Neural Mantra Presets</h3>
+    <select id="preset-select">
+      <option value="CUSTOM">— 実験プリセットを選択 —</option>
+      <option value="NIRVANA_VELVET">① NIRVĀṆA &amp; VELVET（Rainbow + Slow Drift）</option>
+      <option value="GENESIS_CONTINUUM">② GENESIS CONTINUUM（収束/拡散 + 固定遅延）</option>
+      <option value="PRIMAL_ORIGIN">③ PRIMAL ORIGIN（Cymatics + Sync）</option>
+      <option value="BIJA_OVERDRIVE">④ BĪJA OVERDRIVE（Torus Mandala + 厳格輝度）</option>
+      <option value="COLOR_ONLY">Exp A: 色のみ流動（形状静止）</option>
+      <option value="SHAPE_ONLY">Exp B: 形状のみ流動（色相固定）</option>
+      <option value="MEMBRANE_STILL">Exp C: 薄膜・ほぼ静止（Strato連動）</option>
+    </select>
+    <div class="hint">数値は約0.4秒の慣性で目標値へ移行します（急変なし）。</div>
+  </div>
+
+  <div class="section">
+    <h3 class="section-title"><span>Audio Engine (Pyramid FFT)</span><span id="audio-source-label" style="font-size:10px;color:var(--accent);text-transform:none;letter-spacing:0">IDLE</span></h3>
+    <label class="file-label" id="drop-zone" for="audio-file-input">クリックまたはドロップで WAV / MP3 を読み込み
+      <input type="file" id="audio-file-input" accept="audio/*" multiple style="display:none">
+    </label>
+    <div class="audio-actions">
+      <label class="btn" for="audio-folder-input" style="text-align:center">フォルダ読込
+        <input type="file" id="audio-folder-input" webkitdirectory directory multiple style="display:none">
+      </label>
+      <button class="btn" id="test-drone-btn">Test Drone</button>
+    </div>
+    <div class="audio-actions">
+      <button class="btn btn-accent" id="play-pause-btn">再生 / 一時停止</button>
+      <button class="btn" id="next-track-btn">次の曲</button>
+    </div>
+    <div id="playlist-box" class="playlist-box"></div>
+    <audio id="audio-element" style="display:none"></audio>
+
+    <div class="control-row" style="margin-top:8px">
+      <div class="control-header"><span>FFT 入力感度</span><span class="control-val" id="val-audioGain">1.80</span></div>
+      <input type="range" id="param-audioGain" min="0.5" max="4.0" step="0.1" value="1.8">
+    </div>
+
+    <!-- Sync layer: SYNC ZERO 較正パネル (真のゼロ = 聞こえている音の時刻で評価するための較正) -->
+    <div class="control-row" id="sync-zero-panel" style="padding:8px;background:var(--code-bg);border:1px solid var(--panel-border);border-radius:6px">
+      <div class="control-header"><span>SYNC ZERO (同期較正)</span><span class="control-val" id="sync-zero-state">UNCALIBRATED</span></div>
+      <div id="sync-latency-readout" style="font-size:10px;color:var(--text-muted);font-family:monospace">baseLatency — / outputLatency — / 合計 —</div>
+      <div class="control-header" style="margin-top:6px"><span>MANUAL OFFSET (ms, +で映像を遅らせる)</span><span class="control-val" id="val-syncOffsetMs">0</span></div>
+      <input type="range" id="param-syncOffsetMs" min="-250" max="400" step="1" value="0">
+      <div style="display:flex;gap:6px;margin-top:6px;align-items:center">
+        <button class="btn" id="sync-pulse-btn" style="flex:1;font-size:11px">PULSE TEST (80Hz)</button>
+      </div>
+      <div id="sync-vacuum-readout" style="font-size:10px;color:var(--text-muted);margin-top:4px">真空検出 (fast): 待機</div>
+      <div class="hint" style="margin-top:4px">PULSE TEST: 短い低音とリングが同時に感じられれば較正OK。リングが早く見えたら +側、遅ければ −側へ寄せる。補正は位相遅延・拍・事前解析の参照時刻に効きます。</div>
+    </div>
+    <div class="meter-grid">
+      <div class="meter-col"><div class="meter-bar-wrap"><div class="meter-bar" id="bar-sub"></div></div><div class="meter-name">SubCore<br>35–85Hz</div></div>
+      <div class="meter-col"><div class="meter-bar-wrap"><div class="meter-bar" id="bar-mud"></div></div><div class="meter-name">MudBand<br>200–500</div></div>
+      <div class="meter-col"><div class="meter-bar-wrap"><div class="meter-bar" id="bar-voice"></div></div><div class="meter-name">Crossfire<br>1–3kHz</div></div>
+      <div class="meter-col"><div class="meter-bar-wrap"><div class="meter-bar" id="bar-high"></div></div><div class="meter-name">Strato<br>6–16kHz</div></div>
+    </div>
+    <div class="balance" title="Crossfire帯域 (1–3kHz) の左右バランス"><i id="bal-dot"></i></div>
+    <div class="bal-lab"><span>L</span><span>Crossfire L/R</span><span>R</span></div>
+    <div class="readout">
+      <div>Centroid<b id="ro-centroid">—</b></div>
+      <div>映像遅延 Δt<b id="ro-delay">0.00s</b></div>
+      <div>真空断<b id="ro-vacuum">—</b></div>
+    </div>
+
+    <details class="drive">
+      <summary>GOOGLE DRIVE SYNC（ローカル/自前ホスト用）</summary>
+      <div class="hint" style="margin:6px 0">claude.ai のアーティファクト上では外部通信が遮断されるため動作しません。HTMLを手元で開いた場合に使えます。</div>
+      <input type="text" id="gdrive-folder-input" value="12WAs0hOZ9iQYrjX2rk9H6NOdjrgwASNH" placeholder="Drive フォルダ URL または ID" style="margin-bottom:5px">
+      <input type="text" id="gdrive-client-id" placeholder="Google OAuth Client ID" style="margin-bottom:6px">
+      <button class="btn btn-accent" id="gdrive-connect-btn" style="width:100%">Drive に接続して読み込む</button>
+      <div id="gdrive-status" class="status-line"></div>
+    </details>
+  </div>
+
+  <div class="section">
+    <h3 class="section-title">Modulation &amp; Phase Coupling</h3>
+    <div class="control-row">
+      <div class="control-header"><span>Audio Coupling（結合度）</span><span class="control-val" id="val-audioCoupling">0.50</span></div>
+      <input type="range" id="param-audioCoupling" min="0" max="1" step="0.01" value="0.50">
+    </div>
+    <div class="control-row">
+      <div class="control-header"><span>Phase Mode</span></div>
+      <select id="param-phaseMode">
+        <option value="slow_drift">Slow Drift（遅延がゆっくり揺れる）</option>
+        <option value="sync">Sync（完全同期・遅延0）</option>
+        <option value="fixed_offset">Fixed Offset（固定遅延）</option>
+        <option value="independent">Independent（音と完全独立）</option>
+      </select>
+      <div class="hint" id="phase-hint"></div>
+    </div>
+    <div class="control-row">
+      <div class="control-header"><span>遅延 / 最大遅延 (s)</span><span class="control-val" id="val-phaseDelay">0.50</span></div>
+      <input type="range" id="param-phaseDelay" min="0" max="2" step="0.05" value="0.5">
+    </div>
+    <div class="control-row">
+      <div class="control-header"><span>Phase Drift Rate (rad/s)</span><span class="control-val" id="val-phaseDriftRate">0.03</span></div>
+      <input type="range" id="param-phaseDriftRate" min="-0.10" max="0.10" step="0.005" value="0.03">
+    </div>
+    <div class="control-row">
+      <div class="control-header"><span>Color Flow Speed</span><span class="control-val" id="val-colorFlowSpeed">0.35</span></div>
+      <input type="range" id="param-colorFlowSpeed" min="0" max="1" step="0.01" value="0.35">
+    </div>
+    <div class="control-row">
+      <div class="control-header"><span>Spatial Flow Speed</span><span class="control-val" id="val-spatialFlowSpeed">0.20</span></div>
+      <input type="range" id="param-spatialFlowSpeed" min="0" max="1" step="0.01" value="0.20">
+      <div class="quick-split">
+        <button class="btn" id="btn-color-only">色のみ</button>
+        <button class="btn" id="btn-shape-only">形のみ</button>
+        <button class="btn" id="btn-both-flow">両方</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3 class="section-title"><span>Tempo Link（テンポ連動）</span><span id="tempo-src" style="font-size:10px;color:var(--accent);text-transform:none;letter-spacing:0">—</span></h3>
+    <div class="readout" style="margin:0 0 10px">
+      <div>BPM<b id="ro-bpm">—</b></div>
+      <div>速度倍率<b id="ro-tempomul">×1.00</b></div>
+      <div>拍<div class="beat-dot" id="beat-dot"></div></div>
+    </div>
+    <div class="control-row">
+      <div class="control-header"><span>テンポ → 動きの速さ</span><span class="control-val" id="val-tempoLink">0.60</span></div>
+      <input type="range" id="param-tempoLink" min="0" max="1" step="0.01" value="0.6">
+    </div>
+    <div class="control-row">
+      <div class="control-header"><span>拍に合わせた呼吸（形のみ）</span><span class="control-val" id="val-beatPulse">0.35</span></div>
+      <input type="range" id="param-beatPulse" min="0" max="1" step="0.01" value="0.35">
+    </div>
+    <div class="tap-row">
+      <button class="btn" id="tap-btn">タップでBPM指定</button>
+      <button class="btn" id="tap-reset-btn">自動に戻す</button>
+    </div>
+    <div class="hint">100 BPM を基準に、速い曲ほど流れが速く、遅い曲ほどゆっくりになります（0.55〜1.6倍、速度上限は維持）。拍の呼吸は明るさを変えず形だけを揺らし、130 BPM を超える曲では半分のテンポで呼吸します。同梱曲は解析済みのBPM、読み込んだ曲はリアルタイムに推定します（5〜8秒ほどかかります）。</div>
+  </div>
+
+  <div class="section">
+    <h3 class="section-title"><span>Motion（進行方向）</span><span id="dir-label" class="mono" style="font-size:11px;color:var(--accent);letter-spacing:0">▶ 1.00</span></h3>
+    <div class="balance" title="進行速度：左が後退、右が前進"><i id="dir-dot"></i></div>
+    <div class="bal-lab"><span>◀ 後退</span><span>停止</span><span>前進 ▶</span></div>
+    <div class="control-row" style="margin-top:10px">
+      <div class="control-header"><span>進み方</span></div>
+      <select id="param-motionMode">
+        <option value="musical">曲に合わせて前進・減速・後退</option>
+        <option value="pendulum">フレーズごとに往復（4小節で行って戻る）</option>
+        <option value="flow">一方向に流れ続ける（従来）</option>
+      </select>
+    </div>
+    <div class="control-row">
+      <div class="control-header"><span>前進/後退の振れ幅</span><span class="control-val" id="val-motionRange">0.70</span></div>
+      <input type="range" id="param-motionRange" min="0" max="1" step="0.01" value="0.7">
+    </div>
+    <div class="hint">盛り上がりとアクセントで前へ押し出され、音数が増えると加速し、静まると減速して後ろへ戻ります。さらに8小節と5小節の周期の波が重なる（毎回ずれるので同じパターンを繰り返さない）ので、寄せては返しながら、ときどき後ろへ戻ります。勢いがついた後は、ばねのように少し揺り戻します。向きが変わるときは慣性でなめらかに止まってから反転するので、急な切り返しはありません。色の流れも同じ向きに、半分の強さで連動します。</div>
+  </div>
+
+  <div class="section">
+    <h3 class="section-title"><span>Music Drive（曲の表情 → 収束/拡散）</span></h3>
+    <div class="drive-bars">
+      <div class="dbar"><span>音の高さ</span><div class="track"><div class="fill amb" id="db-pitch"></div></div><b id="dv-pitch">—</b></div>
+      <div class="dbar"><span>リズム密度</span><div class="track"><div class="fill amb" id="db-dens"></div></div><b id="dv-dens">—</b></div>
+      <div class="dbar"><span>ダイナミクス</span><div class="track"><div class="fill amb" id="db-dyn"></div></div><b id="dv-dyn">—</b></div>
+      <div class="dbar"><span>アクセント</span><div class="track"><div class="fill amb" id="db-acc"></div></div><b id="dv-acc">—</b></div>
+      <div class="dbar"><span>→ 収束</span><div class="track"><div class="fill" id="db-conv"></div></div><b id="dv-conv">—</b></div>
+      <div class="dbar"><span>→ 拡散</span><div class="track"><div class="fill mag" id="db-diff"></div></div><b id="dv-diff">—</b></div>
+      <div class="dbar"><span>→ 激しさ</span><div class="track"><div class="fill mag" id="db-dynm"></div></div><b id="dv-dynm">—</b></div>
+    </div>
+    <div class="control-row">
+      <div class="control-header"><span>音高・強弱 → 収束/拡散</span><span class="control-val" id="val-musicDrive">0.60</span></div>
+      <input type="range" id="param-musicDrive" min="0" max="1" step="0.01" value="0.6">
+    </div>
+    <div class="control-row">
+      <div class="control-header"><span>リズム → ダイナミズム（複雑さ・反応の強さ）</span><span class="control-val" id="val-rhythmDrive">0.50</span></div>
+      <input type="range" id="param-rhythmDrive" min="0" max="1" step="0.01" value="0.5">
+    </div>
+    <div class="hint">低い音が中心のときは中心へ<b>収束</b>、高い音が開くと外へ<b>拡散</b>。盛り上がり（クレッシェンド）で広がり、静まると集まります。強いアクセントの瞬間は一度息を吸うように集まってから広がり、音数の多いリズムほど形が複雑に、反応が強くなります。下の収束・拡散スライダーはこの自動変化の「基準値」です。曲ごとの平均からのズレを見るので、曲が変わっても自動でなじみます。</div>
+  </div>
+
+  <div class="section">
+    <h3 class="section-title">Geometry &amp; Convergence / Diffusion（基準値）</h3>
+    <div class="control-row">
+      <div class="control-header"><span>Convergence（収束）</span><span class="control-val" id="val-convergence">0.55</span></div>
+      <input type="range" id="param-convergence" min="0" max="1" step="0.01" value="0.55">
+    </div>
+    <div class="control-row">
+      <div class="control-header"><span>Diffusion（拡散）</span><span class="control-val" id="val-diffusion">0.60</span></div>
+      <input type="range" id="param-diffusion" min="0" max="1" step="0.01" value="0.60">
+    </div>
+    <div class="control-row">
+      <div class="control-header"><span>Geometry Complexity</span><span class="control-val" id="val-geometryComplexity">0.50</span></div>
+      <input type="range" id="param-geometryComplexity" min="0.1" max="1" step="0.01" value="0.50">
+    </div>
+    <div class="control-row">
+      <div class="control-header"><span>Symmetry</span><span class="control-val" id="val-symmetry">6</span></div>
+      <input type="range" id="param-symmetry" min="1" max="16" step="1" value="6">
+    </div>
+  </div>
+
+  <div class="section">
+    <h3 class="section-title"><span>Condition Sequencer (A/B)</span><span id="seq-status" class="mono" style="font-size:10px;color:var(--amber);letter-spacing:0">OFF</span></h3>
+    <div class="seq-grid">
+      <div><label for="seq-a">条件 A</label><select id="seq-a"></select></div>
+      <div><label for="seq-b">条件 B</label><select id="seq-b"></select></div>
+    </div>
+    <div class="seq-grid">
+      <div><label for="seq-interval">切替間隔</label>
+        <select id="seq-interval"><option value="60">1分</option><option value="120">2分</option><option value="180" selected>3分</option><option value="300">5分</option></select></div>
+      <div style="display:flex;align-items:flex-end"><button class="btn" id="seq-toggle" style="width:100%">開始</button></div>
+    </div>
+    <div class="hint">同じ曲で A→B→A… と交互に条件を切替え、切替時刻はログに記録されます。</div>
+  </div>
+
+  <div class="section">
+    <h3 class="section-title">Safety &amp; Display</h3>
+    <div class="control-row">
+      <div class="control-header"><span>Max Luminance Cap</span><span class="control-val" id="val-luminanceCap">0.80</span></div>
+      <input type="range" id="param-luminanceCap" min="0.20" max="0.85" step="0.01" value="0.80">
+    </div>
+    <div class="control-row">
+      <div class="control-header"><span>Max Speed Cap（速度上限）</span><span class="control-val" id="val-maxSpeed">0.60</span></div>
+      <input type="range" id="param-maxSpeed" min="0.10" max="1" step="0.01" value="0.60">
+    </div>
+    <label class="check"><input type="checkbox" id="opt-vacuum" checked>真空断（無音ドロップ）に静止で応答</label>
+    <label class="check"><input type="checkbox" id="opt-autohide">6秒操作がなければUIを隠す（Calm-Stopは常時表示）</label>
+    <div class="control-row">
+      <div class="control-header"><span>描画品質</span><span class="control-val" id="val-dpr">—</span></div>
+      <select id="opt-quality"><option value="auto">自動（FPSに合わせて調整）</option><option value="high">高</option><option value="mid">中</option><option value="low">低（省電力）</option></select>
+    </div>
+    <div class="hint">ショートカット：<kbd>Space</kbd> 停止/再開 · <kbd>Esc</kbd> 停止 · <kbd>1</kbd>–<kbd>6</kbd> モード · <kbd>H</kbd> 操作 · <kbd>L</kbd> ログ · <kbd>F</kbd> 全画面</div>
+  </div>
+</aside>
+
+<aside id="log-modal" class="ui-fade">
+  <button class="sheet-grip" data-sheet="log-modal" aria-label="シートの高さ切替"></button>
+  <h3 class="section-title"><span>Phenomenology Experience Log</span><button class="btn" id="close-log-btn" style="padding:3px 8px;font-size:10px;min-height:0">閉じる</button></h3>
+  <div id="rating-rows"></div>
+  <div class="control-row">
+    <div class="control-header"><span>観察メモ</span></div>
+    <textarea id="log-notes" rows="4" placeholder="知覚・呼吸・時間感覚・収束拡散の変化を記録..."></textarea>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-accent" id="copy-json-btn">JSONをコピー</button>
+    <button class="btn" id="copy-md-btn">MDをコピー</button>
+    <button class="btn" id="download-btn">JSON保存</button>
+  </div>
+  <div class="btn-row" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+    <button class="btn" id="save-history-btn">履歴に追加</button>
+    <button class="btn" id="copy-history-btn">履歴をコピー</button>
+  </div>
+  <div id="log-status" class="status-line"></div>
+  <div class="hint" id="history-info"></div>
+  <div class="hint">記録イベント（プリセット・条件切替・真空断・Calm-Stop）もJSONに含まれます。保存できない環境では「コピー」を使ってください。</div>
+</aside>
+
+<div id="safety-overlay">
+  <div class="safety-card">
+    <h2>Technodelic Visual Lab — 安全と手順のお知らせ</h2>
+    <p>音と連続的な視覚パターンの関係（結合度・時間遅延・収束と拡散）が知覚構成に与える影響を、安全に探索・記録するための実験ツールです。</p>
+    <ul>
+      <li><strong>No Strobe</strong>：高速点滅や急激な輝度フラッシュは排除。輝度上限と、フレーム間の明るさ変化率の上限をエンジン側で強制しています。</li>
+      <li><strong>Calm-Stop</strong>：違和感や酔いを感じたら <kbd>Space</kbd> / <kbd>Esc</kbd> または右上のボタンで、0.5秒かけて穏やかに停止します（<kbd>Space</kbd> をもう一度で再開）。</li>
+      <li>光過敏性発作・片頭痛・めまいの既往がある場合は使用を控えてください。</li>
+    </ul>
+    <button class="btn btn-accent" id="accept-safety-btn" style="width:100%;padding:12px;font-size:13px">確認してラボを開始する</button>
+  </div>
+</div>
+
+<script>
+  // ===== Sync layer: sync-engine.js (UMD, 外部依存なし) をインライン埋め込み =====
+  // module スクリプトより前に置くことで、module 実行時には window.TechnodelicSync が確定している。
+/*
+ * sync-engine.js — Technodelic Visual Lab 音・映像同期エンジン (独立モジュール)
+ *
+ * UMD: ブラウザでは global `TechnodelicSync`、Node では require('./sync-engine.js')。
+ * 外部依存なし・DOM 非依存。Web Audio のオブジェクトは「互換オブジェクト」(duck typing) で受ける。
+ *
+ * 構成:
+ *   1. createAudioClock      — AudioContext 時刻軸を唯一の基準にする時計 (rAF 時刻 → 音時刻)
+ *   2. createFeatureExtractor — 二経路 (fast / slow) の帯域特徴抽出 + 帯域ごとの blend
+ *   3. createLatencyCorrector — 出力レイテンシ合成 + 音時刻スタンプ付きリングバッファ
+ *   4. createVacuumDetector   — fast 経路からの真空断 (急落) 検出と立ち下がり実時刻の推定
+ *   5. createLegacyModel      — 現行 (technodelic_visual_lab.html L726-740 / L994-1033) の等価モデル
+ *
+ * 安全上の注意 (DESIGN.md L126「Attack 150ms以上 / Release 400ms以上」):
+ *   fast 経路 (attack 20ms / release 80ms) は「時刻の検出」と「遅延補正の基準」に使うための経路であり、
+ *   輝度・色・不透明度へ直結してはならない。blended を輝度系 uniform に入れるかどうかは
+ *   DESIGN 核心に触れるため みずまわり の判断事項 (claude-impl.md 参照)。
+ */
+(function (root, factory) {
+    if (typeof module === 'object' && module.exports) {
+        module.exports = factory();
+    } else {
+        root.TechnodelicSync = factory();
+    }
+}(typeof self !== 'undefined' ? self : this, function () {
+    'use strict';
+
+    // ------------------------------------------------------------------
+    // 共通定数・ユーティリティ
+    // ------------------------------------------------------------------
+
+    /** 現行準拠の帯域 (HTML L1009-1012)。rms は帯域の加重和 (L1013) で、FFT 帯域ではない。 */
+    const BANDS = Object.freeze({
+        subCore:   Object.freeze({ minHz: 35,   maxHz: 85 }),
+        mudBand:   Object.freeze({ minHz: 200,  maxHz: 500 }),
+        crossfire: Object.freeze({ minHz: 1000, maxHz: 3000 }),
+        strato:    Object.freeze({ minHz: 6000, maxHz: 16000 })
+    });
+    const BAND_KEYS = Object.freeze(['subCore', 'mudBand', 'crossfire', 'strato']);
+    const FEATURE_KEYS = Object.freeze(['subCore', 'mudBand', 'crossfire', 'strato', 'rms']);
+    /** 現行 L1013: rawRms = sub*0.4 + mud*0.2 + voice*0.2 + high*0.2 */
+    const RMS_WEIGHTS = Object.freeze({ subCore: 0.4, mudBand: 0.2, crossfire: 0.2, strato: 0.2 });
+
+    /**
+     * 帯域ごとの blend 既定値 (0 = fast のみ, 1 = slow のみ)。根拠 (いずれも設計上の推定、実機未検証):
+     *  - subCore 0.35: キック/ベースの立ち上がり時刻が同期感を最も左右するので fast 寄り。ただし
+     *    35-85Hz は FFT 4096 でも 1 帯域 5 ビン程度しかなく、拍内の振幅うねりが出やすいので slow を 1/3 残す。
+     *  - mudBand 0.7: 200-500Hz は和音・残響が密集する「知覚構成系 (B)」の層。時刻精度より滑らかさを優先。
+     *  - crossfire 0.4: 1-3kHz は声・リードの発音点が知覚上目立つ帯域。fast 寄りだが子音の破裂で
+     *    ちらつかないよう slow を 4 割残す。
+     *  - strato 0.3: 6-16kHz はハイハット等の短いトランジェントで、slow だとほぼ平均値に潰れる。
+     *    最も fast 寄り。ただし輝度に直結させる場合は DESIGN L126/L128 のクランプが前提。
+     *  - rms 0.35: 全体量。subCore と同程度 (rms は subCore の重み 0.4 を含むため)。
+     */
+    const DEFAULT_BLEND = Object.freeze({ subCore: 0.35, mudBand: 0.7, crossfire: 0.4, strato: 0.3, rms: 0.35 });
+
+    const DEFAULT_MIN_DB = -100;   // AnalyserNode 既定 minDecibels
+    const DEFAULT_MAX_DB = -30;    // AnalyserNode 既定 maxDecibels
+
+    function clamp(x, lo, hi) { return x < lo ? lo : (x > hi ? hi : x); }
+    function defaultPerfNowMs() {
+        if (typeof performance !== 'undefined' && performance && typeof performance.now === 'function') {
+            return performance.now();
+        }
+        return Date.now();
+    }
+    function zeroFeatures() { return { subCore: 0, mudBand: 0, crossfire: 0, strato: 0, rms: 0 }; }
+    function copyFeatures(src, dst) {
+        const out = dst || {};
+        for (let i = 0; i < FEATURE_KEYS.length; i++) out[FEATURE_KEYS[i]] = src[FEATURE_KEYS[i]];
+        return out;
+    }
+    function rmsOf(b, w) {
+        const ww = w || RMS_WEIGHTS;
+        return b.subCore * ww.subCore + b.mudBand * ww.mudBand + b.crossfire * ww.crossfire + b.strato * ww.strato;
+    }
+    /** 正規化レベル v (0..1 = minDb..maxDb, 現行 byte/255 と同じ尺度) → 線形振幅。v<=0 は真の無音 (振幅 0)。 */
+    function levelToMag(v, minDb, maxDb) {
+        if (!(v > 0)) return 0;
+        return Math.pow(10, (minDb + v * (maxDb - minDb)) / 20);
+    }
+    /** 線形振幅 → 正規化レベル (連続値, 0..1 にクリップ)。 */
+    function magToLevel(mag, minDb, maxDb) {
+        if (!(mag > 0)) return 0;
+        return clamp((20 * Math.log10(mag) - minDb) / (maxDb - minDb), 0, 1);
+    }
+    /** 線形振幅 → byte 量子化後の正規化レベル。Web Audio 仕様: b = floor(255/(max-min) * (dB - min)) を 0..255 にクリップ。 */
+    function magToByteLevel(mag, minDb, maxDb) {
+        if (!(mag > 0)) return 0;
+        const db = 20 * Math.log10(mag);
+        const b = clamp(Math.floor((255 / (maxDb - minDb)) * (db - minDb)), 0, 255);
+        return b / 255;
+    }
+    /** 非対称一次ローパス (現行 L1016-1019 と同式)。 */
+    function envStep(curr, target, dt, tauAttack, tauRelease) {
+        const tau = target > curr ? tauAttack : tauRelease;
+        if (!(tau > 0)) return target;
+        return curr + (target - curr) * (1 - Math.exp(-dt / tau));
+    }
+    /**
+     * AnalyserNode の smoothingTimeConstant s は「スペクトル更新 1 回ごと」の係数 (y = s*y + (1-s)*x, 線形振幅)。
+     * rAF ごとに 1 回読むと、フレームレート fps での等価時定数は tau = -1 / (fps * ln s)。
+     * s=0.88 @60fps → tau ≈ 0.1302 s。
+     */
+    function analyserEquivalentTau(smoothing, fps) {
+        if (!(smoothing > 0)) return 0;
+        return -1 / (fps * Math.log(smoothing));
+    }
+
+    function analyserInfo(an) {
+        const n = an.frequencyBinCount;
+        const sr = (an.context && an.context.sampleRate) || an.sampleRate || 48000;
+        const minDb = typeof an.minDecibels === 'number' ? an.minDecibels : DEFAULT_MIN_DB;
+        const maxDb = typeof an.maxDecibels === 'number' ? an.maxDecibels : DEFAULT_MAX_DB;
+        return { n: n, sampleRate: sr, binHz: (sr / 2) / n, minDb: minDb, maxDb: maxDb };
+    }
+    /** 現行 L1001-1002 と同じビン範囲 (両端を含む)。 */
+    function bandBinRange(band, binHz, n) {
+        const start = Math.max(0, Math.floor(band.minHz / binHz));
+        const end = Math.min(n - 1, Math.ceil(band.maxHz / binHz));
+        return { start: start, end: end };
+    }
+
+    // ------------------------------------------------------------------
+    // 1. 単一クロック
+    // ------------------------------------------------------------------
+    /**
+     * createAudioClock(audioCtx, opts)
+     *   audioCtx: { currentTime, baseLatency?, outputLatency?, getOutputTimestamp?(), state? }
+     *   opts.perfNow: () => ms (既定 performance.now)。テスト注入用。
+     *   opts.alpha: オフセット推定の EMA 係数 (既定 0.1)。getOutputTimestamp は実装により数 ms 揺れるため。
+     *   opts.maxJumpSec: これ以上の乖離は再アンカー (resume / seek / 停止復帰) とみなす (既定 0.05)。
+     *
+     * 時刻軸は 2 本あるが、どちらも AudioContext の時刻 (秒) で表す:
+     *   renderTime(perfSec): いま描画スレッドが「解析できている」音時刻 ≒ currentTime の外挿。
+     *                        AnalyserNode の読み出し結果はこの時刻のもの。
+     *   toAudioTime(perfSec): perfSec の瞬間にスピーカーから出ている音の音時刻。
+     *                        getOutputTimestamp が有効なら contextTime/performanceTime の対応から求める
+     *                        (= 出力レイテンシ込み。includesOutputLatency=true)。
+     *                        無効ならフォールバックで renderTime と同じ (includesOutputLatency=false)。
+     *                        この場合は createLatencyCorrector の totalMs を自分で引く必要がある。
+     */
+    function createAudioClock(audioCtx, opts) {
+        const o = opts || {};
+        const perfNow = o.perfNow || defaultPerfNowMs;
+        const alpha = o.alpha != null ? o.alpha : 0.1;
+        const maxJump = o.maxJumpSec != null ? o.maxJumpSec : 0.05;
+        const hasApi = !!(audioCtx && typeof audioCtx.getOutputTimestamp === 'function');
+
+        let renderOff = null;  // currentTime - perfSec
+        let outOff = null;     // contextTime - performanceTime/1000
+        let lastValidTs = false;
+
+        function ema(prev, sample) {
+            if (prev === null || Math.abs(sample - prev) > maxJump) return sample;
+            return prev + alpha * (sample - prev);
+        }
+
+        const clock = {
+            hasOutputTimestampApi: hasApi,
+            /** 'outputTimestamp' | 'currentTime-fallback' */
+            mode: 'currentTime-fallback',
+            /** true = getOutputTimestamp が使えずフォールバック中 (出力レイテンシは含まれない) */
+            isFallback: true,
+            /** toAudioTime() が出力レイテンシを含むか。true なら Corrector は手動オフセットだけを引く */
+            includesOutputLatency: false,
+            /** 毎フレーム (rAF 冒頭) に呼ぶ。perfSec 省略時は perfNow()/1000。 */
+            update: function (perfSec) {
+                const p = perfSec != null ? perfSec : perfNow() / 1000;
+                renderOff = ema(renderOff, audioCtx.currentTime - p);
+                lastValidTs = false;
+                if (hasApi) {
+                    let ts = null;
+                    try { ts = audioCtx.getOutputTimestamp(); } catch (e) { ts = null; }
+                    // 再生前・suspended 中は contextTime/performanceTime が 0 のことがある (実装依存)
+                    if (ts && ts.performanceTime > 0 && ts.contextTime > 0) {
+                        outOff = ema(outOff, ts.contextTime - ts.performanceTime / 1000);
+                        lastValidTs = true;
+                    }
+                }
+                clock.mode = lastValidTs ? 'outputTimestamp' : 'currentTime-fallback';
+                clock.isFallback = !lastValidTs;
+                clock.includesOutputLatency = lastValidTs;
+                return clock;
+            },
+            renderTime: function (perfSec) {
+                const p = perfSec != null ? perfSec : perfNow() / 1000;
+                if (renderOff === null) clock.update(p);
+                return p + renderOff;
+            },
+            /** 「いま」の音時刻 (解析側 = renderTime)。 */
+            now: function (perfSec) { return clock.renderTime(perfSec); },
+            toAudioTime: function (perfSec) {
+                if (renderOff === null) clock.update(perfSec);
+                return perfSec + (lastValidTs ? outOff : renderOff);
+            },
+            /** toAudioTime の逆変換 (音時刻 → performance 秒)。 */
+            toPerfTime: function (audioSec) {
+                if (renderOff === null) clock.update();
+                return audioSec - (lastValidTs ? outOff : renderOff);
+            },
+            /** 解析時刻と出力時刻の差 (秒)。ts 有効時のみ実測、無効時 null。 */
+            measuredOutputDelay: function () {
+                return lastValidTs && renderOff !== null ? renderOff - outOff : null;
+            }
+        };
+        return clock;
+    }
+
+    // ------------------------------------------------------------------
+    // 2. 二経路特徴抽出
+    // ------------------------------------------------------------------
+
+    /**
+     * Float (dB) データから帯域レベルを計算。
+     *  mode 'dbMean'  (既定): 各ビンを clamp((dB-min)/(max-min),0,1) に写像して平均。現行 byte/255 と同尺度で、
+     *                          量子化だけが無い。既存の audioGain 較正をそのまま使える。
+     *  mode 'powerMean'     : 10^(dB/10) の線形パワーで平均してから dB に戻して正規化 (物理的な帯域エネルギー)。
+     *  -Infinity / NaN はゼロパワー (= レベル 0) として扱う。
+     */
+    function bandLevelsFromFloat(floatBuf, info, bands, mode, out) {
+        const res = out || {};
+        const range = info.maxDb - info.minDb;
+        for (let k = 0; k < BAND_KEYS.length; k++) {
+            const key = BAND_KEYS[k];
+            const r = bandBinRange(bands[key], info.binHz, info.n);
+            if (r.end <= r.start) { res[key] = 0; continue; }
+            let sum = 0;
+            for (let i = r.start; i <= r.end; i++) {
+                const db = floatBuf[i];
+                if (mode === 'powerMean') sum += isFinite(db) ? Math.pow(10, db / 10) : 0;
+                else sum += isFinite(db) ? clamp((db - info.minDb) / range, 0, 1) : 0;
+            }
+            const cnt = r.end - r.start + 1;
+            if (mode === 'powerMean') {
+                const p = sum / cnt;
+                res[key] = p > 0 ? clamp((10 * Math.log10(p) - info.minDb) / range, 0, 1) : 0;
+            } else {
+                res[key] = sum / cnt;
+            }
+        }
+        return res;
+    }
+    /** Byte データから帯域レベル (現行 L1000-1007 と同式、gain 前)。 */
+    function bandLevelsFromByte(byteBuf, info, bands, out) {
+        const res = out || {};
+        for (let k = 0; k < BAND_KEYS.length; k++) {
+            const key = BAND_KEYS[k];
+            const r = bandBinRange(bands[key], info.binHz, info.n);
+            if (r.end <= r.start) { res[key] = 0; continue; }
+            let sum = 0;
+            for (let i = r.start; i <= r.end; i++) sum += byteBuf[i];
+            res[key] = (sum / (r.end - r.start + 1)) / 255;
+        }
+        return res;
+    }
+
+    /**
+     * createFeatureExtractor(opts)
+     *  opts.bands, opts.blend ({key: 0..1}), opts.gain (number | () => number, 現行 state.audioGain 相当), opts.clampMax (1.5)
+     *  fast: opts.fastAttack 0.02 / opts.fastRelease 0.08 (秒), opts.floatMode 'dbMean' | 'powerMean'
+     *        呼び出し側の fast 用 AnalyserNode は smoothingTimeConstant 0〜0.3 を想定 (それ以上は fast の意味が薄れる)。
+     *  slow: opts.slowAttack 0.16 / opts.slowRelease 0.42 (現行 L1017)
+     *        slow 用の別 AnalyserNode (smoothing 0.88, byte) を update の第 4 引数で渡せば現行と同一処理。
+     *        渡さない場合は fast analyser の float データから「0.88 の等価一次ローパス (tau=0.1302s, 線形振幅, ビンごと)
+     *        + byte 量子化」を JS で再現する。等価 tau はフレームレート非依存 (opts.slowAnalyserTau で変更可)。
+     *
+     *  update(analyserLike, dt, audioTimeSec, slowAnalyserLike?) → {fast, slow, blended, time, raw:{fast, slow}}
+     *  stepLevels(levels, dt, audioTimeSec, {fastAnalyserSmoothing}) → 同上。テスト用ドライバ:
+     *        levels は「真の」帯域レベル (0..1 正規化, 数値なら全帯域同値)。fast analyser の平滑化 (既定 0) と
+     *        slow 側の analyser 等価ローパス + byte 量子化を帯域レベルで模擬する (帯域内ビンが同値という仮定)。
+     *  返り値のオブジェクトは内部で再利用される (毎フレームの GC 回避)。保持するならコピーすること。
+     */
+    function createFeatureExtractor(opts) {
+        const o = opts || {};
+        const bands = o.bands || BANDS;
+        const blend = Object.assign({}, DEFAULT_BLEND, o.blend || {});
+        let gain = o.gain != null ? o.gain : 1;
+        const clampMax = o.clampMax != null ? o.clampMax : 1.5;
+        const fastA = o.fastAttack != null ? o.fastAttack : 0.02;
+        const fastR = o.fastRelease != null ? o.fastRelease : 0.08;
+        const slowA = o.slowAttack != null ? o.slowAttack : 0.16;
+        const slowR = o.slowRelease != null ? o.slowRelease : 0.42;
+        const slowTau = o.slowAnalyserTau != null ? o.slowAnalyserTau : analyserEquivalentTau(0.88, 60);
+        const floatMode = o.floatMode || 'dbMean';
+        const minDbDrv = o.minDecibels != null ? o.minDecibels : DEFAULT_MIN_DB;
+        const maxDbDrv = o.maxDecibels != null ? o.maxDecibels : DEFAULT_MAX_DB;
+
+        const fast = zeroFeatures(), slow = zeroFeatures(), blended = zeroFeatures();
+        const rawFast = zeroFeatures(), rawSlow = zeroFeatures();
+        const result = { fast: fast, slow: slow, blended: blended, time: 0, raw: { fast: rawFast, slow: rawSlow } };
+
+        let floatBuf = null, byteBuf = null, binMag = null;
+        const drvSlowMag = { subCore: 0, mudBand: 0, crossfire: 0, strato: 0 };
+        const drvFastMag = { subCore: 0, mudBand: 0, crossfire: 0, strato: 0 };
+
+        function g() { return typeof gain === 'function' ? gain() : gain; }
+
+        // 帯域レベル (gain 前) → gain/clamp → rms → エンベロープ → blend
+        function finish(dt, t) {
+            const gg = g();
+            for (let k = 0; k < BAND_KEYS.length; k++) {
+                const key = BAND_KEYS[k];
+                rawFast[key] = Math.min(clampMax, rawFast[key] * gg);
+                rawSlow[key] = Math.min(clampMax, rawSlow[key] * gg);
+            }
+            rawFast.rms = rmsOf(rawFast);
+            rawSlow.rms = rmsOf(rawSlow);
+            for (let k = 0; k < FEATURE_KEYS.length; k++) {
+                const key = FEATURE_KEYS[k];
+                fast[key] = envStep(fast[key], rawFast[key], dt, fastA, fastR);
+                slow[key] = envStep(slow[key], rawSlow[key], dt, slowA, slowR);
+                const b = clamp(blend[key], 0, 1);
+                blended[key] = (1 - b) * fast[key] + b * slow[key];
+            }
+            result.time = t;
+            return result;
+        }
+
+        const ex = {
+            blend: blend,
+            setBlend: function (key, b) { blend[key] = clamp(b, 0, 1); },
+            setGain: function (gv) { gain = gv; },
+            reset: function () {
+                [fast, slow, blended, rawFast, rawSlow].forEach(function (f) { copyFeatures(zeroFeatures(), f); });
+                if (binMag) binMag.fill(0);
+                BAND_KEYS.forEach(function (k) { drvSlowMag[k] = 0; drvFastMag[k] = 0; });
+            },
+            update: function (analyser, dt, audioTimeSec, slowAnalyser) {
+                const info = analyserInfo(analyser);
+                if (!floatBuf || floatBuf.length !== info.n) {
+                    floatBuf = new Float32Array(info.n);
+                    binMag = new Float32Array(info.n);
+                }
+                analyser.getFloatFrequencyData(floatBuf);
+                bandLevelsFromFloat(floatBuf, info, bands, floatMode, rawFast);
+
+                if (slowAnalyser) {
+                    const sInfo = analyserInfo(slowAnalyser);
+                    if (!byteBuf || byteBuf.length !== sInfo.n) byteBuf = new Uint8Array(sInfo.n);
+                    slowAnalyser.getByteFrequencyData(byteBuf);
+                    bandLevelsFromByte(byteBuf, sInfo, bands, rawSlow);
+                } else {
+                    // 0.88 の等価一次ローパスをビンごとに線形振幅で再現 → byte 量子化 → 帯域平均
+                    const a = slowTau > 0 ? 1 - Math.exp(-dt / slowTau) : 1;
+                    if (!byteBuf || byteBuf.length !== info.n) byteBuf = new Uint8Array(info.n);
+                    const scale = 255 / (info.maxDb - info.minDb);
+                    for (let i = 0; i < info.n; i++) {
+                        const db = floatBuf[i];
+                        const m = isFinite(db) ? Math.pow(10, db / 20) : 0;
+                        binMag[i] += (m - binMag[i]) * a;
+                        byteBuf[i] = binMag[i] > 0
+                            ? clamp(Math.floor(scale * (20 * Math.log10(binMag[i]) - info.minDb)), 0, 255) : 0;
+                    }
+                    bandLevelsFromByte(byteBuf, info, bands, rawSlow);
+                }
+                return finish(dt, audioTimeSec);
+            },
+            stepLevels: function (levels, dt, audioTimeSec, drvOpts) {
+                const d = drvOpts || {};
+                const fs = d.fastAnalyserSmoothing || 0;   // per-update 係数 (analyser 仕様と同じ)
+                const a = slowTau > 0 ? 1 - Math.exp(-dt / slowTau) : 1;
+                for (let k = 0; k < BAND_KEYS.length; k++) {
+                    const key = BAND_KEYS[k];
+                    const v = typeof levels === 'number' ? levels : (levels[key] || 0);
+                    const m = levelToMag(v, minDbDrv, maxDbDrv);
+                    drvFastMag[key] = fs * drvFastMag[key] + (1 - fs) * m;
+                    rawFast[key] = magToLevel(drvFastMag[key], minDbDrv, maxDbDrv);
+                    drvSlowMag[key] += (m - drvSlowMag[key]) * a;
+                    rawSlow[key] = magToByteLevel(drvSlowMag[key], minDbDrv, maxDbDrv);
+                }
+                return finish(dt, audioTimeSec);
+            }
+        };
+        return ex;
+    }
+
+    // ------------------------------------------------------------------
+    // 3. レイテンシ補正 + リングバッファ
+    // ------------------------------------------------------------------
+    /**
+     * createLatencyCorrector(audioCtxLike, opts)
+     *  opts.manualOffsetMs (既定 0): 正 = 映像を遅らせる (より古い音の特徴を引く)。負 = 映像を早める
+     *                              (ただし解析済みの最新より未来は引けないので latest にクランプされる)。
+     *  opts.capacity (既定 120 ≒ 60fps で 2 秒)
+     *  opts.analysisWindowSec (既定 0): FFT 窓長 (例 4096/48000 = 0.0853)。指定すると push 時の音時刻を
+     *                              窓の中心 (= 捕捉時刻 - 窓長/2) に付け替える。特徴が「どの瞬間の音か」を表すため。
+     *
+     *  totalMs = (baseLatency + outputLatency) * 1000 + manualOffsetMs
+     *  映像側が引くべき時刻 = 「今聞こえている音」の時刻:
+     *     targetTime(nowAudio) = nowAudio - totalMs/1000           … clock がフォールバック (出力レイテンシを含まない) のとき
+     *     heardTime(clock, perfSec)                                … clock の状態を見て二重補正を避ける版 (推奨)
+     *        clock.includesOutputLatency=true  → clock.toAudioTime(perf) - manualOffsetMs/1000
+     *        clock.includesOutputLatency=false → clock.renderTime(perf) - totalMs/1000
+     *  push(tAudio, features): tAudio は analyser を読んだ時点の解析側音時刻 (clock.renderTime / currentTime)。
+     *  sampleAt(tAudio) → {tAudio, features, clamped: null|'before'|'after', index}  隣接 2 サンプルを線形補間。
+     */
+    function createLatencyCorrector(audioCtxLike, opts) {
+        const o = opts || {};
+        const cap = o.capacity || 120;
+        const halfWin = (o.analysisWindowSec || 0) / 2;
+        const times = new Float64Array(cap);
+        const feats = [];
+        for (let i = 0; i < cap; i++) feats.push(zeroFeatures());
+        let head = 0, count = 0;
+        const sampleOut = { tAudio: 0, features: zeroFeatures(), clamped: null, index: -1 };
+
+        const c = {
+            manualOffsetMs: o.manualOffsetMs || 0,
+            baseLatencyMs: 0,
+            outputLatencyMs: 0,
+            /** baseLatency / outputLatency がブラウザで提供されているか (Safari 旧版等は outputLatency 無し) */
+            hasBaseLatency: false,
+            hasOutputLatency: false,
+            capacity: cap,
+            refresh: function () {
+                const b = audioCtxLike && audioCtxLike.baseLatency;
+                const ol = audioCtxLike && audioCtxLike.outputLatency;
+                c.hasBaseLatency = typeof b === 'number' && isFinite(b);
+                c.hasOutputLatency = typeof ol === 'number' && isFinite(ol);
+                c.baseLatencyMs = c.hasBaseLatency ? b * 1000 : 0;
+                c.outputLatencyMs = c.hasOutputLatency ? ol * 1000 : 0;
+                return c;
+            },
+            get totalMs() { return c.baseLatencyMs + c.outputLatencyMs + c.manualOffsetMs; },
+            get size() { return count; },
+            setManualOffsetMs: function (ms) { c.manualOffsetMs = ms; },
+            targetTime: function (nowAudio) { return nowAudio - c.totalMs / 1000; },
+            heardTime: function (clock, perfSec) {
+                if (clock.includesOutputLatency) return clock.toAudioTime(perfSec) - c.manualOffsetMs / 1000;
+                return clock.renderTime(perfSec) - c.totalMs / 1000;
+            },
+            push: function (tAudio, features) {
+                times[head] = tAudio - halfWin;
+                copyFeatures(features, feats[head]);
+                head = (head + 1) % cap;
+                if (count < cap) count++;
+            },
+            clear: function () { head = 0; count = 0; },
+            sampleAt: function (t) {
+                if (count === 0) { sampleOut.clamped = 'empty'; sampleOut.index = -1; return sampleOut; }
+                const oldest = (head - count + cap) % cap;
+                const idx = function (j) { return (oldest + j) % cap; };  // j: 0 = 最古
+                const tFirst = times[idx(0)], tLast = times[idx(count - 1)];
+                if (t <= tFirst) {
+                    sampleOut.tAudio = tFirst; copyFeatures(feats[idx(0)], sampleOut.features);
+                    sampleOut.clamped = t < tFirst ? 'before' : null; sampleOut.index = 0; return sampleOut;
+                }
+                if (t >= tLast) {
+                    sampleOut.tAudio = tLast; copyFeatures(feats[idx(count - 1)], sampleOut.features);
+                    sampleOut.clamped = t > tLast ? 'after' : null; sampleOut.index = count - 1; return sampleOut;
+                }
+                // 二分探索: times[idx(lo)] <= t < times[idx(hi)]
+                let lo = 0, hi = count - 1;
+                while (hi - lo > 1) {
+                    const mid = (lo + hi) >> 1;
+                    if (times[idx(mid)] <= t) lo = mid; else hi = mid;
+                }
+                const t0 = times[idx(lo)], t1 = times[idx(hi)];
+                const w = t1 > t0 ? (t - t0) / (t1 - t0) : 0;
+                const f0 = feats[idx(lo)], f1 = feats[idx(hi)];
+                for (let k = 0; k < FEATURE_KEYS.length; k++) {
+                    const key = FEATURE_KEYS[k];
+                    sampleOut.features[key] = f0[key] + (f1[key] - f0[key]) * w;
+                }
+                sampleOut.tAudio = t; sampleOut.clamped = null; sampleOut.index = lo;
+                return sampleOut;
+            },
+            sampleHeard: function (clock, perfSec) { return c.sampleAt(c.heardTime(clock, perfSec)); }
+        };
+        c.refresh();
+        return c;
+    }
+
+    // ------------------------------------------------------------------
+    // 4. 真空断検出
+    // ------------------------------------------------------------------
+    /**
+     * createVacuumDetector(opts)
+     *  入力: fast 経路の subCore / rms (平滑化後) と音時刻。e = wSub*subCore + (1-wSub)*rms を監視。
+     *  判定はすべて「秒」で行い、サンプル数・フレーム数には依存しない (30/60/144fps・dt ジッタで同じ基準):
+     *    履歴: 直近 keepSec 秒の (t, e) を保持 (容量は keepSec と想定最大 fps から自動算出、溢れたら古い順に捨てる)
+     *    下降区間: 現在から過去へ単調減少 (e[j-1] > e[j] + slopeEps) が続く区間を遡る。
+     *              t_high = 下降前に最後に高水準だった観測、t_on = 最初に下がった観測。
+     *              真の立ち下がりは (t_high, t_on] のどこか → onset 推定 tEst = (t_high + t_on) / 2 (誤差 ±dt/2)
+     *    直前平均: baseline = mean(e) over [t_high - baselineSec, t_high]  (既定 0.25s)
+     *    baseline >= minBaseline (0.2)                     … 元々鳴っていたこと
+     *    e(t_high) >= preHoldRatio * baseline (0.85)       … 下降直前が高水準だったこと
+     *    低下率: 1 - e(t)/baseline >= dropRatio (0.6) かつ e(t) <= absThreshold (0.35)
+     *    急峻さ: t - tEst <= dropWindowSec (0.2)           … onset 推定時刻からの経過秒で測る (緩いフェードの除外)
+     *    前回イベントから refractorySec (0.5s) 経過
+     *  dropWindowSec 0.2 の根拠: fast 経路 (fastRelease 0.08s + analyser s=0.2) が 1→0 の急落で閾値を割るまで
+     *    onset から約 0.10〜0.13s。これに観測刻み (30fps で最大 1 フレーム 33ms) を足しても収まる値。
+     *    2 秒の線形フェードは閾値到達まで約 1.2s かかるので棄却される。0.2s 未満の速いフェードは真空断と区別しない。
+     *  旧実装の不具合 (2026-11-20 修正): 遡りループの停止位置を「最初に下がった観測」と誤認しており、実際は
+     *    「最後に高かった観測」を t_on として使っていた (tEst が常に -dt/2 寄り、窓判定は 1 フレーム分長く測る)。
+     *    その結果 30fps では経過 0.167s > 0.15s となり検出漏れしていた。
+     *  既知の限界 (推定): 下降中に一度でも値が持ち直すと単調区間が切れて t_on が後ろにずれる。実音源での誤検出率は未計測。
+     *  update(t, subCore, rms) → null | {type:'vacuum', tEst, tObserved, dropRatio, baseline}
+     */
+    function createVacuumDetector(opts) {
+        const o = opts || {};
+        const baselineSec = o.baselineSec != null ? o.baselineSec : 0.25;
+        const dropWindow = o.dropWindowSec != null ? o.dropWindowSec : 0.2;
+        const dropRatioTh = o.dropRatio != null ? o.dropRatio : 0.6;
+        const absTh = o.absThreshold != null ? o.absThreshold : 0.35;
+        const minBase = o.minBaseline != null ? o.minBaseline : 0.2;
+        const preHold = o.preHoldRatio != null ? o.preHoldRatio : 0.85;
+        const slopeEps = o.slopeEps != null ? o.slopeEps : 1e-4;
+        const refractory = o.refractorySec != null ? o.refractorySec : 0.5;
+        const wSub = o.subWeight != null ? o.subWeight : 0.5;
+        const keepSec = baselineSec + dropWindow + 0.3;
+        const maxFps = o.maxFps || 480;
+        const cap = o.capacity || (Math.ceil(keepSec * maxFps) + 16);
+        const ts = new Float64Array(cap), es = new Float64Array(cap);
+        let head = 0, count = 0, lastEvent = -Infinity;
+
+        function at(j) { return (head - count + j + cap * 2) % cap; } // j: 0 = 最古
+
+        return {
+            reset: function () { head = 0; count = 0; lastEvent = -Infinity; },
+            update: function (t, subCore, rms) {
+                const e = wSub * subCore + (1 - wSub) * rms;
+                ts[head] = t; es[head] = e; head = (head + 1) % cap; if (count < cap) count++;
+                while (count > 1 && ts[at(0)] < t - keepSec) count--;   // 秒単位の履歴窓
+
+                if (t - lastEvent < refractory) return null;
+                if (e > absTh || count < 3) return null;
+
+                // 遡り: jHigh は単調減少区間の始点 = 最後に高水準だった観測。jHigh+1 = 最初に下がった観測。
+                let jHigh = count - 1;
+                while (jHigh > 0 && es[at(jHigh - 1)] > es[at(jHigh)] + slopeEps) jHigh--;
+                if (jHigh === count - 1) return null;             // 下降していない
+                if (jHigh === 0) return null;                      // 履歴の端まで下降 (開始不明)
+                const tHigh = ts[at(jHigh)], tOn = ts[at(jHigh + 1)];
+                const tEst = (tHigh + tOn) / 2;
+                if (t - tEst > dropWindow) return null;            // 急峻でない = フェード
+
+                // 直前平均 = 下降開始前 baselineSec 秒の平均 (サンプル数ではなく時刻範囲で切る)
+                const bStart = tHigh - baselineSec;
+                if (ts[at(0)] > bStart + 1e-9) return null;        // 履歴不足
+                let sum = 0, n = 0;
+                for (let j = 0; j <= jHigh; j++) {
+                    if (ts[at(j)] >= bStart) { sum += es[at(j)]; n++; }
+                }
+                if (n === 0) return null;
+                const baseline = sum / n;
+                if (baseline < minBase) return null;
+                if (es[at(jHigh)] < preHold * baseline) return null;   // 下降直前が基準並みに高かったこと
+                const ratio = 1 - e / baseline;                         // 低下率
+                if (!(ratio >= dropRatioTh)) return null;
+
+                lastEvent = t;
+                return { type: 'vacuum', tEst: tEst, tObserved: t, dropRatio: ratio, baseline: baseline };
+            }
+        };
+    }
+
+    // ------------------------------------------------------------------
+    // 5. 旧方式の等価モデル
+    // ------------------------------------------------------------------
+    /**
+     * createLegacyModel(opts) — 現行 HTML の処理を帯域レベル入力で再現する純粋モデル。
+     *  (1) AnalyserNode smoothing (L731, s=0.88): 線形振幅で  M_n = s*M_{n-1} + (1-s)*|X_n|  を rAF 1 回ごとに適用。
+     *      ※ フレームレート依存: 等価 tau = -1/(fps*ln s) = 0.130s@60fps, 0.261s@30fps, 0.054s@144fps。
+     *      ※ 線形振幅で平滑化してから dB 化するため、無音への減衰は dB 上で 20*log10(s) = -1.11 dB/フレームの直線になり、
+     *        70dB レンジ (-30→-100) を割り切るのに約 63 フレーム (≈1.05s@60fps) かかる。
+     *  (2) byte 量子化: b = floor(255/(max-min) * (dB-min)), 0..255 → /255。
+     *  (3) gain と上限 1.5 (L1006)、rms 加重和 (L1013)。
+     *  (4) 非対称エンベロープ (L1016-1019): attack tau 0.16s / release tau 0.42s, rate = 1-exp(-dt/tau)。
+     *  step(levels, dt) → features (内部再利用オブジェクト)
+     */
+    function createLegacyModel(opts) {
+        const o = opts || {};
+        const s = o.smoothing != null ? o.smoothing : 0.88;
+        const tA = o.attack != null ? o.attack : 0.16;
+        const tR = o.release != null ? o.release : 0.42;
+        const minDb = o.minDecibels != null ? o.minDecibels : DEFAULT_MIN_DB;
+        const maxDb = o.maxDecibels != null ? o.maxDecibels : DEFAULT_MAX_DB;
+        const gain = o.gain != null ? o.gain : 1;
+        const clampMax = o.clampMax != null ? o.clampMax : 1.5;
+        const mag = { subCore: 0, mudBand: 0, crossfire: 0, strato: 0 };
+        const raw = zeroFeatures();
+        const out = zeroFeatures();
+        return {
+            smoothing: s,
+            equivalentTau: function (fps) { return analyserEquivalentTau(s, fps); },
+            reset: function () { BAND_KEYS.forEach(function (k) { mag[k] = 0; }); copyFeatures(zeroFeatures(), out); },
+            step: function (levels, dt) {
+                for (let k = 0; k < BAND_KEYS.length; k++) {
+                    const key = BAND_KEYS[k];
+                    const v = typeof levels === 'number' ? levels : (levels[key] || 0);
+                    mag[key] = s * mag[key] + (1 - s) * levelToMag(v, minDb, maxDb);
+                    raw[key] = Math.min(clampMax, magToByteLevel(mag[key], minDb, maxDb) * gain);
+                }
+                raw.rms = rmsOf(raw);
+                for (let k = 0; k < FEATURE_KEYS.length; k++) {
+                    const key = FEATURE_KEYS[k];
+                    out[key] = envStep(out[key], raw[key], dt, tA, tR);
+                }
+                return out;
+            }
+        };
+    }
+
+    return {
+        version: '0.1.0',
+        BANDS: BANDS,
+        BAND_KEYS: BAND_KEYS,
+        FEATURE_KEYS: FEATURE_KEYS,
+        RMS_WEIGHTS: RMS_WEIGHTS,
+        DEFAULT_BLEND: DEFAULT_BLEND,
+        createAudioClock: createAudioClock,
+        createFeatureExtractor: createFeatureExtractor,
+        createLatencyCorrector: createLatencyCorrector,
+        createVacuumDetector: createVacuumDetector,
+        createLegacyModel: createLegacyModel,
+        util: {
+            analyserEquivalentTau: analyserEquivalentTau,
+            levelToMag: levelToMag,
+            magToLevel: magToLevel,
+            magToByteLevel: magToByteLevel,
+            envStep: envStep,
+            bandBinRange: bandBinRange,
+            bandLevelsFromFloat: bandLevelsFromFloat,
+            bandLevelsFromByte: bandLevelsFromByte
+        }
+    };
+}));
+
+  // ===== /sync-engine.js =====
+</script>
+<script type="module">
+import * as THREE from 'three';
+{
+const $ = id => document.getElementById(id);
+const isMobile = () => window.matchMedia('(max-width:760px)').matches;
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ============ 1. STATE ============
+const SMOOTH_KEYS = ['audioCoupling','colorFlowSpeed','spatialFlowSpeed','convergence','diffusion','geometryComplexity','symmetry','luminanceCap'];
+const SLIDER_KEYS = ['motionRange','musicDrive','rhythmDrive','tempoLink','beatPulse','audioCoupling','phaseDelay','phaseDriftRate','colorFlowSpeed','spatialFlowSpeed','convergence','diffusion','geometryComplexity','symmetry','luminanceCap','maxSpeed','audioGain'];
+const params = {
+  mode:'RAINBOW_FLOW', audioCoupling:.5, phaseMode:'slow_drift', phaseDelay:.5, phaseDriftRate:.03,
+  colorFlowSpeed:.35, spatialFlowSpeed:.2, convergence:.55, diffusion:.6, geometryComplexity:.5, symmetry:6,
+  viewMode:'mix', quantize:'beat', maxLayers:3, motionMode:'musical', motionRange:.7, musicDrive:.6, rhythmDrive:.5, tempoLink:.6, beatPulse:.35, luminanceCap:.8, maxSpeed: reducedMotion ? .35 : .6, audioGain:1.8, preset:'CUSTOM'
+};
+const live = {}; SMOOTH_KEYS.forEach(k => live[k] = params[k]);
+const rt = {
+  activeMode:'RAINBOW_FLOW', transFade:1, colorClock:0, spatialClock:0, phaseAccum:0, huePhase:0, delay:0,
+  calm:1, isCalmStopped:false, resumeWhat:null, vacuumF:1, silentT:0, inVacuum:false, exposure:1,
+  sessionStart:null, track:'none', tempoMul:1, vel:1, cvel:1, beatClock:0, sv2:0, beatU:0
+};
+const events = [];
+const logEvent = (type, value) => {
+  const t = rt.sessionStart ? Math.round((Date.now() - rt.sessionStart) / 100) / 10 : 0;
+  events.push({ t, type, value });
+  if (events.length > 400) events.shift();
+};
+
+// ============ 2. AUDIO ENGINE ============
+let audioCtx = null, analyser, analyserL, analyserR, analyserO, analyserS, freqData, freqL, freqR, freqO, freqS, mediaSource = null, masterGain;
+let droneNodes = null, isDronePlaying = false;
+// --- Sync layer のモジュール変数 ---
+let analyserFast = null;   // fast 経路 AnalyserNode (smoothing 0, float で読む。検出・包絡入力用)
+let syncClock = null;      // TechnodelicSync.createAudioClock (perf 時刻 -> 音時刻)
+let syncExtractor = null;  // TechnodelicSync.createFeatureExtractor (fast/slow 二経路)
+let syncCorrector = null;  // TechnodelicSync.createLatencyCorrector (totalMs の供給源として使用)
+let syncVacuum = null;     // TechnodelicSync.createVacuumDetector (急落検出 + tEst 遡及)
+let syncLastAudioT = null; // 前フレームの解析側音時刻 (特徴量 dt 用)
+let syncRawFast = null;    // 直近フレームの fast raw 帯域レベル (包絡入力差し替え用)
+let syncLatencySec = 0;    // corrector.totalMs / 1000 (位相遅延・拍・解析参照時刻への補正)
+let syncVacuumBoost = false;   // fast 検出が真空入りを確定した (次フレームの検出ブロックで消費)
+let syncVacuumBackdate = 0;    // 無音開始 tEst からの経過秒 (応答の前倒し量)
+let syncCalibrated = false;    // 較正プロファイルが存在する / スライダを操作した
+let syncFrameCount = 0;        // latency readout の間引き更新用
+const audioEl = $('audio-element');
+const MASTER = .85;
+
+function ensureAudioContext() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 4096;
+    analyser.smoothingTimeConstant = .6; // envelope smoothing is done below (attack/release)
+    freqData = new Uint8Array(analyser.frequencyBinCount);
+    // Sync layer: fast 経路アナライザを直列に挿入 (masterGain -> analyserFast -> analyser -> destination)。
+    // AnalyserNode は信号をそのまま通すので音は変わらない。主 analyser は level/centroid/素材判定の
+    // 互換のため残し、帯域特徴の包絡入力と真空検出は fast (float, smoothing 0) 側で取る。
+    analyserFast = audioCtx.createAnalyser();
+    analyserFast.fftSize = 4096; // 窓長は主 analyser と同じ (帯域ビン配置を揃える)
+    analyserFast.smoothingTimeConstant = 0;
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = MASTER;
+    masterGain.connect(analyserFast);
+    analyserFast.connect(analyser);
+    analyser.connect(audioCtx.destination);
+    // stereo split for Crossfire L/R balance
+    const split = audioCtx.createChannelSplitter(2);
+    analyserL = audioCtx.createAnalyser(); analyserR = audioCtx.createAnalyser();
+    [analyserL, analyserR].forEach(a => { a.fftSize = 2048; a.smoothingTimeConstant = .7; });
+    masterGain.connect(split); split.connect(analyserL, 0); split.connect(analyserR, 1);
+    freqL = new Uint8Array(analyserL.frequencyBinCount); freqR = new Uint8Array(analyserR.frequencyBinCount);
+    // side channel (L-R) for vocal-likeness: centred mid-band energy vs side energy
+    const inv = audioCtx.createGain(); inv.gain.value = -1; const sideSum = audioCtx.createGain(); sideSum.gain.value = .5;
+    split.connect(sideSum, 0); split.connect(inv, 1); inv.connect(sideSum);
+    analyserS = audioCtx.createAnalyser(); analyserS.fftSize = 2048; analyserS.smoothingTimeConstant = .6; sideSum.connect(analyserS);
+    freqS = new Uint8Array(analyserS.frequencyBinCount);
+    // onset analyser for tempo (short window, no smoothing)
+    analyserO = audioCtx.createAnalyser(); analyserO.fftSize = 1024; analyserO.smoothingTimeConstant = 0;
+    masterGain.connect(analyserO); freqO = new Uint8Array(analyserO.frequencyBinCount);
+    initSyncEngine();
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+function setGain(target, ramp) {
+  if (!masterGain) return;
+  const g = masterGain.gain, t = audioCtx.currentTime;
+  g.cancelScheduledValues(t);
+  g.setValueAtTime(Math.max(g.value, .0001), t);
+  if (ramp) g.linearRampToValueAtTime(target, t + ramp); else g.setValueAtTime(target, t);
+}
+function stopDrone() {
+  if (droneNodes) {
+    const d = droneNodes; droneNodes = null;
+    d.gain.gain.setTargetAtTime(.0001, audioCtx.currentTime, .2);
+    setTimeout(() => { try { d.osc1.stop(); d.osc2.stop(); d.osc3.stop(); d.lfo.stop(); } catch (e) {} }, 500);
+  }
+  isDronePlaying = false;
+}
+function startDrone() {
+  ensureAudioContext();
+  if (!audioEl.paused) audioEl.pause();
+  const now = audioCtx.currentTime;
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(.001, now); g.gain.linearRampToValueAtTime(.28, now + 1.2); g.connect(masterGain);
+  const mk = f => { const o = audioCtx.createOscillator(); o.type = 'sine'; o.frequency.value = f; return o; };
+  const osc1 = mk(42), osc2 = mk(84), osc3 = mk(528), lfo = mk(.12);
+  const g1 = audioCtx.createGain(); g1.gain.value = .55;
+  const g2 = audioCtx.createGain(); g2.gain.value = .25;
+  const g3 = audioCtx.createGain(); g3.gain.value = .08;
+  const lg = audioCtx.createGain(); lg.gain.value = .05; lfo.connect(lg); lg.connect(g3.gain);
+  osc1.connect(g1).connect(g); osc2.connect(g2).connect(g); osc3.connect(g3).connect(g);
+  [osc1, osc2, osc3, lfo].forEach(o => o.start());
+  droneNodes = { osc1, osc2, osc3, lfo, gain: g };
+  isDronePlaying = true;
+  rt.track = 'Internal_Test_Drone_42Hz_84Hz_528Hz';
+  resetTempo(0);
+  anal = null;
+  if (!rt.sessionStart) rt.sessionStart = Date.now();
+  $('audio-source-label').textContent = 'DRONE ON';
+  wakeFromCalmStop(false);
+}
+function toggleTestDrone() {
+  if (isDronePlaying) { stopDrone(); $('audio-source-label').textContent = 'IDLE'; return; }
+  startDrone();
+}
+
+let playlist = [], currentTrackIdx = -1, gdriveAccessToken = null;
+const gdriveStatusEl = $('gdrive-status');
+
+function renderPlaylist() {
+  const box = $('playlist-box');
+  box.classList.toggle('has-items', playlist.length > 0);
+  box.innerHTML = playlist.map((f, i) => `<div class="playlist-item${i === currentTrackIdx ? ' active' : ''}" data-i="${i}"></div>`).join('');
+  box.querySelectorAll('.playlist-item').forEach(el => {
+    const i = +el.dataset.i; el.textContent = `${i + 1}. ${playlist[i].name}`;
+    el.addEventListener('click', () => playTrackAt(i));
+  });
+}
+function addFilesToPlaylist(fileList) {
+  const items = Array.from(fileList)
+    .filter(f => /\.(wav|mp3|ogg|m4a|flac|aac)$/i.test(f.name) || (f.type || '').startsWith('audio/'))
+    .sort((a, b) => a.name.localeCompare(b.name, 'ja'))
+    .map(f => ({ type: 'local', file: f, name: f.name }));
+  if (!items.length) return;
+  playlist.forEach(p => { if (p.type !== 'url' && p.blobUrl) URL.revokeObjectURL(p.blobUrl); });
+  playlist = items; playTrackAt(0);
+}
+async function playTrackAt(idx) {
+  if (idx < 0 || idx >= playlist.length) return;
+  currentTrackIdx = idx;
+  const item = playlist[idx];
+  ensureAudioContext(); stopDrone();
+  let url = item.blobUrl;
+  if (!url) {
+    if (item.type === 'local') url = item.blobUrl = URL.createObjectURL(item.file);
+    else if (item.type === 'url') url = item.blobUrl = item.url;
+    else if (item.type === 'gdrive') {
+      $('audio-source-label').textContent = 'LOADING...';
+      gdriveStatusEl.textContent = `取得中: ${item.name}`;
+      try {
+        const res = await fetch(`https://www.googleapis.com/drive/v3/files/${item.id}?alt=media`, { headers: { Authorization: `Bearer ${gdriveAccessToken}` } });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        url = item.blobUrl = URL.createObjectURL(await res.blob());
+        gdriveStatusEl.textContent = `Drive から再生中（${playlist.length}曲）`;
+      } catch (err) { gdriveStatusEl.textContent = `読み込みエラー: ${err.message}`; return; }
+    }
+  }
+  audioEl.src = url;
+  if (!mediaSource) { mediaSource = audioCtx.createMediaElementSource(audioEl); mediaSource.connect(masterGain); }
+  wakeFromCalmStop(false);
+  audioEl.play().catch(() => { $('audio-source-label').textContent = '再生できません'; });
+  rt.track = item.name;
+  resetTempo(item.bpm || 0);
+  loadAnalysis(item);
+  if (!rt.sessionStart) rt.sessionStart = Date.now();
+  logEvent('track', item.name);
+  $('audio-source-label').textContent = item.name.slice(0, 20);
+  renderPlaylist();
+}
+audioEl.addEventListener('ended', () => { if (playlist.length) playTrackAt((currentTrackIdx + 1) % playlist.length); });
+audioEl.addEventListener('error', () => { if (audioEl.src) $('audio-source-label').textContent = '読み込み失敗'; });
+
+// Bundled tracks (./tracks.json: [{name, file}]) — used by the published artifact
+// fallback: synced Drive playlist (./gdrive_files.json + ./audio/) when served next to the files
+(async () => {
+  try {
+    const tr = await fetch('./tracks.json');
+    if (tr.ok) {
+      const list = await tr.json();
+      if (Array.isArray(list) && list.length) {
+        playlist = list.map(t => ({ type: 'url', name: t.name, url: './' + t.file, bpm: t.bpm || 0, analysis: t.analysis || null }));
+        renderPlaylist();
+        $('audio-source-label').textContent = `同梱 ${playlist.length} 曲 · 曲名か再生を押す`;
+        return;
+      }
+    }
+  } catch (e) {}
+  try {
+    const res = await fetch('./gdrive_files.json');
+    if (!res.ok) return;
+    const files = await res.json();
+    if (!Array.isArray(files) || !files.length) return;
+    playlist = files.sort((a, b) => a.name.localeCompare(b.name, 'ja')).map(f => ({ type: 'url', name: f.name, url: './audio/' + encodeURIComponent(f.name) }));
+    renderPlaylist();
+    gdriveStatusEl.textContent = `同期済み ${playlist.length} 曲（./audio/）`;
+  } catch (e) {}
+})();
+
+// Google Drive (OAuth 2.0 + Drive API v3) — GSI script loaded only on demand
+const gFolder = $('gdrive-folder-input'), gClient = $('gdrive-client-id');
+const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+if (store.get('tvl_gdrive_client_id')) gClient.value = store.get('tvl_gdrive_client_id');
+if (store.get('tvl_gdrive_folder_id')) gFolder.value = store.get('tvl_gdrive_folder_id');
+const extractDriveFolderId = raw => { const m = raw.match(/folders\/([a-zA-Z0-9_-]+)/); return m ? m[1] : raw.trim(); };
+function loadGsi() {
+  if (window.google && google.accounts && google.accounts.oauth2) return Promise.resolve();
+  return new Promise((res, rej) => {
+    const s = document.createElement('script'); s.src = 'https://accounts.google.com/gsi/client';
+    s.onload = res; s.onerror = () => rej(new Error('Google スクリプトを読み込めません')); document.head.appendChild(s);
+  });
+}
+async function fetchDriveFolderWavs(folderId, token) {
+  gdriveStatusEl.textContent = 'フォルダを走査中...';
+  const q = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
+  const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,mimeType)&pageSize=100`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(`Drive API HTTP ${res.status}`);
+  const data = await res.json();
+  const items = (data.files || []).filter(f => /\.(wav|mp3|ogg|m4a|flac|aac)$/i.test(f.name) || (f.mimeType || '').startsWith('audio/'))
+    .sort((a, b) => a.name.localeCompare(b.name, 'ja')).map(f => ({ type: 'gdrive', id: f.id, name: f.name }));
+  if (!items.length) { gdriveStatusEl.textContent = '音声ファイルが見つかりません'; return; }
+  playlist = items; gdriveStatusEl.textContent = `${items.length} 曲を読み込みました`;
+  await playTrackAt(0);
+}
+$('gdrive-connect-btn').addEventListener('click', async () => {
+  const clientId = gClient.value.trim(), folderId = extractDriveFolderId(gFolder.value);
+  if (!clientId) { gdriveStatusEl.textContent = '先に OAuth Client ID を入力してください'; return; }
+  try { await loadGsi(); } catch (e) { gdriveStatusEl.textContent = e.message + '（アーティファクト上では使えません）'; return; }
+  store.set('tvl_gdrive_client_id', clientId); store.set('tvl_gdrive_folder_id', folderId);
+  const tc = google.accounts.oauth2.initTokenClient({
+    client_id: clientId, scope: 'https://www.googleapis.com/auth/drive.readonly',
+    callback: async r => {
+      if (r.error) { gdriveStatusEl.textContent = `認証エラー: ${r.error}`; return; }
+      gdriveAccessToken = r.access_token;
+      try { await fetchDriveFolderWavs(folderId, gdriveAccessToken); } catch (err) { gdriveStatusEl.textContent = `エラー: ${err.message}`; }
+    }
+  });
+  tc.requestAccessToken({ prompt: gdriveAccessToken ? '' : 'consent' });
+});
+
+// ---- Sync layer glue (sync-engine.js との接続) ----
+// 時刻の線引き: v4 の時計系 (rAF 駆動の色・空間時計、history の performance stamp) は v4 の設計として維持する。
+// sync 側が担うのは (1) 包絡入力の fast 化による二重平滑化の片方の解消、(2) 真空検出の前倒し + tEst 遡及、
+// (3) 出力レイテンシ (base+output+手動オフセット) の補正を位相遅延・拍・事前解析の参照時刻へ入れること。
+const SYNC_CAL_KEY = 'tvl.cal.v1';
+function initSyncEngine() {
+  if (syncExtractor || typeof TechnodelicSync === 'undefined') return;
+  syncClock = TechnodelicSync.createAudioClock(audioCtx);
+  syncExtractor = TechnodelicSync.createFeatureExtractor({ gain: () => params.audioGain });
+  syncCorrector = TechnodelicSync.createLatencyCorrector(audioCtx, {
+    analysisWindowSec: 4096 / audioCtx.sampleRate // FFT 窓中心にスタンプを付け替える
+  });
+  syncVacuum = TechnodelicSync.createVacuumDetector();
+  syncLatencySec = syncCorrector.totalMs / 1000;
+
+  // 較正プロファイルの復元 (localStorage "tvl.cal.v1"、v4 の store ラッパ経由)
+  let cal = null;
+  try { cal = JSON.parse(store.get(SYNC_CAL_KEY) || 'null'); } catch (e) { cal = null; }
+  if (cal && typeof cal.manualOffsetMs === 'number' && isFinite(cal.manualOffsetMs)) {
+    syncCorrector.setManualOffsetMs(Math.max(-250, Math.min(400, cal.manualOffsetMs)));
+    syncLatencySec = syncCorrector.totalMs / 1000;
+    syncCalibrated = true;
+  }
+
+  // SYNC ZERO パネルの配線
+  const slider = $('param-syncOffsetMs'), valEl = $('val-syncOffsetMs');
+  if (slider) {
+    slider.value = syncCorrector.manualOffsetMs;
+    if (valEl) valEl.textContent = String(Math.round(syncCorrector.manualOffsetMs));
+    slider.addEventListener('input', () => {
+      const ms = parseFloat(slider.value);
+      if (valEl) valEl.textContent = String(Math.round(ms));
+      syncCorrector.setManualOffsetMs(ms);
+      syncLatencySec = syncCorrector.totalMs / 1000;
+      syncCalibrated = true;
+      store.set(SYNC_CAL_KEY, JSON.stringify({
+        manualOffsetMs: ms,
+        sampleRate: audioCtx.sampleRate,
+        savedAt: new Date().toISOString()
+      }));
+      updateSyncZeroState();
+    });
+  }
+  const pulseBtn = $('sync-pulse-btn');
+  if (pulseBtn) pulseBtn.addEventListener('click', runSyncPulseTest);
+  updateSyncLatencyReadout();
+  updateSyncZeroState();
+}
+function updateSyncLatencyReadout() {
+  const el = $('sync-latency-readout');
+  if (!el || !syncCorrector) return;
+  syncCorrector.refresh();
+  const fmt = (ok, ms) => ok ? ms.toFixed(1) + ' ms' : '—';
+  const hasAny = syncCorrector.hasBaseLatency || syncCorrector.hasOutputLatency;
+  const total = hasAny ? (syncCorrector.baseLatencyMs + syncCorrector.outputLatencyMs).toFixed(1) + ' ms' : '—';
+  el.textContent = 'baseLatency ' + fmt(syncCorrector.hasBaseLatency, syncCorrector.baseLatencyMs)
+    + ' / outputLatency ' + fmt(syncCorrector.hasOutputLatency, syncCorrector.outputLatencyMs)
+    + ' / 合計 ' + total;
+}
+function updateSyncZeroState() {
+  const el = $('sync-zero-state');
+  if (!el) return;
+  el.textContent = syncCalibrated ? 'CALIBRATED' : 'UNCALIBRATED';
+  el.style.color = syncCalibrated ? 'var(--accent)' : 'var(--accent-secondary)';
+}
+// PULSE TEST: 80Hz・50ms のサイン波を予約再生し、リングは「聞こえる時刻」
+// t_hear = t_graph + baseLatency + outputLatency + manualOffset (= corrector.totalMs) に表示する。
+// 手動オフセットの符号は corrector と同じ (正 = 映像を遅らせる)。
+function runSyncPulseTest() {
+  ensureAudioContext();
+  if (!audioCtx || !masterGain) return;
+  const t0 = audioCtx.currentTime + 0.05;
+  const osc = audioCtx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.value = 80;
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(0.5, t0 + 0.005);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.05);
+  osc.connect(g);
+  g.connect(masterGain);
+  osc.start(t0);
+  osc.stop(t0 + 0.08);
+  const totalMs = syncCorrector ? syncCorrector.totalMs : 0;
+  const delayMs = Math.max(0, (t0 - audioCtx.currentTime) * 1000 + totalMs);
+  const ring = $('sync-pulse-ring');
+  if (ring) {
+    setTimeout(() => {
+      ring.classList.remove('pulse-fire');
+      void ring.offsetWidth; // reflow で CSS アニメーションを再起動
+      ring.classList.add('pulse-fire');
+    }, delayMs);
+  }
+}
+
+// ---- Feature extraction + delay line ----
+const feat = { subCore: 0, mudBand: 0, crossfire: 0, strato: 0, balance: 0, centroid: 0 };
+const vis = { subCore: 0, mudBand: 0, crossfire: 0, strato: 0, balance: 0 };
+const history = []; // {t, sub, mud, cf, st, bal}
+const sourceActive = () => isDronePlaying || (!!audioEl.src && !audioEl.paused);
+
+function updateAudioFeatures(dt, nowSec) {
+  if (!analyser) return;
+  analyser.getByteFrequencyData(freqData);
+  // Sync layer: fast 経路 (float, smoothing 0) の抽出。時刻は音時刻 (audioCtx 基準) で評価する。
+  syncRawFast = null;
+  if (syncExtractor && syncClock && analyserFast) {
+    syncClock.update(nowSec);
+    const tAudio = syncClock.renderTime(nowSec);
+    const dtA = syncLastAudioT === null ? dt : Math.min(Math.max(tAudio - syncLastAudioT, 0.0001), 0.1);
+    syncLastAudioT = tAudio;
+    const r = syncExtractor.update(analyserFast, dtA, tAudio, analyser);
+    syncRawFast = r.raw.fast;
+    // 真空断の fast 検出 (急落のみ)。v4 本体の検出 (持続無音型) と相補で、こちらは検出の前倒しと
+    // tEst 遡及だけを担い、応答は v4 の vacuumF に一本化する。Calm-Stop 中は音自体が止まるので検出しない。
+    if (syncVacuum && !rt.isCalmStopped && sourceActive()) {
+      const ev = syncVacuum.update(tAudio, r.fast.subCore, r.fast.rms);
+      if (ev) {
+        syncVacuumBoost = true;
+        syncVacuumBackdate = Math.min(Math.max(tAudio - ev.tEst, 0), 0.5);
+        const vro = $('sync-vacuum-readout');
+        if (vro) vro.textContent = '真空検出 (fast): 無音開始を ' + Math.round(syncVacuumBackdate * 1000) + 'ms 遡って応答';
+      }
+    }
+    if (syncCorrector && (syncFrameCount++ % 120) === 0) {
+      syncCorrector.refresh();
+      syncLatencySec = syncCorrector.totalMs / 1000;
+      updateSyncLatencyReadout();
+    }
+  }
+  const binHz = (audioCtx.sampleRate / 2) / freqData.length;
+  const band = (arr, bh, lo, hi) => {
+    const s = Math.max(0, Math.floor(lo / bh)), e = Math.min(arr.length - 1, Math.ceil(hi / bh));
+    let sum = 0; for (let i = s; i <= e; i++) sum += arr[i];
+    return (sum / (e - s + 1)) / 255;
+  };
+  const g = params.audioGain;
+  let rawSub = Math.min(1.5, band(freqData, binHz, 35, 85) * g);
+  let rawMud = Math.min(1.5, band(freqData, binHz, 200, 500) * g);
+  let rawVoice = Math.min(1.5, band(freqData, binHz, 1000, 3000) * g);
+  let rawHigh = Math.min(1.5, band(freqData, binHz, 6000, 16000) * g);
+  // Sync layer: fast 経路が使える場合は、Analyser 平滑化 (.6) と byte 量子化を通っていない float の
+  // 帯域レベルを包絡入力にする (二重平滑化の片方を解消)。包絡 (attack .16 / release .42) 自体は v4 のまま。
+  // level / centroid / 素材判定は従来通り freqData (主 analyser) を使う。
+  if (syncRawFast) { rawSub = syncRawFast.subCore; rawMud = syncRawFast.mudBand; rawVoice = syncRawFast.crossfire; rawHigh = syncRawFast.strato; }
+
+  // overall level (gain-independent) and spectral centroid
+  let tot = 0, wsum = 0, peak = 0; const top = Math.min(freqData.length - 1, Math.ceil(16000 / binHz));
+  for (let i = 1; i <= top; i++) { const v = freqData[i]; tot += v; wsum += v * i * binHz; if (v > peak) peak = v; }
+  const level = peak / 255; // peak bin: sparse drones/ambient are not mistaken for silence
+  const centroid = tot > 0 ? wsum / tot : 0;
+
+  // stereo balance in Crossfire band
+  analyserL.getByteFrequencyData(freqL); analyserR.getByteFrequencyData(freqR);
+  const bhLR = (audioCtx.sampleRate / 2) / freqL.length;
+  const L = band(freqL, bhLR, 1000, 3000), R = band(freqR, bhLR, 1000, 3000);
+  const rawBal = (L + R) > .02 ? (R - L) / (R + L) : 0;
+
+  // asymmetric attack (160ms) / release (420ms) — anti-flash envelope
+  const sm = (c, t, a = .16, r = .42) => c + (t - c) * (t > c ? 1 - Math.exp(-dt / a) : 1 - Math.exp(-dt / r));
+  feat.subCore = sm(feat.subCore, rawSub); feat.mudBand = sm(feat.mudBand, rawMud);
+  feat.crossfire = sm(feat.crossfire, rawVoice); feat.strato = sm(feat.strato, rawHigh);
+  feat.balance = sm(feat.balance, rawBal, .6, .6); feat.centroid = sm(feat.centroid, centroid, .3, .6);
+
+  // pitch height (centroid, log scale, relative to this song's running average) and dynamics (short vs long loudness)
+  if (sourceActive() && peak > 15) {
+    const pr = Math.min(1, Math.max(0, (Math.log2(Math.max(feat.centroid, 60)) - Math.log2(200)) / (Math.log2(6000) - Math.log2(200))));
+    music.pitchRaw = pr;
+    music.pitchLong = music.pitchLong ? music.pitchLong + (pr - music.pitchLong) * (1 - Math.exp(-dt / 12)) : pr;
+    const loud = tot / top / 255;
+    music.short += (loud - music.short) * (1 - Math.exp(-dt / .5));
+    music.long = music.long ? music.long + (loud - music.long) * (1 - Math.exp(-dt / 8)) : loud;
+  }
+  const pRel = Math.min(1, Math.max(0, .5 + (music.pitchRaw - music.pitchLong) * 3));
+  music.pitch += (pRel - music.pitch) * (1 - Math.exp(-dt / .9));
+  const dynT = music.long > .005 ? Math.max(-1, Math.min(1, (music.short - music.long) / (music.long * 1.5))) : 0;
+  music.dyn += (dynT - music.dyn) * (1 - Math.exp(-dt / .7));
+  music.dens += ((music.onsets.length / 4) - music.dens) * (1 - Math.exp(-dt / 1.2));
+  music.acc += (music.accT - music.acc) * (1 - Math.exp(-dt / .08));
+  music.accT *= Math.exp(-dt / .45);
+  history.push({ t: nowSec, sub: feat.subCore, mud: feat.mudBand, cf: feat.crossfire, st: feat.strato, bal: feat.balance });
+  while (history.length && history[0].t < nowSec - 3) history.shift();
+
+  // Vacuum-cut detector (-100dB drop): silence > 120ms while a source is playing
+  if ($('opt-vacuum').checked && sourceActive() && level < .06) rt.silentT += dt; else rt.silentT = 0;
+  // [sync-vacuum-block start]
+  // Sync layer: fast 検出が急落を確定していたら silentT を閾値へ前倒しする (検出の前倒し)。
+  // ここは主 analyser の byte レベルがまだ高い瞬間がありうるので、silentT 更新の後に置く。
+  if (syncVacuumBoost) {
+    if ($('opt-vacuum').checked && sourceActive() && !rt.isCalmStopped) rt.silentT = Math.max(rt.silentT, .26);
+    syncVacuumBoost = false;
+  }
+  const vac = rt.silentT > .25;
+  if (vac !== rt.inVacuum) {
+    rt.inVacuum = vac; logEvent('vacuum_cut', vac ? 'enter' : 'exit'); updateBadge();
+    // Sync layer: 真空入りでは vacuumF を「無音開始時刻 tEst から応答 (tau .18) が始まっていた」値へ
+    // 前倒しする (バックデート)。応答の形そのものは v4 の vacuumF 一本で、二重には掛けない。
+    if (vac && syncVacuumBackdate > 0) {
+      rt.vacuumF = Math.min(rt.vacuumF, Math.exp(-syncVacuumBackdate / .18));
+      syncVacuumBackdate = 0;
+    }
+  }
+  // [sync-vacuum-block end]
+
+  setMeter('bar-sub', feat.subCore); setMeter('bar-mud', feat.mudBand); setMeter('bar-voice', feat.crossfire); setMeter('bar-high', feat.strato);
+  $('bal-dot').style.left = `calc(${50 + feat.balance * 45}% - 5px)`;
+  $('ro-centroid').textContent = level > .06 ? (feat.centroid >= 1000 ? (feat.centroid / 1000).toFixed(1) + 'kHz' : Math.round(feat.centroid) + 'Hz') : '—';
+}
+function setMeter(id, v) { $(id).style.height = Math.max(2, Math.min(30, v * 30)) + 'px'; }
+function sampleDelayed(nowSec, delay) {
+  const target = nowSec - delay;
+  for (let i = history.length - 1; i >= 0; i--) if (history[i].t <= target) return history[i];
+  return history[0] || { sub: 0, mud: 0, cf: 0, st: 0, bal: 0 };
+}
+
+// ---- Tempo engine: onset flux -> autocorrelation BPM + beat phase ----
+const music = { pitch: .5, pitchRaw: 0, pitchLong: 0, dens: 0, onsets: [], dyn: 0, short: 0, long: 0, acc: 0, accT: 0, lastOn: 0, conv: 0, diff: 0, dynm: 0 };
+const tempo = { prior: 0, est: 0, ests: [], tap: 0, taps: [], buf: [], prev: null, lastEst: 0, t0: 0, conf: 0, pulse: 0 };
+function resetTempo(prior) {
+  music.onsets = []; music.pitchLong = 0; music.long = 0;
+  tempo.prior = prior; tempo.est = 0; tempo.ests = []; tempo.tap = 0; tempo.taps = []; tempo.buf = []; tempo.t0 = 0; tempo.conf = 0;
+}
+const tempoBpm = () => tempo.tap || tempo.prior || tempo.est;
+const tempoSource = () => tempo.tap ? 'タップ' : tempo.prior ? '解析済み' : tempo.est ? (tempo.conf > 2.5 ? '推定' : '推定（不確か）') : (sourceActive() ? '推定中…' : '—');
+function updateOnset(nowSec) {
+  if (!analyserO) return;
+  analyserO.getByteFrequencyData(freqO);
+  const bh = (audioCtx.sampleRate / 2) / freqO.length, hi = Math.min(freqO.length - 1, Math.ceil(5000 / bh));
+  let flux = 0, fk = 0, fs = 0, fh = 0;
+  if (!tempo.prev) tempo.prev = new Uint8Array(freqO.length);
+  const top = Math.min(freqO.length - 1, Math.ceil(14000 / bh));
+  for (let i = 1; i <= top; i++) {
+    const d = freqO[i] - tempo.prev[i]; if (d <= 0) continue;
+    const hz = i * bh; if (i <= hi) flux += d;
+    if (hz >= 35 && hz < 130) fk += d; else if (hz >= 1500 && hz < 5000) fs += d; else if (hz >= 6500) fh += d;
+  }
+  rtFlux.kick = fk; rtFlux.snare = fs; rtFlux.hat = fh;
+  tempo.prev.set(freqO);
+  if (!sourceActive() || rt.isCalmStopped) return;
+  // onset peak picking -> rhythm density & accents (adaptive threshold over last 2 s)
+  let m = 0, q = 0, n = 0;
+  for (let i = tempo.buf.length - 1; i >= 0 && tempo.buf[i][0] > nowSec - 2; i--) { const v = tempo.buf[i][1]; m += v; q += v * v; n++; }
+  if (n > 20) {
+    m /= n; const sd = Math.sqrt(Math.max(0, q / n - m * m));
+    if (flux > m + 1.5 * sd && nowSec - music.lastOn > .1) {
+      music.lastOn = nowSec; music.onsets.push(nowSec);
+      if (flux > m + 3 * sd) music.accT = Math.min(1, (flux - m) / (5 * sd + 1e-6));
+    }
+  }
+  while (music.onsets.length && music.onsets[0] < nowSec - 4) music.onsets.shift();
+  tempo.buf.push([nowSec, flux]);
+  while (tempo.buf.length && tempo.buf[0][0] < nowSec - 10) tempo.buf.shift();
+  if (nowSec - tempo.lastEst > 1 && tempo.buf.length > 60 && nowSec - tempo.buf[0][0] > 5) { tempo.lastEst = nowSec; estimateTempo(nowSec); }
+}
+function estimateTempo(nowSec) {
+  const FS = 100, b = tempo.buf, start = b[0][0], N = Math.floor((nowSec - start) * FS);
+  const g = new Float32Array(N); let j = 0;
+  for (let i = 0; i < N; i++) {
+    const t = start + i / FS; while (j < b.length - 2 && b[j + 1][0] < t) j++;
+    const a = b[j], c = b[j + 1] || a, w = c[0] > a[0] ? (t - a[0]) / (c[0] - a[0]) : 0;
+    g[i] = a[1] + (c[1] - a[1]) * Math.min(1, Math.max(0, w));
+  }
+  // subtract local mean (0.4s) and half-wave rectify -> onset envelope
+  const W = 20, e = new Float32Array(N); let acc = 0;
+  for (let i = 0; i < N; i++) { acc += g[i]; if (i >= 2 * W) acc -= g[i - 2 * W]; const m = acc / Math.min(i + 1, 2 * W); e[i] = Math.max(0, g[i] - m); }
+  const minL = Math.round(FS * 60 / 200), maxL = Math.round(FS * 60 / 55), r = new Float32Array(maxL * 2 + 2);
+  for (let L = minL; L <= Math.min(maxL * 2, N - 1); L++) { let sum = 0; for (let i = 0; i + L < N; i++) sum += e[i] * e[i + L]; r[L] = sum / (N - L); }
+  let best = 0, bestL = 0, mean = 0, sq = 0, cnt = 0;
+  for (let L = minL; L <= maxL; L++) {
+    const bpm = 60 * FS / L, wgt = Math.exp(-.5 * (Math.log2(bpm / 115) / .6) ** 2);
+    const sc = (r[L] + .5 * (r[2 * L] || 0)) * wgt;
+    mean += r[L]; sq += r[L] * r[L]; cnt++;
+    if (sc > best) { best = sc; bestL = L; }
+  }
+  if (!bestL) return;
+  mean /= cnt; const sd = Math.sqrt(Math.max(1e-9, sq / cnt - mean * mean));
+  const y0 = r[bestL - 1], y1 = r[bestL], y2 = r[bestL + 1], den = y0 - 2 * y1 + y2;
+  let Lf = bestL + (den !== 0 ? .5 * (y0 - y2) / den : 0);
+  // octave correction: a slow estimate whose half-period is also strongly periodic is really double time
+  const hL = Math.round(Lf / 2);
+  if (60 * FS / Lf < 92 && hL >= minL && r[hL] > .5 * r[bestL]) Lf /= 2;
+  tempo.conf = (r[Math.round(Lf)] - mean) / sd;
+  tempo.ests.push(60 * FS / Lf); if (tempo.ests.length > 5) tempo.ests.shift();
+  const sorted = tempo.ests.slice().sort((a, c) => a - c); tempo.est = sorted[sorted.length >> 1];
+  // beat phase: offset that best lines up a comb with the last 4 s of onsets
+  const P = 60 / tempoBpm(), PL = Math.round(P * FS), span = Math.min(N, 4 * FS);
+  let bo = 0, bs = -1;
+  for (let o = 0; o < PL; o++) { let sum = 0; for (let k = N - 1 - o; k >= N - span; k -= PL) sum += e[k] + .5 * ((e[k - 1] || 0) + (e[k + 1] || 0)); if (sum > bs) { bs = sum; bo = o; } }
+  const tBeat = start + (N - 1 - bo) / FS;
+  if (!tempo.t0) tempo.t0 = tBeat;
+  else { let err = ((tBeat - tempo.t0) / P) % 1; if (err > .5) err -= 1; if (err < -.5) err += 1; tempo.t0 += err * P * .35; }
+}
+$('tap-btn').addEventListener('click', () => {
+  const t = performance.now() / 1000;
+  tempo.taps = tempo.taps.filter(x => t - x < 2.5); tempo.taps.push(t);
+  if (tempo.taps.length >= 3) {
+    const iv = []; for (let i = 1; i < tempo.taps.length; i++) iv.push(tempo.taps[i] - tempo.taps[i - 1]);
+    tempo.tap = Math.round(600 / (iv.reduce((a, c) => a + c, 0) / iv.length)) / 10; tempo.t0 = t;
+    logEvent('tempo_tap', tempo.tap);
+  }
+  $('tap-btn').textContent = tempo.taps.length < 3 ? `タップ（あと${3 - tempo.taps.length}回）` : 'タップでBPM指定';
+});
+$('tap-reset-btn').addEventListener('click', () => { tempo.tap = 0; tempo.taps = []; $('tap-btn').textContent = 'タップでBPM指定'; });
+
+// ---- Part sources (kick / snare / hat / bass / vocal / pad): pre-analysed or real-time ----
+const SRC_KEYS = ['kick', 'snare', 'hat', 'bass', 'vocal', 'pad'];
+const SRC_LABEL = { kick: 'キック', snare: 'スネア', hat: 'ハイハット', bass: 'ベース', vocal: 'ボーカル', pad: '上モノ' };
+const SRC_OPTS = [['bg', '背景（区切りで交代）'], ...SRC_KEYS.map(k => [k, SRC_LABEL[k]]), ['always', '常時'], ['off', '出さない']];
+const ONSET_SRC = { kick: 1, snare: 1, hat: 1 };
+const rtFlux = { kick: 0, snare: 0, hat: 0 };
+const srcRaw = {}, srcv = {}, srcAct = {}, rnorm = {};
+SRC_KEYS.forEach(k => { srcRaw[k] = 0; srcv[k] = 0; srcAct[k] = 0; });
+let anal = null;
+function decodeB64(b) { const bin = atob(b), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; }
+async function loadAnalysis(item) {
+  anal = null;
+  if (!item || !item.analysis) return;
+  try {
+    if (!item.anal) {
+      const a = await (await fetch('./' + item.analysis)).json();
+      a.fv = {}; for (const k in a.f) a.fv[k] = decodeB64(a.f[k]);
+      item.anal = a;
+    }
+    if (playlist[currentTrackIdx] === item) { anal = item.anal; mix.secIdx = -1; }
+  } catch (e) { anal = null; }
+}
+const usingAnal = () => !!(anal && audioEl.src && !audioEl.paused);
+function rtNorm(k, v, dt) {
+  const n = rnorm[k] || (rnorm[k] = { hi: 1e-6, lo: v });
+  n.hi = Math.max(v, n.hi * Math.exp(-dt / 12));
+  n.lo = Math.min(v, n.lo + (v - n.lo) * (1 - Math.exp(-dt / 20)));
+  return Math.min(1, Math.max(0, (v - n.lo) / (n.hi - n.lo + 1e-6)));
+}
+function updateSources(dt) {
+  if (usingAnal()) {
+    const t = Math.max(0, audioEl.currentTime - syncLatencySec), i = Math.floor(t * anal.fps); // Sync: 聞こえている位置に合わせる
+    SRC_KEYS.forEach(k => { const a = anal.fv[k]; if (!a) return; const v0 = a[Math.min(a.length - 1, i)] || 0, v1 = a[Math.max(0, i - 1)] || 0; srcRaw[k] = (ONSET_SRC[k] ? Math.max(v0, v1) : v0) / 255; });
+  } else if (analyser && sourceActive()) {
+    const binHz = (audioCtx.sampleRate / 2) / freqData.length;
+    const avg = (arr, bh, lo, hi) => { const s0 = Math.max(0, Math.floor(lo / bh)), e = Math.min(arr.length - 1, Math.ceil(hi / bh)); let sm = 0; for (let i = s0; i <= e; i++) sm += arr[i]; return sm / (e - s0 + 1); };
+    srcRaw.kick = rtNorm('kick', rtFlux.kick, dt); srcRaw.snare = rtNorm('snare', rtFlux.snare, dt); srcRaw.hat = rtNorm('hat', rtFlux.hat, dt);
+    srcRaw.bass = rtNorm('bass', avg(freqData, binHz, 45, 250), dt);
+    srcRaw.pad = rtNorm('pad', avg(freqData, binHz, 3000, 14000), dt);
+    analyserS.getByteFrequencyData(freqS);
+    const bhS = (audioCtx.sampleRate / 2) / freqS.length;
+    const mMid = avg(freqData, binHz, 300, 3000), sMid = avg(freqS, bhS, 300, 3000);
+    srcRaw.vocal = rtNorm('vocal', Math.max(0, mMid - sMid) * (mMid / 255), dt);
+  } else SRC_KEYS.forEach(k => { srcRaw[k] *= Math.exp(-dt / .3); });
+  SRC_KEYS.forEach(k => {
+    const r = srcRaw[k];
+    if (ONSET_SRC[k]) {
+      srcv[k] = Math.max(r > .25 ? r : 0, srcv[k] * Math.exp(-dt / .22));          // hit envelope
+      srcAct[k] = Math.max(r > .3 ? 1 : 0, srcAct[k] * Math.exp(-dt / 1.6));       // "is this part playing" (decays over ~2 beats)
+    } else {
+      srcv[k] += (r - srcv[k]) * (1 - Math.exp(-dt / (r > srcv[k] ? .08 : .35)));
+      srcAct[k] += ((r > .32 ? 1 : r < .15 ? 0 : srcAct[k]) - srcAct[k]) * (1 - Math.exp(-dt / .5));
+    }
+  });
+}
+
+// ---- Per-pattern feel: smooth ("ぬるっと") vs solid. Each pattern gets its own clock, audio smoothing and fade times ----
+// featTau: audio smoothing (s) · wIn/wOut: fade in/out (s) · velTau: motion inertia (s) · hit: how much hits kick the shape/clock · crisp: line hardness
+const PROFILE = {
+  RAINBOW_FLOW:          { feel: 'ぬるっと', featTau: 1.0, wIn: 1.4, wOut: 2.2, velTau: 1.8, hit: 0,   beat: .35, crisp: 0,   hitSrc: 'kick' },
+  IRIDESCENT_MEMBRANE:   { feel: 'ぬるっと', featTau: .7,  wIn: 1.0, wOut: 1.8, velTau: 1.4, hit: .15, beat: .7,  crisp: .1,  hitSrc: 'kick' },
+  FRACTAL_SPACE:         { feel: 'なめらか', featTau: .5,  wIn: 1.0, wOut: 1.6, velTau: 1.5, hit: .1,  beat: .6,  crisp: .3,  hitSrc: 'kick' },
+  CONVERGENCE_DIFFUSION: { feel: '弾む',     featTau: .12, wIn: .3,  wOut: .7,  velTau: .5,  hit: .85, beat: 1,   crisp: .55, hitSrc: 'kick' },
+  CYMATICS:              { feel: 'ソリッド', featTau: .05, wIn: .18, wOut: .45, velTau: .25, hit: 1,   beat: .8,  crisp: 1,   hitSrc: 'hat' },
+  TORUS_MANDALA:         { feel: 'ソリッド', featTau: .05, wIn: .18, wOut: .45, velTau: .25, hit: 1,   beat: 1,   crisp: .9,  hitSrc: 'snare' }
+};
+const mstate = {};
+Object.keys(PROFILE).forEach(m => mstate[m] = { clock: 0, vel: 1, imp: 0, hit: 0, sub: 0, cf: 0, st: 0 });
+const prevRaw = {}, hitNow = {};
+// particle formations: 0 torus · 1 sphere shell · 2 spiral galaxy · 3 helix column · 4 drifting cloud
+const FORM_NAMES = ['輪', '球殻', '渦巻き', '螺旋の柱', '雲'];
+const pform = { a: 0, b: 0, morph: 1, scatter: .2 };
+function nextFormation() {
+  if (pform.morph < 1) pform.a = pform.b;
+  let n; do { n = Math.floor(Math.random() * FORM_NAMES.length); } while (n === pform.b);
+  pform.a = pform.b; pform.b = n; pform.morph = 0;
+  logEvent('particle_form', FORM_NAMES[n]);
+}
+function detectHits() {
+  SRC_KEYS.forEach(k => { const r = srcRaw[k], p = prevRaw[k] || 0; hitNow[k] = ONSET_SRC[k] && r > .5 && r - p > .2; prevRaw[k] = r; });
+}
+function hitSourceFor(mode) {
+  if (params.viewMode === 'mix') { const l = mix.layers.find(x => x.mode === mode); if (l && ONSET_SRC[l.src]) return l.src; }
+  return PROFILE[mode].hitSrc;
+}
+// advance every pattern's own clock: smooth ones follow the shared velocity with heavy inertia,
+// solid ones run slower between hits and jump forward on each hit (tick-like, ease-out)
+function updateModeStates(dt, sharedVel, slow) {
+  Object.keys(PROFILE).forEach(m => {
+    const P = PROFILE[m], st = mstate[m];
+    st.vel += (sharedVel - st.vel) * (1 - Math.exp(-dt / P.velTau));
+    const hs = hitSourceFor(m);
+    if (P.hit > 0 && hitNow[hs]) { st.imp += P.hit * 1.4 * Math.max(.4, srcRaw[hs]); st.hit = Math.min(1, st.hit + P.hit * srcRaw[hs]); }
+    st.imp *= Math.exp(-dt / .14);
+    st.hit *= Math.exp(-dt / (P.crisp > .8 ? .18 : .3));
+    const dir = st.vel < 0 ? -1 : 1, base = P.hit > .5 ? .45 : 1;
+    st.clock += dt * (st.vel * base + dir * st.imp * Math.max(.25, params.spatialFlowSpeed)) * slow;
+    const k = 1 - Math.exp(-dt / P.featTau);
+    st.sub += (vis.subCore - st.sub) * k; st.cf += (vis.crossfire - st.cf) * k; st.st += (vis.strato - st.st) * k;
+  });
+}
+function updateParticles(dt) {
+  pform.morph = Math.min(1, pform.morph + dt / 3.2);
+  const live = sourceActive() && U.uAudioCoupling.value > 0;
+  const sc = live ? Math.min(1, Math.max(0, (music.diff - .55) * .4 + Math.max(0, music.dyn) * .3 + music.acc * .75 - (music.conv - .5) * .2)) : 0;
+  pform.scatter += (sc - pform.scatter) * (1 - Math.exp(-dt / .7));
+  U.uFormA.value = pform.a; U.uFormB.value = pform.b; U.uMorph.value = pform.morph; U.uScatter.value = pform.scatter;
+}
+function applyMode(m) {
+  const P = PROFILE[m], st = mstate[m];
+  U.uSpatialTime.value = st.clock; U.uSubCore.value = st.sub; U.uCrossfire.value = st.cf; U.uStrato.value = st.st;
+  U.uHit.value = st.hit * U.uAudioCoupling.value * 1.6 * rt.vacuumF; U.uCrisp.value = P.crisp;
+  U.uBeat.value = rt.beatU * P.beat;
+}
+
+// ---- Layer mixer state ----
+const LAYER_DEFAULT = { RAINBOW_FLOW: 'bg', FRACTAL_SPACE: 'bg', CONVERGENCE_DIFFUSION: 'kick', CYMATICS: 'hat', TORUS_MANDALA: 'snare', IRIDESCENT_MEMBRANE: 'vocal' };
+const MODE_SHORT = { RAINBOW_FLOW: 'Rainbow', FRACTAL_SPACE: 'Fractal', CONVERGENCE_DIFFUSION: 'Particles', CYMATICS: 'Cymatics', TORUS_MANDALA: 'Mandala', IRIDESCENT_MEMBRANE: 'Membrane' };
+const mix = { layers: [], bgIdx: 0, secIdx: -1, beatIdx: -1, barIdx: -1, lastSecBar: 0 };
+
+// beat / bar index from analysis (exact) or the live tempo estimate
+function beatState(nowSec) {
+  if (usingAnal() && anal.beats.length > 1) {
+    const t = Math.max(0, audioEl.currentTime - syncLatencySec), b = anal.beats; // Sync: 聞こえている位置に合わせる
+    let lo = 0, hi = b.length - 1; if (t < b[0]) return { beat: -1, bar: -1, phase: 0 };
+    while (lo < hi) { const m = (lo + hi + 1) >> 1; if (b[m] <= t) lo = m; else hi = m - 1; }
+    const next = b[lo + 1] || (b[lo] + (b[lo] - b[lo - 1])), phase = (t - b[lo]) / (next - b[lo]);
+    let bar = 0; const bars = anal.bars; for (let i = 0; i < bars.length && bars[i] <= t + .02; i++) bar = i;
+    return { beat: lo, bar, phase: Math.min(1, Math.max(0, phase)) };
+  }
+  const bpm = tempoBpm();
+  if (bpm > 0 && tempo.t0) { const x = (nowSec - tempo.t0) / (60 / bpm), beat = Math.floor(x); return { beat, bar: Math.floor(beat / 4), phase: x - beat }; }
+  return { beat: Math.floor(nowSec / .6), bar: Math.floor(nowSec / 2.4), phase: (nowSec / .6) % 1 };
+}
+function updateMix(dt, nowSec) {
+  const L = mix.layers, bs = beatState(nowSec);
+  const beatTick = bs.beat !== mix.beatIdx, barTick = bs.bar !== mix.barIdx;
+  mix.beatIdx = bs.beat; mix.barIdx = bs.bar; mix.phase = bs.phase;
+  const q = params.quantize, tick = q === 'free' ? true : q === 'bar' ? barTick : beatTick;
+  const bgs = L.filter(l => l.src === 'bg');
+
+  // section change -> next background (exact sections from analysis, otherwise every 16 bars)
+  if (barTick) {
+    let change = false;
+    if (usingAnal() && anal.sections) {
+      const t = audioEl.currentTime; let si = -1; anal.sections.forEach((x, i) => { if (x <= t + .05) si = i; });
+      if (mix.secIdx === -1) mix.secIdx = si; else if (si !== mix.secIdx) { mix.secIdx = si; change = true; }
+    } else if (sourceActive() && bs.bar - mix.lastSecBar >= 16) { mix.lastSecBar = bs.bar; change = true; mix.lastFormBar = bs.bar; }
+    if (change) {
+      mix.secCount = (mix.secCount || 0) + 1;
+      { const a2 = Math.min(1, Math.max(0, music.dyn) * .8 + Math.max(srcRaw.kick, srcRaw.snare) * .6); bgs.forEach(l => l.fadeMul = 1.8 - 1.45 * a2); mix.lastFade = a2; }
+      if (bgs.length) { mix.bgIdx = (mix.bgIdx + 1) % bgs.length; logEvent('section', bgs[mix.bgIdx].mode); } else logEvent('section', mix.secCount);
+      nextFormation();
+    } else if (!usingAnal() && bs.bar % 8 === 0 && bs.bar !== mix.lastFormBar && sourceActive()) { mix.lastFormBar = bs.bar; nextFormation(); }
+  }
+  const bgMode = bgs.length ? bgs[mix.bgIdx % bgs.length].mode : null;
+
+  // gate foreground layers on part activity (with hysteresis), quantised to beat/bar, capped at maxLayers
+  const live = sourceActive();
+  L.forEach(l => {
+    if (l.src === 'bg') { l.want = l.mode === bgMode; return; }
+    if (l.src === 'always') { l.want = true; return; }
+    if (l.src === 'off' || !live) { l.want = false; return; }
+    const a = srcAct[l.src]; l.want = l.on ? a > .25 : a > .6;
+  });
+  if (tick) {
+    const fgOn = L.filter(l => l.src !== 'bg' && l.on && l.want).length;
+    let room = params.maxLayers - fgOn;
+    // how hard is the music hitting right now? -> crisp switch on hits / section drops, slow fade in soft passages
+    const attack = live ? Math.min(1, Math.max(srcRaw.kick, srcRaw.snare) * .7 + music.acc * .6 + Math.max(0, music.dyn) * .4) : 0;
+    const fadeMul = 1.8 - 1.45 * attack;   // 1.8x (ふわっ) .. 0.35x (パリッ)
+    mix.lastFade = attack;
+    L.forEach(l => { if (l.on !== l.want) l.fadeMul = fadeMul; });
+    L.filter(l => l.on && !l.want).forEach(l => { l.on = false; logEvent('layer_out', l.mode); });
+    L.filter(l => !l.on && l.want).sort((a, b) => (srcAct[b.src] || 1) - (srcAct[a.src] || 1)).forEach(l => {
+      if (l.src === 'bg') { l.on = true; return; }
+      if (room > 0) { l.on = true; l.since = bs.bar; room--; logEvent('layer_in', l.mode + '←' + l.src); }
+    });
+    // all slots full but a part is waiting (e.g. vocals come in): on a bar line, hand over the slot held longest (>= 4 bars)
+    if (barTick && bs.bar - (mix.lastSwapBar || -99) >= 2) {
+      const waiting = L.filter(l => l.src !== 'bg' && l.want && !l.on).sort((a, b) => (b.src === 'vocal') - (a.src === 'vocal'));
+      waiting.forEach(wl => {
+        const old = L.filter(l => l.src !== 'bg' && l.src !== 'always' && l.on && bs.bar - (l.since || 0) >= 4).sort((a, b) => (a.since || 0) - (b.since || 0))[0];
+        if (old && bs.bar - (mix.lastSwapBar || -99) >= 2) { old.on = false; wl.on = true; wl.since = bs.bar; mix.lastSwapBar = bs.bar; logEvent('layer_swap', old.mode + '→' + wl.mode); }
+      });
+    }
+  }
+  // weights: foreground breathes with its part; background ducks under foreground. Slew-limited (no flashes)
+  const fgSum = L.reduce((s2, l) => s2 + (l.src !== 'bg' ? l.w : 0), 0);
+  L.forEach(l => {
+    let target = 0;
+    if (l.on) {
+      if (l.src === 'bg') target = .95 - .35 * Math.min(1, fgSum);
+      else if (l.src === 'always') target = .8;
+      else target = ONSET_SRC[l.src] ? .8 + .2 * srcAct[l.src] : .6 + .4 * srcv[l.src];   // hit layers keep steady brightness; their hits move the shape instead
+    }
+    const P = PROFILE[l.mode], fm = l.fadeMul || 1, up = dt / Math.max(.12, P.wIn * fm), down = dt / Math.max(.15, P.wOut * fm);
+    l.w += Math.max(-down, Math.min(up, target - l.w));
+  });
+  if (!L.some(l => l.w > .02) && bgs.length === 0) L[0].w = Math.min(.9, L[0].w + dt);   // never fully dark when nothing is assigned
+}
+function buildLayerUI() {
+  $('src-meters').innerHTML = SRC_KEYS.map(k => `<div class="meter-col"><div class="meter-bar-wrap"><div class="meter-bar" id="sm-${k}"></div></div><div class="meter-name">${SRC_LABEL[k]}</div></div>`).join('');
+  $('layer-rows').innerHTML = mix.layers.map((l, i) => `<div class="layer-row" id="lr-${i}"><span class="ln">${MODE_SHORT[l.mode]}<br><small style="font-size:9px;color:var(--text-muted)">${PROFILE[l.mode].feel}</small></span><select data-i="${i}" aria-label="${MODE_SHORT[l.mode]} の割当">${SRC_OPTS.map(([v, t]) => `<option value="${v}"${v === l.src ? ' selected' : ''}>${t}</option>`).join('')}</select><div class="lv"><i id="lw-${i}"></i></div></div>`).join('');
+  $('layer-rows').querySelectorAll('select').forEach(sel => sel.addEventListener('change', e => {
+    const l = mix.layers[+e.target.dataset.i]; l.src = e.target.value; l.on = false; logEvent('layer_assign', l.mode + '=' + l.src); saveLayers();
+  }));
+}
+function saveLayers() { store.set('tvl_layers', JSON.stringify(mix.layers.map(l => l.src))); }
+function initLayers() {
+  let saved = null; try { saved = JSON.parse(store.get('tvl_layers') || 'null'); } catch (e) {}
+  const valid = new Set(SRC_OPTS.map(o => o[0]));
+  mix.layers = MODE_ORDER.map((m, i) => ({ mode: m, src: saved && valid.has(saved[i]) ? saved[i] : LAYER_DEFAULT[m], on: false, want: false, w: 0 }));
+  buildLayerUI();
+}
+$('mix-default-btn').addEventListener('click', () => { mix.layers.forEach(l => { l.src = LAYER_DEFAULT[l.mode]; l.on = false; }); buildLayerUI(); saveLayers(); });
+$('mix-shuffle-btn').addEventListener('click', () => {
+  const pool = ['bg', 'bg', 'kick', 'snare', 'hat', 'bass', 'vocal', 'pad'];
+  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  mix.layers.forEach((l, i) => { l.src = pool[i]; l.on = false; });
+  if (!mix.layers.some(l => l.src === 'bg')) mix.layers[0].src = 'bg';
+  buildLayerUI(); saveLayers(); logEvent('layer_shuffle', mix.layers.map(l => l.src).join(','));
+});
+$('param-viewMode').addEventListener('change', e => { params.viewMode = e.target.value; logEvent('view_mode', params.viewMode); syncUI(); });
+$('param-quantize').addEventListener('change', e => { params.quantize = e.target.value; });
+$('param-maxLayers').addEventListener('change', e => { params.maxLayers = +e.target.value; });
+
+// ============ 3. VISUAL ENGINE ============
+const container = $('canvas-container');
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+const DPR = window.devicePixelRatio || 1;
+let pixelRatio = Math.min(DPR, 1.5);
+renderer.setPixelRatio(pixelRatio);
+renderer.setSize(window.innerWidth, window.innerHeight);
+container.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, .1, 100);
+camera.position.z = 3.2;
+const orthoScene = new THREE.Scene();
+const orthoCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+const U = {
+  uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+  uColorTime: { value: 0 }, uSpatialTime: { value: 0 }, uPhaseOffset: { value: 0 }, uAudioCoupling: { value: .5 },
+  uSubCore: { value: 0 }, uMud: { value: 0 }, uCrossfire: { value: 0 }, uStrato: { value: 0 }, uBalance: { value: 0 },
+  uComplexity: { value: .5 }, uSymmetry: { value: 6 }, uConvergence: { value: .55 }, uDiffusion: { value: .6 },
+  uLuminanceCap: { value: .8 }, uExposure: { value: 1 }, uBeat: { value: 0 }, uHit: { value: 0 }, uCrisp: { value: 0 }, uFormA: { value: 0 }, uFormB: { value: 0 }, uMorph: { value: 1 }, uScatter: { value: .2 }
+};
+const UNI = `
+uniform vec2 uResolution;
+uniform float uColorTime, uSpatialTime, uPhaseOffset, uAudioCoupling, uSubCore, uMud, uCrossfire, uStrato, uBalance;
+uniform float uComplexity, uSymmetry, uConvergence, uDiffusion, uLuminanceCap, uExposure, uBeat, uHit, uCrisp;
+`;
+const LIB = `
+vec2 hash2(vec2 p){ p=vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2(269.5,183.3))); return -1.0+2.0*fract(sin(p)*43758.5453123); }
+float noise(vec2 p){ vec2 i=floor(p), f=fract(p); vec2 u=f*f*(3.0-2.0*f);
+  return mix(mix(dot(hash2(i),f),dot(hash2(i+vec2(1,0)),f-vec2(1,0)),u.x), mix(dot(hash2(i+vec2(0,1)),f-vec2(0,1)),dot(hash2(i+vec2(1,1)),f-vec2(1,1)),u.x),u.y); }
+float fbm(vec2 p, float oct){ float v=0.0,a=0.5; mat2 r=mat2(0.8,0.6,-0.6,0.8);
+  for(int i=0;i<5;i++){ if(float(i)>=oct) break; v+=a*noise(p); p=r*p*2.02; a*=0.5; } return v; }
+vec3 pal(float t){ return 0.46+0.42*cos(6.28318*(t+vec3(0.0,0.33,0.67))); }
+mat2 rot2(float a){ float c=cos(a),s=sin(a); return mat2(c,-s,s,c); }
+// hue-preserving luminance cap (scales the colour instead of clipping channels to grey)
+vec3 capLum(vec3 c, float cap){ float m=max(max(c.r,c.g),c.b); return m>cap ? c*(cap/m) : c; }
+vec3 finish(vec3 c){ return capLum(max(c,0.0), uLuminanceCap)*uExposure; }
+vec2 screenUV(vec2 vuv){ vec2 uv=(vuv-0.5)*vec2(uResolution.x/uResolution.y,1.0);
+  float asp=uResolution.x/uResolution.y; if(asp<1.0) uv/=max(asp,0.55)*1.15; return uv; }
+`;
+const VERT = `varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.0,1.0); }`;
+const frag = body => `precision highp float; varying vec2 vUv;\n${UNI}\n${LIB}\n${body}`;
+
+const FRAGS = {
+RAINBOW_FLOW: `void main(){
+  vec2 uv=screenUV(vUv)*(1.0-uBeat*0.05)*(1.27-uDiffusion*0.45); uv.x+=uBalance*uAudioCoupling*0.12;
+  uv*=rot2((uConvergence-0.3)*1.1*exp(-length(uv)*1.6));
+  float tS=uSpatialTime+uSubCore*uAudioCoupling*0.6; float oct=2.0+floor(uComplexity*3.0);
+  vec2 q=vec2(fbm(uv*(1.4+uComplexity)+vec2(0.0,tS*0.18),oct), fbm(uv*(1.4+uComplexity)+vec2(5.2,-tS*0.15),oct));
+  vec2 r=vec2(fbm(uv*1.8+2.2*q+vec2(1.7,9.2)+tS*0.12,oct), fbm(uv*1.8+2.2*q+vec2(8.3,2.8)-tS*0.10,oct));
+  float f=fbm(uv*1.5+1.8*r,oct);
+  float hue=uColorTime*0.22+uPhaseOffset*0.15915+uStrato*uAudioCoupling*0.35;
+  vec3 col=pal(f*0.85+length(q)*0.4+hue);
+  col*=0.45+0.55*(1.0-smoothstep(0.35,1.35,length(uv)));
+  gl_FragColor=vec4(finish(col),1.0); }`,
+FRACTAL_SPACE: `float mapSDF(vec3 p,float tS){
+  p.z+=tS*0.35; p.xy*=rot2(p.z*0.12+uPhaseOffset*0.25+uBalance*uAudioCoupling*0.3);
+  float a=atan(p.y,p.x), rad=length(p.xy), seg=6.28318/max(1.0,uSymmetry); a=mod(a,seg)-seg*0.5; p.xy=vec2(cos(a),sin(a))*rad;
+  vec3 q=mod(p+1.5,3.0)-1.5; float sc=1.0; int it=2+int(uComplexity*3.0);
+  for(int i=0;i<5;i++){ if(i>=it) break; q=abs(q)-vec3(0.45); q.xy*=rot2(0.4+tS*0.08+uCrossfire*uAudioCoupling*0.2); q*=1.35; sc*=1.35; }
+  return (length(q)-0.35)/sc; }
+void main(){
+  vec2 uv=screenUV(vUv); float tS=uSpatialTime+uSubCore*uAudioCoupling*0.3;
+  vec3 rd=normalize(vec3(uv*(1.3-uDiffusion*0.5),1.3+uBeat*0.15+(uConvergence-0.5)*0.5)); float dist=0.0, glow=0.0;
+  for(int i=0;i<48;i++){ float d=mapSDF(rd*dist,tS); glow+=0.018/(0.04+abs(d)); if(d<0.005||dist>18.0) break; dist+=d*0.75; }
+  vec3 col=pal(dist*0.06+uColorTime*0.15+uPhaseOffset*0.15915)*glow*0.28;
+  col=mix(vec3(0.03,0.05,0.08),col,exp(-0.05*dist));
+  gl_FragColor=vec4(finish(col),1.0); }`,
+CYMATICS: `void main(){
+  vec2 uv=screenUV(vUv); uv.x+=uBalance*uAudioCoupling*0.1;
+  float n=max(2.0,uSymmetry);
+  float k1=(6.0+uComplexity*10.0+uSubCore*uAudioCoupling*4.0)*(1.0+uBeat*0.07+uHit*0.12);
+  float k2=k1*1.618+uCrossfire*uAudioCoupling*6.0;
+  float t=uSpatialTime*0.35, s1=0.0, s2=0.0;
+  for(int i=0;i<16;i++){ if(float(i)>=n) break; float a=3.14159*float(i)/n+uPhaseOffset*0.1; vec2 d=vec2(cos(a),sin(a));
+    s1+=cos(dot(uv,d)*k1+t); s2+=cos(dot(uv,d)*k2-t*0.7); }
+  s1/=n; s2/=n;
+  float field=mix(s1,s2,0.3+0.3*uStrato*uAudioCoupling);
+  float nodal=exp(-abs(field)*(18.0-uConvergence*10.0)*(1.0+uCrisp*1.6));
+  float plate=smoothstep(1.25,0.2,length(uv));
+  vec3 c=pal(field*0.4+length(uv)*0.3+uColorTime*0.15+uPhaseOffset*0.159);
+  vec3 col=vec3(0.02,0.03,0.05)+c*nodal*0.85+c*0.12*(0.5+0.5*field)*uDiffusion;
+  gl_FragColor=vec4(finish(col*plate),1.0); }`,
+TORUS_MANDALA: `void main(){
+  vec2 uv=screenUV(vUv); uv.x+=uBalance*uAudioCoupling*0.08;
+  float breath=1.0+0.08*uSubCore*uAudioCoupling+0.03*sin(uSpatialTime*0.5)+uBeat*0.07+uHit*0.06;
+  float r=length(uv)/breath, a=atan(uv.y,uv.x), n=max(1.0,uSymmetry), seg=6.28318/n;
+  vec3 col=vec3(0.015,0.02,0.035);
+  float rings=3.0+floor(uComplexity*3.0);
+  for(int i=0;i<6;i++){ float fi=float(i); if(fi>=rings) break;
+    float dir=mod(fi,2.0)<0.5?1.0:-1.0;
+    float aa=a+dir*uSpatialTime*(0.06+0.025*fi)+uPhaseOffset*0.2;
+    float fa=mod(aa,seg)-seg*0.5;
+    float ringR=0.16+fi*0.14*(0.75+0.5*uDiffusion);
+    float w=(0.010+0.018*(1.0-uConvergence))*(1.0-0.45*uCrisp);
+    float petal=ringR+0.05*(1.0+fi*0.3)*cos(fa/seg*6.28318);
+    float line=exp(-pow((r-petal)/w,2.0));
+    vec2 p=r*vec2(cos(fa),sin(fa));
+    float loopR=(0.035+fi*0.012)*(1.0+0.25*uStrato*uAudioCoupling);
+    float circ=exp(-pow((length(p-vec2(ringR,0.0))-loopR)/w,2.0));
+    col+=pal(fi*0.17+uColorTime*0.12+r*0.3)*(line*0.55+circ*0.5)*(0.85-fi*0.08); }
+  col+=pal(uColorTime*0.1+0.5)*0.16*exp(-r*r*40.0)*(0.5+uSubCore*uAudioCoupling);
+  col*=1.0-smoothstep(0.9,1.4,r);
+  gl_FragColor=vec4(finish(col),1.0); }`,
+IRIDESCENT_MEMBRANE: `void main(){
+  vec2 uv=screenUV(vUv); uv.x+=uBalance*uAudioCoupling*0.1;
+  float t=uSpatialTime*0.3, r=length(uv);
+  float R=0.4+0.05*uSubCore*uAudioCoupling+0.1*uDiffusion+uBeat*0.035+uHit*0.02;
+  float Rw=R+fbm(vec2(atan(uv.y,uv.x)*1.5,t),3.0)*0.08*(0.4+uComplexity);
+  vec3 bg=vec3(0.012,0.016,0.03)+pal(uColorTime*0.05+0.6)*0.05*exp(-r*1.5);
+  vec3 col=bg+pal(uColorTime*0.1)*0.06*exp(-max(r-Rw,0.0)*8.0)*step(Rw,r);
+  if(r<Rw){
+    vec2 p=uv/Rw; float z=sqrt(max(0.0,1.0-dot(p,p)));
+    float h=fbm(p*2.5+vec2(t*0.6,-t*0.4),2.0+floor(uComplexity*3.0));
+    vec3 nrm=normalize(vec3(p,z)+vec3(h*0.35,-h*0.25,0.0));
+    float cosT=clamp(nrm.z,0.0,1.0), fres=pow(1.0-cosT,2.5);
+    float thick=0.9+h*1.4+uStrato*uAudioCoupling*0.6+uColorTime*0.08+uPhaseOffset*0.05;
+    vec3 film=0.5+0.5*cos(6.28318*(thick*(0.6+0.4*cosT)*vec3(1.0,1.18,1.36)*2.0));
+    float spec=pow(max(0.0,dot(nrm,normalize(vec3(-0.4,0.5,0.8)))),40.0);
+    vec3 surf=film*(0.22+0.78*fres)*(0.6+0.4*uConvergence)+vec3(0.9,0.95,1.0)*spec*0.22;
+    col=mix(col,bg*0.6+surf*0.85,smoothstep(Rw,Rw-0.012,r)); }
+  gl_FragColor=vec4(finish(col),1.0); }`
+};
+const quadMats = {};
+for (const k in FRAGS) quadMats[k] = new THREE.ShaderMaterial({ uniforms: U, vertexShader: VERT, fragmentShader: frag(FRAGS[k]), depthTest: false, depthWrite: false });
+const quadMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), quadMats.RAINBOW_FLOW);
+quadMesh.frustumCulled = false;
+orthoScene.add(quadMesh);
+
+// MODE 3: particles
+const PARTICLE_COUNT = isMobile() ? 9000 : 16000;
+const pGeo = new THREE.BufferGeometry();
+const pPos = new Float32Array(PARTICLE_COUNT * 3), pSeed = new Float32Array(PARTICLE_COUNT * 3);
+for (let i = 0; i < PARTICLE_COUNT; i++) {
+  const u = Math.random() * Math.PI * 2, v = Math.random() * Math.PI * 2;
+  pSeed[i * 3] = u; pSeed[i * 3 + 1] = v; pSeed[i * 3 + 2] = Math.random();
+}
+pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+pGeo.setAttribute('aSeed', new THREE.BufferAttribute(pSeed, 3));
+const particleMat = new THREE.ShaderMaterial({
+  uniforms: U, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  vertexShader: `attribute vec3 aSeed; varying float vHue; varying float vAlpha;\n${UNI}
+  uniform float uFormA, uFormB, uMorph, uScatter;
+  float h1(float n){ return fract(sin(n)*43758.5453); }
+  vec3 form(float f, float u, float v, float t){
+    float z=aSeed.z;
+    if(f<0.5){ // torus with micro-vortices (convergence / diffusion)
+      float diffR=0.65+uDiffusion*1.15+uStrato*uAudioCoupling*0.45;
+      float tight=mix(0.65,0.14,uConvergence);
+      float twist=sin(u*uSymmetry+uPhaseOffset)*(0.25+uConvergence*0.45);
+      float minorR=tight*(0.5+0.5*sin(v*2.0+t+z*6.28));
+      float pull=clamp(uConvergence-uDiffusion*0.5,0.0,0.85)*(0.5+uSubCore*uAudioCoupling);
+      float R=mix(diffR,0.35,pull*0.45);
+      return vec3((R+minorR*cos(v+twist))*cos(u),(R+minorR*cos(v+twist))*sin(u),minorR*sin(v+twist)*1.4);
+    } else if(f<1.5){ // sphere shell, breathing
+      float th=u, ph=acos(2.0*fract(aSeed.y*0.159+0.5)-1.0);
+      float r=(0.9+uDiffusion*0.7)*(1.0+0.08*sin(t*1.3+z*9.0))*(0.85+0.3*h1(z*91.0)*(1.0-uConvergence));
+      return r*vec3(sin(ph)*cos(th),sin(ph)*sin(th),cos(ph));
+    } else if(f<2.5){ // 3-arm spiral galaxy
+      float arm=floor(h1(aSeed.x*7.1)*3.0);
+      float r=0.15+2.1*pow(z,0.8)*(0.7+0.5*uDiffusion);
+      float a=arm*2.0944+r*(2.4-uConvergence)+t*0.35/(0.4+r)+(h1(z*31.0)-0.5)*(0.5-0.3*uConvergence);
+      return vec3(r*cos(a),r*sin(a),(h1(z*53.0)-0.5)*0.25*(1.0+r));
+    } else if(f<3.5){ // helix column
+      float y=(z*2.0-1.0)*2.3;
+      float a=y*2.6+u*0.15+t*0.6+floor(h1(aSeed.x*3.3)*2.0)*3.14159;
+      float r=0.45+0.25*sin(y*1.7+t)+0.25*(h1(z*17.0)-0.5)*(1.0-uConvergence);
+      return vec3(r*cos(a),y,r*sin(a));
+    }
+    // drifting cloud
+    vec3 dir=normalize(vec3(h1(aSeed.x*13.0)-0.5,h1(aSeed.y*7.0)-0.5,h1(z*5.0)-0.5)+1e-4);
+    float r=0.5+1.7*pow(h1(z*29.0),0.6)*(0.6+0.5*uDiffusion);
+    return dir*r+0.35*vec3(sin(t*0.7+z*20.0),cos(t*0.6+aSeed.x*3.0),sin(t*0.5+aSeed.y*4.0));
+  }
+  void main(){
+    float t=uSpatialTime*0.55;
+    float u=aSeed.x+t*(0.2+0.15*aSeed.z), v=aSeed.y+t*0.65;
+    vec3 pos=mix(form(uFormA,u,v,t),form(uFormB,u,v,t),smoothstep(0.0,1.0,uMorph));
+    // scatter: each particle flies off along its own direction and wanders
+    vec3 sdir=normalize(vec3(h1(aSeed.x*19.0)-0.5,h1(aSeed.y*23.0)-0.5,h1(aSeed.z*29.0)-0.5)+1e-4);
+    vec3 far=pos*1.15+sdir*(0.6+1.5*h1(aSeed.z*41.0))+0.5*vec3(sin(t*0.9+aSeed.z*30.0),cos(t*0.8+aSeed.x*5.0),sin(t*0.7+aSeed.y*6.0));
+    float sc=clamp(uScatter*(0.6+0.8*h1(aSeed.z*61.0)),0.0,1.0);
+    pos=mix(pos,far,sc*sc*(3.0-2.0*sc));
+    // hit burst (kick): push outward, each particle by a different amount, then it springs back
+    pos+=normalize(pos+1e-4)*uHit*(0.15+0.75*aSeed.z);
+    pos*=1.0+uBeat*0.06;
+    vHue=fract(aSeed.z*0.35+u/6.28318+uColorTime*0.12+uPhaseOffset*0.08+sc*0.15);
+    vec4 mv=modelViewMatrix*vec4(pos,1.0);
+    vAlpha=(0.25+0.45*(1.0-aSeed.z))*uExposure*(1.0-0.3*sc)*smoothstep(0.7,1.8,-mv.z);
+    gl_PointSize=min(9.0,(2.8+2.2*(1.0-aSeed.z))*(2.5/max(0.4,-mv.z)))*(uResolution.y/900.0+0.4);
+    gl_Position=projectionMatrix*mv; }`,
+  fragmentShader: `precision highp float; varying float vHue; varying float vAlpha; uniform float uLuminanceCap; uniform float uCrisp;
+  void main(){ float d=length(gl_PointCoord-0.5); if(d>0.5) discard;
+    vec3 c=0.48+0.42*cos(6.28318*(vHue+vec3(0.0,0.33,0.67))); float m=max(max(c.r,c.g),c.b); if(m>uLuminanceCap) c*=uLuminanceCap/m;
+    gl_FragColor=vec4(c,smoothstep(0.5,mix(0.05,0.38,uCrisp),d)*vAlpha); }`
+});
+const particles = new THREE.Points(pGeo, particleMat);
+particles.frustumCulled = false;
+scene.add(particles);
+
+// Layer compositing: each visible pattern renders to its own target, then a screen-blend composite applies the cap
+const RT_SCALE = isMobile() ? .5 : .7, targets = {};
+let rtW = 0, rtH = 0;
+function ensureTargets() {
+  const size = renderer.getDrawingBufferSize(new THREE.Vector2());
+  const w = Math.max(2, Math.round(size.x * RT_SCALE)), h = Math.max(2, Math.round(size.y * RT_SCALE));
+  if (w === rtW && h === rtH) return;
+  rtW = w; rtH = h;
+  MODE_ORDER_ALL.forEach(m => { if (targets[m]) targets[m].dispose(); targets[m] = new THREE.WebGLRenderTarget(w, h, { depthBuffer: true }); });
+}
+const MODE_ORDER_ALL = ['RAINBOW_FLOW', 'FRACTAL_SPACE', 'CONVERGENCE_DIFFUSION', 'CYMATICS', 'TORUS_MANDALA', 'IRIDESCENT_MEMBRANE'];
+const blackTex = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1); blackTex.needsUpdate = true;
+const compU = { uCap: { value: .8 }, uExp: { value: 1 } };
+for (let i = 0; i < 6; i++) { compU['t' + i] = { value: blackTex }; compU['w' + i] = { value: 0 }; }
+const compMat = new THREE.ShaderMaterial({
+  uniforms: compU, vertexShader: VERT, depthTest: false, depthWrite: false,
+  fragmentShader: `precision highp float; varying vec2 vUv;
+  uniform sampler2D t0,t1,t2,t3,t4,t5; uniform float w0,w1,w2,w3,w4,w5,uCap,uExp;
+  void main(){
+    vec3 inv=vec3(1.0);
+    inv*=1.0-w0*texture2D(t0,vUv).rgb; inv*=1.0-w1*texture2D(t1,vUv).rgb; inv*=1.0-w2*texture2D(t2,vUv).rgb;
+    inv*=1.0-w3*texture2D(t3,vUv).rgb; inv*=1.0-w4*texture2D(t4,vUv).rgb; inv*=1.0-w5*texture2D(t5,vUv).rgb;
+    vec3 c=1.0-inv; float m=max(max(c.r,c.g),c.b); if(m>uCap) c*=uCap/m;
+    gl_FragColor=vec4(c*uExp,1.0); }`
+});
+const compScene = new THREE.Scene();
+const compMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), compMat); compMesh.frustumCulled = false; compScene.add(compMesh);
+function renderMix() {
+  ensureTargets();
+  const exp = U.uExposure.value, cap = U.uLuminanceCap.value;
+  U.uExposure.value = 1; U.uLuminanceCap.value = 1;
+  mix.layers.forEach((l, i) => {
+    const idx = MODE_ORDER_ALL.indexOf(l.mode);
+    compU['w' + idx].value = l.w;
+    if (l.w < .004) { compU['t' + idx].value = blackTex; return; }
+    renderer.setRenderTarget(targets[l.mode]);
+    renderer.setClearColor(0x000000, 1); renderer.clear();
+    applyMode(l.mode);
+    if (l.mode === 'CONVERGENCE_DIFFUSION') renderer.render(scene, camera);
+    else { quadMesh.material = quadMats[l.mode]; renderer.render(orthoScene, orthoCamera); }
+    compU['t' + idx].value = targets[l.mode].texture;
+  });
+  renderer.setRenderTarget(null);
+  U.uExposure.value = exp; U.uLuminanceCap.value = cap;
+  compU.uCap.value = cap; compU.uExp.value = exp;
+  renderer.render(compScene, orthoCamera);
+  if (quadMats[rt.activeMode]) quadMesh.material = quadMats[rt.activeMode];
+}
+
+// ============ 4. UI, PRESETS, CALM-STOP ============
+const MODE_ORDER = ['RAINBOW_FLOW', 'FRACTAL_SPACE', 'CONVERGENCE_DIFFUSION', 'CYMATICS', 'TORUS_MANDALA', 'IRIDESCENT_MEMBRANE'];
+const PHASE_HINTS = {
+  slow_drift: '映像は音を「最大遅延」の範囲でゆっくり揺れる遅延量で追従し、色相も位相ドリフトします。',
+  sync: '音の特徴量を遅延なしで映像へ反映します。',
+  fixed_offset: '音の特徴量を一定時間遅らせて映像へ反映します（色相は90°固定オフセット）。',
+  independent: '音は映像に一切影響しません（結合度は無視）。'
+};
+function syncUI() {
+  SLIDER_KEYS.forEach(k => {
+    const el = $('param-' + k), v = $('val-' + k);
+    if (el) el.value = params[k];
+    if (v) v.textContent = k === 'symmetry' ? String(params[k]) : Number(params[k]).toFixed(k === 'phaseDriftRate' ? 3 : 2);
+  });
+  $('param-phaseMode').value = params.phaseMode;
+  $('param-motionMode').value = params.motionMode;
+  $('param-viewMode').value = params.viewMode;
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('dim', params.viewMode === 'mix'));
+  $('phase-hint').textContent = PHASE_HINTS[params.phaseMode];
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === params.mode));
+}
+function setMode(m) {
+  if (!FRAGS[m] && m !== 'CONVERGENCE_DIFFUSION') return;
+  if (params.mode !== m) logEvent('mode', m);
+  params.mode = m; syncUI();
+}
+function restoreAudio() {
+  if (!audioCtx) return;
+  setGain(MASTER, .6);
+  if (rt.resumeWhat === 'track' && audioEl.src) audioEl.play().catch(() => {});
+  else if (rt.resumeWhat === 'drone') startDrone();
+  rt.resumeWhat = null;
+}
+function wakeFromCalmStop(resumeAudio = true) {
+  if (rt.isCalmStopped) {
+    rt.isCalmStopped = false; logEvent('calm_stop', 'resume');
+    if (resumeAudio) restoreAudio(); else { rt.resumeWhat = null; setGain(MASTER, .4); }
+  }
+  updateBadge();
+}
+function triggerCalmStop() {
+  if (rt.isCalmStopped) return;
+  rt.isCalmStopped = true; logEvent('calm_stop', 'stop');
+  rt.resumeWhat = isDronePlaying ? 'drone' : (audioEl.src && !audioEl.paused ? 'track' : null);
+  if (masterGain && audioCtx) {
+    const t = audioCtx.currentTime, g = masterGain.gain;
+    g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.setTargetAtTime(.0001, t, .16);
+    setTimeout(() => {
+      if (!rt.isCalmStopped) return;
+      if (!audioEl.paused) audioEl.pause();
+      if (isDronePlaying) stopDrone();
+    }, 550);
+  }
+  if (seq.running) toggleSeq();
+  updateBadge();
+}
+function updateBadge() {
+  const b = $('status-badge');
+  b.classList.toggle('vac', rt.inVacuum && !rt.isCalmStopped);
+  b.textContent = rt.isCalmStopped ? 'CALM-STOPPED（Spaceで再開）' : rt.inVacuum ? 'VACUUM · 静止中' : (rt.sessionStart ? 'ACTIVE (NO STROBE)' : 'READY (NO STROBE)');
+  $('calm-stop-btn').textContent = isMobile() ? (rt.isCalmStopped ? '再開' : '停止') : (rt.isCalmStopped ? '再開 [Space]' : 'Calm-Stop');
+  $('calm-stop-btn').classList.toggle('btn-danger', !rt.isCalmStopped);
+  $('calm-stop-btn').classList.toggle('btn-accent', rt.isCalmStopped);
+}
+
+document.querySelectorAll('.mode-btn').forEach(b => b.addEventListener('click', () => { setMode(b.dataset.mode); params.preset = 'CUSTOM'; if (params.viewMode === 'mix') { params.viewMode = 'single'; syncUI(); } }));
+SLIDER_KEYS.forEach(k => $('param-' + k).addEventListener('input', e => { params[k] = parseFloat(e.target.value); syncUI(); }));
+$('param-motionMode').addEventListener('change', e => { params.motionMode = e.target.value; logEvent('motion_mode', params.motionMode); });
+$('param-phaseMode').addEventListener('change', e => { params.phaseMode = e.target.value; logEvent('phase_mode', params.phaseMode); syncUI(); });
+$('btn-color-only').addEventListener('click', () => { params.colorFlowSpeed = .4; params.spatialFlowSpeed = 0; syncUI(); });
+$('btn-shape-only').addEventListener('click', () => { params.colorFlowSpeed = 0; params.spatialFlowSpeed = .35; syncUI(); });
+$('btn-both-flow').addEventListener('click', () => { params.colorFlowSpeed = .35; params.spatialFlowSpeed = .2; syncUI(); });
+
+const PRESETS = {
+  NIRVANA_VELVET: { label: 'NIRVĀṆA & VELVET', mode: 'RAINBOW_FLOW', audioCoupling: .45, phaseMode: 'slow_drift', phaseDelay: .8, phaseDriftRate: .025, colorFlowSpeed: .35, spatialFlowSpeed: .15, geometryComplexity: .45, luminanceCap: .78 },
+  GENESIS_CONTINUUM: { label: 'GENESIS CONTINUUM', mode: 'CONVERGENCE_DIFFUSION', audioCoupling: .6, phaseMode: 'fixed_offset', phaseDelay: .5, phaseDriftRate: 0, colorFlowSpeed: .25, spatialFlowSpeed: .25, convergence: .65, diffusion: .65, symmetry: 8, luminanceCap: .8 },
+  PRIMAL_ORIGIN: { label: 'PRIMAL ORIGIN', mode: 'CYMATICS', audioCoupling: .5, phaseMode: 'sync', phaseDelay: 0, phaseDriftRate: 0, colorFlowSpeed: .3, spatialFlowSpeed: .25, geometryComplexity: .55, convergence: .55, diffusion: .5, symmetry: 8, luminanceCap: .78 },
+  BIJA_OVERDRIVE: { label: 'BĪJA OVERDRIVE', mode: 'TORUS_MANDALA', audioCoupling: .55, phaseMode: 'slow_drift', phaseDelay: .6, phaseDriftRate: .04, colorFlowSpeed: .3, spatialFlowSpeed: .22, geometryComplexity: .75, convergence: .6, diffusion: .55, symmetry: 12, luminanceCap: .75 },
+  COLOR_ONLY: { label: 'Exp A: Color Only', mode: 'RAINBOW_FLOW', audioCoupling: .4, phaseMode: 'slow_drift', colorFlowSpeed: .45, spatialFlowSpeed: 0, luminanceCap: .78 },
+  SHAPE_ONLY: { label: 'Exp B: Shape Only', mode: 'RAINBOW_FLOW', audioCoupling: .4, phaseMode: 'slow_drift', colorFlowSpeed: 0, spatialFlowSpeed: .35, luminanceCap: .78 },
+  MEMBRANE_STILL: { label: 'Exp C: Membrane Still', mode: 'IRIDESCENT_MEMBRANE', audioCoupling: .5, phaseMode: 'sync', phaseDelay: 0, colorFlowSpeed: .15, spatialFlowSpeed: .05, geometryComplexity: .4, convergence: .6, diffusion: .4, luminanceCap: .75 }
+};
+function applyPreset(key, source = 'preset') {
+  const p = PRESETS[key]; if (!p) return;
+  const { label, mode, ...rest } = p;
+  Object.assign(params, rest); params.preset = key;
+  setMode(mode); syncUI();
+  $('preset-select').value = key;
+  logEvent(source, key);
+}
+$('preset-select').addEventListener('change', e => { if (PRESETS[e.target.value]) { applyPreset(e.target.value); wakeFromCalmStop(); } });
+
+// Sequencer
+const seq = { running: false, cur: 'A', remain: 0 };
+const presetOptions = Object.entries(PRESETS).map(([k, p]) => `<option value="${k}">${p.label}</option>`).join('');
+$('seq-a').innerHTML = presetOptions; $('seq-b').innerHTML = presetOptions;
+$('seq-a').value = 'COLOR_ONLY'; $('seq-b').value = 'SHAPE_ONLY';
+function toggleSeq() {
+  seq.running = !seq.running;
+  $('seq-toggle').textContent = seq.running ? '停止' : '開始';
+  $('seq-toggle').classList.toggle('on', seq.running);
+  if (seq.running) {
+    seq.cur = 'A'; seq.remain = +$('seq-interval').value;
+    if (!rt.sessionStart) rt.sessionStart = Date.now();
+    applyPreset($('seq-a').value, 'condition_A');
+    wakeFromCalmStop();
+  } else { $('seq-status').textContent = 'OFF'; logEvent('sequencer', 'stop'); }
+}
+$('seq-toggle').addEventListener('click', toggleSeq);
+function tickSeq(dt) {
+  if (!seq.running) return;
+  seq.remain -= dt;
+  if (seq.remain <= 0) {
+    seq.cur = seq.cur === 'A' ? 'B' : 'A'; seq.remain = +$('seq-interval').value;
+    applyPreset($(seq.cur === 'A' ? 'seq-a' : 'seq-b').value, 'condition_' + seq.cur);
+  }
+  const s = Math.max(0, Math.ceil(seq.remain));
+  $('seq-status').textContent = `${seq.cur} · ${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+}
+
+// Audio UI
+$('audio-file-input').addEventListener('change', e => { if (e.target.files.length) addFilesToPlaylist(e.target.files); });
+$('audio-folder-input').addEventListener('change', e => { if (e.target.files.length) addFilesToPlaylist(e.target.files); });
+$('next-track-btn').addEventListener('click', () => { if (playlist.length) playTrackAt((currentTrackIdx + 1) % playlist.length); });
+const dropZone = $('drop-zone');
+['dragenter', 'dragover'].forEach(ev => window.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.add('drop-active'); }));
+['dragleave', 'drop'].forEach(ev => window.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.remove('drop-active'); }));
+window.addEventListener('drop', e => { if (e.dataTransfer && e.dataTransfer.files.length) addFilesToPlaylist(e.dataTransfer.files); });
+$('play-pause-btn').addEventListener('click', () => {
+  ensureAudioContext();
+  if (isDronePlaying) { toggleTestDrone(); return; }
+  if (audioEl.src) {
+    if (audioEl.paused) { wakeFromCalmStop(false); audioEl.play().catch(() => {}); } else audioEl.pause();
+  } else if (playlist.length) playTrackAt(0);
+  else $('audio-source-label').textContent = '曲を読み込むか Test Drone';
+});
+$('test-drone-btn').addEventListener('click', toggleTestDrone);
+
+// Panels / sheets
+const hud = $('hud-panel'), logModal = $('log-modal');
+if (isMobile()) hud.classList.add('hidden');
+container.addEventListener('click', () => { if (isMobile()) { hud.classList.add('hidden'); logModal.classList.remove('open'); } });
+const toggleHud = () => { hud.classList.toggle('hidden'); if (isMobile() && !hud.classList.contains('hidden')) logModal.classList.remove('open'); };
+const toggleLog = () => { logModal.classList.toggle('open'); if (isMobile() && logModal.classList.contains('open')) hud.classList.add('hidden'); };
+$('toggle-hud-btn').addEventListener('click', toggleHud);
+$('toggle-log-btn').addEventListener('click', toggleLog);
+$('close-log-btn').addEventListener('click', () => logModal.classList.remove('open'));
+document.querySelectorAll('.sheet-grip').forEach(g => g.addEventListener('click', () => $(g.dataset.sheet).classList.toggle('full')));
+$('calm-stop-btn').addEventListener('click', () => rt.isCalmStopped ? wakeFromCalmStop() : triggerCalmStop());
+const toggleFs = () => {
+  try { if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {}); else document.exitFullscreen(); } catch (e) {}
+};
+$('fullscreen-btn').addEventListener('click', toggleFs);
+$('accept-safety-btn').addEventListener('click', () => { $('safety-overlay').style.display = 'none'; rt.sessionStart = Date.now(); logEvent('session', 'start'); updateBadge(); });
+
+// Ratings
+const RATINGS = [
+  ['alteredStateShift', '変性意識的シフト', 0], ['pleasantness', '快適さ', 3], ['wakefulnessClarity', '覚醒の明晰さ', 4],
+  ['spatialOrTimeDistortion', '空間・時間の歪み', 0], ['bodyBoundarySoftening', '身体境界のゆるみ', 0], ['physicalDiscomfortOrDizziness', '不快感・めまい', 0]
+];
+$('rating-rows').innerHTML = RATINGS.map(([k, l, v]) => `<div class="control-row"><div class="control-header"><span>${l} (0–5)</span><span class="control-val" id="lval-${k}">${v}</span></div><input type="range" id="log-${k}" min="0" max="5" step="1" value="${v}"></div>`).join('');
+RATINGS.forEach(([k]) => $('log-' + k).addEventListener('input', e => { $('lval-' + k).textContent = e.target.value; if (k === 'physicalDiscomfortOrDizziness' && +e.target.value >= 3) $('log-status').textContent = '不快感が強い場合は Calm-Stop で休憩してください。'; }));
+
+function buildPayload() {
+  const r = {}; RATINGS.forEach(([k]) => r[k] = Number($('log-' + k).value));
+  return {
+    sessionId: new Date().toISOString().replace(/[:.]/g, '-'),
+    audioTrack: rt.track,
+    neuralMantraModel: params.preset !== 'CUSTOM' && PRESETS[params.preset] ? PRESETS[params.preset].label : 'CUSTOM',
+    durationSec: rt.sessionStart ? Math.round((Date.now() - rt.sessionStart) / 1000) : 0,
+    visualMode: params.mode,
+    parameters: {
+      audioCoupling: params.audioCoupling, phaseMode: params.phaseMode, phaseDelaySec: params.phaseDelay, phaseDriftRate: params.phaseDriftRate,
+      colorFlowSpeed: params.colorFlowSpeed, spatialFlowSpeed: params.spatialFlowSpeed, convergence: params.convergence, diffusion: params.diffusion,
+      geometryComplexity: params.geometryComplexity, symmetry: params.symmetry, luminanceCap: params.luminanceCap, maxSpeedCap: params.maxSpeed,
+      tempoLink: params.tempoLink, beatPulse: params.beatPulse, bpm: tempoBpm() ? Math.round(tempoBpm() * 10) / 10 : null, bpmSource: tempoSource(), musicDrive: params.musicDrive, rhythmDrive: params.rhythmDrive, motionMode: params.motionMode, motionRange: params.motionRange
+    },
+    layers: params.viewMode === 'mix' ? mix.layers.map(l => ({ mode: l.mode, source: l.src })) : null,
+    viewMode: params.viewMode,
+    subjectiveRatings: r,
+    notes: $('log-notes').value,
+    events: events.slice()
+  };
+}
+function toMarkdown(p) {
+  const rows = o => Object.entries(o).map(([k, v]) => `| ${k} | ${v} |`).join('\n');
+  const ev = p.events.filter(e => e.type !== 'vacuum_cut').map(e => `- ${e.t}s · ${e.type}: ${e.value}`).join('\n') || '- なし';
+  const vac = p.events.filter(e => e.type === 'vacuum_cut' && e.value === 'enter').length;
+  return `# Technodelic Visual Lab セッション ${p.sessionId}\n\n- 楽曲: ${p.audioTrack}\n- モデル: ${p.neuralMantraModel}\n- モード: ${p.visualMode}\n- 時間: ${p.durationSec}秒\n- 真空断の検出: ${vac}回\n\n## パラメータ\n| 項目 | 値 |\n|---|---|\n${rows(p.parameters)}\n\n## 主観評価 (0–5)\n| 項目 | 値 |\n|---|---|\n${rows(p.subjectiveRatings)}\n\n## メモ\n${p.notes || '（なし）'}\n\n## イベント\n${ev}\n`;
+}
+async function copyText(text, okMsg) {
+  try { await navigator.clipboard.writeText(text); $('log-status').textContent = okMsg; return; } catch (e) {}
+  const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
+  let ok = false; try { ok = document.execCommand('copy'); } catch (e) {}
+  ta.remove(); $('log-status').textContent = ok ? okMsg : 'コピーできませんでした';
+}
+$('copy-json-btn').addEventListener('click', () => copyText(JSON.stringify(buildPayload(), null, 2), 'JSON をコピーしました'));
+$('copy-md-btn').addEventListener('click', () => copyText(toMarkdown(buildPayload()), 'Markdown をコピーしました'));
+let dlApi = null;
+if (window.claude && typeof window.claude.use === 'function') window.claude.use('downloads').then(d => { dlApi = d; }).catch(() => {});
+$('download-btn').addEventListener('click', async () => {
+  const p = buildPayload();
+  if (dlApi) {
+    try { await dlApi.save({ filename: `technodelic_log_${p.sessionId}.json`, data: JSON.stringify(p, null, 2) }); $('log-status').textContent = '保存しました'; }
+    catch (e) { $('log-status').textContent = '保存がキャンセルされました（コピーも使えます）'; }
+    return;
+  }
+  try {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(p, null, 2)], { type: 'application/json' }));
+    a.download = `technodelic_log_${p.sessionId}.json`; a.click();
+    $('log-status').textContent = 'ダウンロードを開始しました（無効な環境ではコピーを使用）';
+  } catch (e) { $('log-status').textContent = 'この環境ではダウンロードできません'; }
+});
+const readHistory = () => { try { return JSON.parse(store.get('tvl_sessions') || '[]'); } catch (e) { return []; } };
+const showHistory = () => { $('history-info').textContent = `ブラウザ内の履歴: ${readHistory().length} 件（最大30件）`; };
+$('save-history-btn').addEventListener('click', () => {
+  const h = readHistory(); h.push(buildPayload()); while (h.length > 30) h.shift();
+  store.set('tvl_sessions', JSON.stringify(h)); showHistory(); $('log-status').textContent = '履歴に追加しました';
+});
+$('copy-history-btn').addEventListener('click', () => copyText(JSON.stringify(readHistory(), null, 2), '履歴（全件）をコピーしました'));
+showHistory();
+
+// Display options
+$('opt-quality').addEventListener('change', () => { applyQuality(); });
+function applyQuality() {
+  const q = $('opt-quality').value;
+  if (q === 'high') pixelRatio = Math.min(DPR, 2); else if (q === 'mid') pixelRatio = 1; else if (q === 'low') pixelRatio = .6;
+  renderer.setPixelRatio(pixelRatio); renderer.setSize(window.innerWidth, window.innerHeight);
+  $('val-dpr').textContent = pixelRatio.toFixed(2) + 'x';
+}
+let idleTimer = 0;
+const poke = () => { idleTimer = 0; document.body.classList.remove('idle'); };
+['mousemove', 'pointerdown', 'keydown', 'touchstart', 'wheel'].forEach(ev => window.addEventListener(ev, poke, { passive: true }));
+
+// Keyboard
+window.addEventListener('keydown', e => {
+  const tag = e.target.tagName, type = (e.target.type || '').toLowerCase();
+  const typing = tag === 'TEXTAREA' || (tag === 'INPUT' && type === 'text') || tag === 'SELECT';
+  if (e.code === 'Escape') { e.preventDefault(); triggerCalmStop(); return; }   // always works
+  if (typing) return;
+  if (e.code === 'Space') { e.preventDefault(); rt.isCalmStopped ? wakeFromCalmStop() : triggerCalmStop(); }
+  else if (e.key === 'h' || e.key === 'H') toggleHud();
+  else if (e.key === 'l' || e.key === 'L') toggleLog();
+  else if (e.key === 'f' || e.key === 'F') toggleFs();
+  else if (/^[1-6]$/.test(e.key)) { setMode(MODE_ORDER[+e.key - 1]); params.preset = 'CUSTOM'; params.viewMode = 'single'; syncUI(); }
+  else if (e.key === 'm' || e.key === 'M') { params.viewMode = params.viewMode === 'mix' ? 'single' : 'mix'; syncUI(); }
+});
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.position.z = camera.aspect < 1 ? 3.2 / Math.max(camera.aspect, .5) : 3.2;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  U.uResolution.value.set(window.innerWidth, window.innerHeight);
+});
+window.dispatchEvent(new Event('resize'));
+
+// ============ 5. MAIN LOOP ============
+let last = performance.now(), fpsAcc = 0, fpsN = 0, fpsT = 0, lowT = 0, highT = 0;
+function animate(now) {
+  requestAnimationFrame(animate);
+  const rawDt = (now - last) / 1000; last = now;
+  const dt = Math.min(rawDt, .05), nowSec = now / 1000;
+
+  updateAudioFeatures(dt, nowSec);
+  updateOnset(nowSec);
+  updateSources(dt);
+  detectHits();
+  updateMix(dt, nowSec);
+  tickSeq(rt.isCalmStopped ? 0 : dt);
+
+  // inertial parameter smoothing (no sudden pattern jumps)
+  const k = 1 - Math.exp(-dt / .4);
+  SMOOTH_KEYS.forEach(key => { live[key] += (params[key] - live[key]) * k; });
+
+  // mode transition: fade down -> switch -> fade up
+  const fadeTarget = params.mode !== rt.activeMode ? 0 : 1;
+  rt.transFade += (fadeTarget - rt.transFade) * (1 - Math.exp(-dt / .12));
+  if (fadeTarget === 0 && rt.transFade < .04) {
+    rt.activeMode = params.mode;
+    if (quadMats[rt.activeMode]) quadMesh.material = quadMats[rt.activeMode];
+  }
+
+  // calm-stop & vacuum factors
+  rt.calm += ((rt.isCalmStopped ? 0 : 1) - rt.calm) * (1 - Math.exp(-dt / .16));
+  const vt = rt.inVacuum ? 0 : 1;
+  rt.vacuumF += (vt - rt.vacuumF) * (1 - Math.exp(-dt / (vt < rt.vacuumF ? .18 : .6)));
+  const slow = rt.calm * (.15 + .85 * rt.vacuumF);
+
+  // exposure with frame-to-frame slew limit (max 1.2 per second)
+  const expTarget = (.25 + .75 * rt.calm) * (.55 + .45 * rt.vacuumF) * rt.transFade;
+  const maxStep = 1.2 * dt;
+  rt.exposure += Math.max(-maxStep, Math.min(maxStep, expTarget - rt.exposure));
+
+  // independent clocks, capped by Max Speed
+  const bpm = params.phaseMode === 'independent' ? 0 : tempoBpm();
+  const tMul = bpm > 0 ? 1 + (Math.min(1.6, Math.max(.55, bpm / 100)) - 1) * params.tempoLink : 1;
+  rt.tempoMul += (tMul - rt.tempoMul) * (1 - Math.exp(-dt / 1.5));
+  const cs = Math.min(live.colorFlowSpeed * (1 + (rt.tempoMul - 1) * .5), params.maxSpeed), ss = Math.min(live.spatialFlowSpeed * rt.tempoMul, params.maxSpeed);
+  // Motion engine: signed velocity with inertia (forward / slow / backward)
+  const bpmM = bpm || 100;
+  rt.beatClock += dt * (bpmM / 60) * slow;
+  const R = params.motionRange, liveSrc = sourceActive() && params.phaseMode !== 'independent' && live.audioCoupling > 0;
+  const densM = Math.min(1, music.dens / 6);
+  let vT = 1, cT = 1;
+  if (params.motionMode === 'musical') {
+    const sway = Math.sin(6.28318 * rt.beatClock / 32);                       // 8-bar swell
+    const quiet = liveSrc && music.long > .005 ? Math.max(0, 1 - music.short / (music.long * .7)) : 0;
+    const drive = liveSrc ? music.dyn * .7 + music.acc * 1.0 + (densM - .3) * .6 - quiet * 1.4 : 0;
+    const sway2 = Math.sin(6.28318 * rt.beatClock / 20 + 1.3);             // 5-bar wave: never lines up with the 8-bar one
+    vT = .7 + R * (drive + sway * 1.1 + sway2 * .8);
+    cT = 1 + R * .5 * (drive * .8 + sway * .8 + sway2 * .3);
+  } else if (params.motionMode === 'pendulum') {
+    const sw = Math.cos(6.28318 * rt.beatClock / 16);                           // 4 bars there, 4 back... (16 beats per cycle)
+    vT = (1 - R) + R * 1.3 * sw + (liveSrc ? music.acc * .6 * R : 0);
+    cT = 1 - R * .5 + R * .5 * sw;
+  }
+  vT = Math.max(-1.0, Math.min(1.6, vT)); cT = Math.max(-.7, Math.min(1.6, cT));
+  // under-damped spring: surges overshoot and swing back a little, like a body settling
+  rt.vacc = 5 * (vT - rt.vel) - 2.4 * (rt.vdot || 0);
+  rt.vdot = (rt.vdot || 0) + rt.vacc * dt;
+  rt.vel = Math.max(-1.1, Math.min(1.7, rt.vel + rt.vdot * dt));
+  rt.cvel += (cT - rt.cvel) * (1 - Math.exp(-dt / .9));
+  const sv = Math.max(-params.maxSpeed, Math.min(params.maxSpeed, ss * rt.vel));
+  const cv = Math.max(-params.maxSpeed, Math.min(params.maxSpeed, cs * rt.cvel));
+  rt.colorClock += dt * cv * 2 * slow;
+  rt.spatialClock += dt * sv * 2 * slow;
+  rt.sv2 = sv * 2;
+
+  // phase engine: real audio->visual delay + hue phase
+  let coupling = live.audioCoupling;
+  if (params.phaseMode === 'sync') { rt.delay = 0; rt.huePhase = 0; }
+  else if (params.phaseMode === 'fixed_offset') { rt.delay = params.phaseDelay; rt.huePhase = Math.PI / 2; }
+  else if (params.phaseMode === 'slow_drift') {
+    rt.phaseAccum += dt * params.phaseDriftRate * slow;
+    rt.delay = params.phaseDelay * (.5 - .5 * Math.cos(rt.phaseAccum * 4));
+    rt.huePhase = rt.phaseAccum;
+  } else { rt.huePhase += dt * .07 * slow; rt.delay = 0; coupling = 0; }
+  // Sync layer: 位相遅延に加えて出力レイテンシ (base+output+手動オフセット) を補正し、
+  // 「今聞こえている音」の特徴で描く。phaseMode='sync' が聞こえている音基準の真のゼロになる。
+  const d = sampleDelayed(nowSec, rt.delay + syncLatencySec);
+  // beat pulse (raised cosine, half-time above 130 BPM) — geometry only, never luminance
+  let pulseT = 0;
+  if (bpm > 0 && usingAnal()) {
+    const half = bpm > 130, ph = half ? ((mix.beatIdx % 2 + 2) % 2 + mix.phase) / 2 : mix.phase;
+    pulseT = .5 + .5 * Math.cos(6.28318 * ph);
+  } else if (bpm > 0 && tempo.t0 && sourceActive()) {
+    const P = (60 / bpm) * (bpm > 130 ? 2 : 1), ph = (((nowSec - rt.delay - syncLatencySec - tempo.t0) / P) % 1 + 1) % 1;
+    pulseT = .5 + .5 * Math.cos(6.28318 * ph);
+  }
+  tempo.pulse += (pulseT - tempo.pulse) * (1 - Math.exp(-dt / .07));
+  const audioScale = .35 + .65 * rt.vacuumF;
+  vis.subCore = d.sub * audioScale; vis.mudBand = d.mud; vis.crossfire = d.cf * audioScale; vis.strato = d.st * audioScale; vis.balance = d.bal;
+
+  U.uColorTime.value = rt.colorClock; U.uSpatialTime.value = rt.spatialClock; U.uPhaseOffset.value = rt.huePhase;
+  U.uSubCore.value = vis.subCore; U.uMud.value = vis.mudBand; U.uCrossfire.value = vis.crossfire; U.uStrato.value = vis.strato; U.uBalance.value = vis.balance;
+  // Music Drive: pitch / dynamics / accents -> convergence & diffusion, rhythm density -> dynamism
+  const mdOn = coupling > 0 && sourceActive() ? 1 : 0;
+  const md = params.musicDrive * mdOn * rt.vacuumF, rd = params.rhythmDrive * mdOn * rt.vacuumF;
+  const densN = Math.min(1, music.dens / 6);
+  const convT = Math.min(1, Math.max(0, live.convergence + md * ((.5 - music.pitch) * .6 - music.dyn * .25 + music.acc * .3)));
+  const diffT = Math.min(1, Math.max(0, live.diffusion + md * ((music.pitch - .5) * .6 + music.dyn * .3 - music.acc * .15)));
+  const dynmT = rd * densN;
+  const kk = 1 - Math.exp(-dt / .25);
+  music.conv += (convT - music.conv) * kk; music.diff += (diffT - music.diff) * kk; music.dynm += (dynmT - music.dynm) * kk;
+  U.uAudioCoupling.value = Math.min(1, coupling * (1 + music.dynm * .6));
+  U.uComplexity.value = Math.min(1, Math.max(.1, live.geometryComplexity + (music.dynm - rd * .25) * .45)); U.uSymmetry.value = live.symmetry;
+  U.uConvergence.value = music.conv; U.uDiffusion.value = music.diff;
+  U.uLuminanceCap.value = live.luminanceCap; U.uExposure.value = rt.exposure;
+  rt.beatU = tempo.pulse * params.beatPulse * rt.calm * rt.vacuumF;
+  U.uBeat.value = rt.beatU;
+  updateModeStates(dt, rt.sv2, slow);
+  updateParticles(dt);
+
+  // HUD readouts
+  $('ro-delay').textContent = (coupling > 0 ? rt.delay.toFixed(2) : '—') + (coupling > 0 ? 's' : '');
+  const bar = (id, v, txt) => { $('db-' + id).style.width = (Math.min(1, Math.max(0, v)) * 100).toFixed(1) + '%'; $('dv-' + id).textContent = txt; };
+  const act = sourceActive();
+  bar('pitch', music.pitch, act ? (music.pitch > .58 ? '高' : music.pitch < .42 ? '低' : '中') : '—');
+  bar('dens', densN, act ? music.dens.toFixed(1) + '/s' : '—');
+  bar('dyn', .5 + music.dyn * .5, act ? (music.dyn > .15 ? '↑' : music.dyn < -.15 ? '↓' : '→') : '—');
+  bar('acc', music.acc, act ? music.acc.toFixed(2) : '—');
+  bar('conv', music.conv, music.conv.toFixed(2)); bar('diff', music.diff, music.diff.toFixed(2)); bar('dynm', music.dynm, music.dynm.toFixed(2));
+  $('dir-dot').style.left = `calc(${50 + Math.max(-1, Math.min(1, rt.vel / 1.6)) * 45}% - 5px)`;
+  $('dir-label').textContent = (rt.vel < -.05 ? '◀ ' : rt.vel > .05 ? '▶ ' : '■ ') + Math.abs(rt.vel).toFixed(2);
+  $('ro-bpm').textContent = tempoBpm() ? tempoBpm().toFixed(1) : '—';
+  $('tempo-src').textContent = tempoSource();
+  $('ro-tempomul').textContent = '×' + rt.tempoMul.toFixed(2);
+  $('beat-dot').style.transform = `scale(${.6 + .6 * tempo.pulse * (params.beatPulse > 0 ? 1 : 0)})`;
+  $('ro-vacuum').textContent = !$('opt-vacuum').checked ? 'OFF' : rt.inVacuum ? '静止中' : '待機';
+  if (rt.sessionStart) {
+    const sec = Math.floor((Date.now() - rt.sessionStart) / 1000);
+    $('timer-display').textContent = `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
+  }
+
+  // auto-hide UI
+  if ($('opt-autohide').checked) { idleTimer += rawDt; if (idleTimer > 6) document.body.classList.add('idle'); }
+
+  // adaptive quality
+  if ($('opt-quality').value === 'auto' && rawDt > 0 && rawDt < .5) {
+    fpsAcc += 1 / rawDt; fpsN++; fpsT += rawDt;
+    if (fpsT > 1) {
+      const fps = fpsAcc / fpsN; fpsAcc = fpsN = fpsT = 0;
+      if (fps < 45) { lowT++; highT = 0; } else if (fps > 58) { highT++; lowT = 0; } else { lowT = highT = 0; }
+      if (lowT >= 2 && pixelRatio > .5) { pixelRatio = Math.max(.5, pixelRatio - .15); renderer.setPixelRatio(pixelRatio); renderer.setSize(window.innerWidth, window.innerHeight); lowT = 0; }
+      if (highT >= 6 && pixelRatio < Math.min(DPR, 2)) { pixelRatio = Math.min(Math.min(DPR, 2), pixelRatio + .1); renderer.setPixelRatio(pixelRatio); renderer.setSize(window.innerWidth, window.innerHeight); highT = 0; }
+      $('val-dpr').textContent = pixelRatio.toFixed(2) + 'x · ' + Math.round(fps) + 'fps';
+    }
+  }
+
+  // layer UI readouts
+  SRC_KEYS.forEach(k2 => { const el = $('sm-' + k2); if (el) el.style.height = Math.max(2, Math.min(26, srcv[k2] * 26)) + 'px'; });
+  mix.layers.forEach((l, i) => { const el = $('lw-' + i); if (el) { el.style.width = (l.w * 100).toFixed(0) + '%'; $('lr-' + i).classList.toggle('on', l.on); } });
+  $('anal-src').textContent = (usingAnal() ? '事前解析' : sourceActive() ? 'リアルタイム' : '—') + ' · 粒子: ' + FORM_NAMES[pform.b];
+  $('section-info').textContent = (usingAnal() && anal.sections ? `区切り ${Math.max(0, mix.secIdx + 1)} / ${anal.sections.length + 1} · ${mix.barIdx + 1} 小節目 · ` : '') + (mix.lastFade === undefined ? '' : `直近の切替: ${mix.lastFade > .6 ? 'パリッ' : mix.lastFade > .3 ? 'ふつう' : 'ふわっ'}`);
+
+  if (params.viewMode === 'mix') {
+    particles.rotation.z += dt * .04 * sv * slow;
+    particles.rotation.y += dt * .03 * sv * slow;
+    renderMix();
+  } else if (rt.activeMode === 'CONVERGENCE_DIFFUSION') {
+    particles.rotation.z += dt * .04 * sv * slow;
+    particles.rotation.y += dt * .03 * sv * slow;
+    particles.rotation.x += ((vis.balance * coupling * .25) - particles.rotation.x) * (1 - Math.exp(-dt / .8));
+    applyMode('CONVERGENCE_DIFFUSION'); renderer.render(scene, camera);
+  } else { applyMode(rt.activeMode); renderer.render(orthoScene, orthoCamera); }
+}
+music.conv = live.convergence; music.diff = live.diffusion;
+initLayers();
+if (isMobile()) { params.maxLayers = 2; $('param-maxLayers').value = '2'; }
+syncUI(); updateBadge(); $('val-dpr').textContent = pixelRatio.toFixed(2) + 'x';
+requestAnimationFrame(animate);
+}
+</script>
+</body>
+</html>

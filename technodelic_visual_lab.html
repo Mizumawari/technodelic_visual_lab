@@ -1,0 +1,1660 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Technodelic Visual Lab — Phase 1</title>
+    <style>
+        :root {
+            --bg: #0d0f12;
+            --panel: rgba(22, 26, 34, 0.88);
+            --panel-solid: #161a22;
+            --panel-border: #262c36;
+            --accent: #00e5ff;
+            --accent-glow: rgba(0, 229, 255, 0.25);
+            --accent-secondary: #ff3366;
+            --amber: #f5a623;
+            --text-main: #f0f6fc;
+            --text-muted: #8b949e;
+            --code-bg: #090c10;
+        }
+
+        * { box-sizing: border-box; }
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+            user-select: none;
+        }
+
+        #canvas-container {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+        }
+
+        /* Top Bar */
+        #topbar {
+            position: fixed;
+            top: 12px;
+            left: 16px;
+            right: 16px;
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            pointer-events: none;
+        }
+
+        .topbar-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            pointer-events: auto;
+        }
+
+        .brand-pill {
+            background: var(--panel);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            padding: 8px 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .brand-title {
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            color: var(--accent);
+            text-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        .brand-sub {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .btn {
+            background: var(--panel);
+            backdrop-filter: blur(12px);
+            color: var(--text-main);
+            border: 1px solid var(--panel-border);
+            border-radius: 6px;
+            padding: 7px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.18s ease;
+        }
+
+        .btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .btn-accent {
+            background: rgba(0, 229, 255, 0.12);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .btn-danger {
+            background: rgba(255, 51, 102, 0.14);
+            border-color: var(--accent-secondary);
+            color: #ff6b8b;
+        }
+
+        .btn-danger:hover {
+            background: rgba(255, 51, 102, 0.28);
+            color: #fff;
+        }
+
+        /* Side Control Panel */
+        #hud-panel {
+            position: fixed;
+            top: 64px;
+            left: 16px;
+            bottom: 16px;
+            width: 350px;
+            z-index: 15;
+            background: var(--panel);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--panel-border);
+            border-radius: 10px;
+            padding: 16px;
+            overflow-y: auto;
+            transition: transform 0.28s ease, opacity 0.28s ease;
+        }
+
+        #hud-panel.hidden {
+            transform: translateX(-380px);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #hud-panel::-webkit-scrollbar { width: 6px; }
+        #hud-panel::-webkit-scrollbar-thumb {
+            background: #2c3340;
+            border-radius: 3px;
+        }
+
+        .section {
+            margin-bottom: 18px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .section-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            margin: 0 0 10px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .mode-tabs {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+        }
+
+        .mode-btn {
+            background: var(--code-bg);
+            border: 1px solid var(--panel-border);
+            color: var(--text-muted);
+            border-radius: 6px;
+            padding: 8px 4px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.15s;
+        }
+
+        .mode-btn.active {
+            background: rgba(0, 229, 255, 0.14);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        select, input[type="text"], textarea {
+            width: 100%;
+            background: var(--code-bg);
+            border: 1px solid var(--panel-border);
+            color: var(--text-main);
+            border-radius: 6px;
+            padding: 7px 9px;
+            font-size: 12px;
+            outline: none;
+        }
+
+        select:focus, input[type="text"]:focus, textarea:focus {
+            border-color: var(--accent);
+        }
+
+        .control-row {
+            margin-bottom: 10px;
+        }
+
+        .control-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            margin-bottom: 4px;
+        }
+
+        .control-label { color: var(--text-main); }
+        .control-val { color: var(--accent); font-family: monospace; }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: var(--accent);
+            cursor: pointer;
+            height: 4px;
+        }
+
+        /* Audio Controls & Pyramid Meter */
+        .audio-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        .file-label {
+            display: block;
+            text-align: center;
+            background: var(--code-bg);
+            border: 1px dashed #394252;
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 11px;
+            color: var(--text-muted);
+            cursor: pointer;
+            margin-bottom: 8px;
+        }
+
+        .file-label:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .meter-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .meter-col {
+            background: var(--code-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 5px;
+            padding: 5px;
+            text-align: center;
+        }
+
+        .meter-bar-wrap {
+            height: 28px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            margin-bottom: 3px;
+        }
+
+        .meter-bar {
+            width: 10px;
+            height: 2px;
+            background: var(--accent);
+            border-radius: 2px;
+            transition: height 0.06s linear;
+        }
+
+        .meter-name {
+            font-size: 9px;
+            color: var(--text-muted);
+        }
+
+        .playlist-box {
+            max-height: 110px;
+            overflow-y: auto;
+            background: var(--code-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 6px;
+            margin-top: 8px;
+            display: none;
+        }
+
+        .playlist-box.has-items { display: block; }
+
+        .playlist-item {
+            padding: 6px 8px;
+            font-size: 11px;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .playlist-item:hover {
+            background: rgba(0, 229, 255, 0.08);
+            color: var(--text-main);
+        }
+
+        .playlist-item.active {
+            background: rgba(0, 229, 255, 0.16);
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .drop-active {
+            border-color: var(--accent) !important;
+            background: rgba(0, 229, 255, 0.1) !important;
+        }
+
+        /* Log Modal / Drawer */
+        #log-modal {
+            position: fixed;
+            top: 64px;
+            right: 16px;
+            width: 340px;
+            max-height: calc(100vh - 80px);
+            z-index: 18;
+            background: var(--panel);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--panel-border);
+            border-radius: 10px;
+            padding: 16px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        #log-modal.open { display: block; }
+
+        /* Safety Notice Overlay */
+        #safety-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            background: rgba(9, 12, 16, 0.92);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .safety-card {
+            max-width: 520px;
+            background: var(--panel-solid);
+            border: 1px solid var(--panel-border);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+        }
+
+        .safety-card h2 {
+            margin: 0 0 12px 0;
+            font-size: 18px;
+            color: var(--accent);
+        }
+
+        .safety-card p, .safety-card li {
+            font-size: 13px;
+            line-height: 1.65;
+            color: #c9d1d9;
+        }
+
+        .safety-card ul {
+            padding-left: 18px;
+            margin: 10px 0 18px 0;
+        }
+
+        .quick-split {
+            display: flex;
+            gap: 6px;
+            margin-top: 6px;
+        }
+        .quick-split .btn {
+            flex: 1;
+            padding: 4px 6px;
+            font-size: 10px;
+        }
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+            }
+        }
+    </script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <!-- Top Bar -->
+    <div id="topbar">
+        <div class="topbar-group">
+            <div class="brand-pill">
+                <span class="brand-title">TECHNODELIC VISUAL LAB</span>
+                <span class="brand-sub" id="status-badge">READY (NO STROBE)</span>
+            </div>
+            <button class="btn" id="toggle-hud-btn" title="Shortcut: H">HUD [H]</button>
+        </div>
+        <div class="topbar-group">
+            <span id="timer-display" style="font-family: monospace; font-size: 12px; color: var(--text-muted); background: var(--panel); padding: 6px 10px; border-radius: 6px; border: 1px solid var(--panel-border);">00:00</span>
+            <button class="btn" id="toggle-log-btn">Log</button>
+            <button class="btn" id="fullscreen-btn">Fullscreen</button>
+            <button class="btn btn-danger" id="calm-stop-btn" title="Shortcut: Space / Esc">Calm-Stop [Space]</button>
+        </div>
+    </div>
+
+    <!-- Left Control HUD -->
+    <aside id="hud-panel">
+        <!-- Visual Mode -->
+        <div class="section">
+            <h3 class="section-title">Visual Mode</h3>
+            <div class="mode-tabs">
+                <button class="mode-btn active" data-mode="RAINBOW_FLOW">1. Rainbow<br>Fluid</button>
+                <button class="mode-btn" data-mode="FRACTAL_SPACE">2. Fractal<br>Space</button>
+                <button class="mode-btn" data-mode="CONVERGENCE_DIFFUSION">3. Converge<br>/ Diffuse</button>
+            </div>
+        </div>
+
+        <!-- Neural Mantra Presets -->
+        <div class="section">
+            <h3 class="section-title">Neural Mantra Presets</h3>
+            <select id="preset-select">
+                <option value="CUSTOM">-- Select Experiment Preset --</option>
+                <option value="NIRVANA_VELVET">1. NIRVĀṆA &amp; VELVET (Rainbow + Slow Drift)</option>
+                <option value="GENESIS_CONTINUUM">2. GENESIS CONTINUUM (Converge/Diffuse + Offset)</option>
+                <option value="PRIMAL_ORIGIN">3. PRIMAL ORIGIN (SubCore + Fractal Sync)</option>
+                <option value="BIJA_OVERDRIVE">4. BĪJA OVERDRIVE (Strict Luminance Cap)</option>
+                <option value="COLOR_ONLY">Exp A: Color Flow Only (Shape Static)</option>
+                <option value="SHAPE_ONLY">Exp B: Spatial Flow Only (Hue Static)</option>
+            </select>
+        </div>
+
+        <!-- Audio Engine -->
+        <div class="section">
+            <h3 class="section-title">
+                <span>Audio Engine (Pyramid FFT)</span>
+                <span id="audio-source-label" style="font-size:10px; color:var(--accent);">IDLE</span>
+            </h3>
+            <label class="file-label" id="drop-zone" for="audio-file-input">
+                Click or Drop WAV/MP3 Files Here
+                <input type="file" id="audio-file-input" accept="audio/*" multiple style="display:none;">
+            </label>
+            <div class="audio-actions">
+                <label class="btn" for="audio-folder-input" style="text-align:center;">
+                    Load Folder (WAV)
+                    <input type="file" id="audio-folder-input" webkitdirectory directory multiple style="display:none;">
+                </label>
+                <button class="btn" id="test-drone-btn">Test Drone</button>
+            </div>
+            <div class="audio-actions">
+                <button class="btn btn-accent" id="play-pause-btn">Play / Pause</button>
+                <button class="btn" id="next-track-btn">Next Track</button>
+            </div>
+            <div id="playlist-box" class="playlist-box"></div>
+            <audio id="audio-element" crossorigin="anonymous" style="display:none;"></audio>
+
+            <!-- Google Drive Integration -->
+            <div style="margin-top:10px; padding:8px; background:var(--code-bg); border:1px solid var(--panel-border); border-radius:6px;">
+                <div style="font-size:10px; color:var(--accent); font-weight:700; margin-bottom:6px; letter-spacing:0.05em;">GOOGLE DRIVE SYNC</div>
+                <input type="text" id="gdrive-folder-input" value="12WAs0hOZ9iQYrjX2rk9H6NOdjrgwASNH" placeholder="Drive Folder URL or ID" style="margin-bottom:5px; font-size:11px;">
+                <input type="text" id="gdrive-client-id" placeholder="Google OAuth Client ID (.apps.googleusercontent.com)" style="margin-bottom:6px; font-size:11px;">
+                <button class="btn btn-accent" id="gdrive-connect-btn" style="width:100%; font-size:11px;">Connect Google Drive &amp; Load WAVs</button>
+                <div id="gdrive-status" style="font-size:10px; color:var(--text-muted); margin-top:4px;"></div>
+            </div>
+
+            <div class="control-row" style="margin-top:8px;">
+                <div class="control-header">
+                    <span class="control-label">FFT Input Sensitivity (感度)</span>
+                    <span class="control-val" id="val-audioGain">1.80</span>
+                </div>
+                <input type="range" id="param-audioGain" min="0.5" max="4.0" step="0.1" value="1.8">
+            </div>
+
+            <div class="meter-grid">
+                <div class="meter-col">
+                    <div class="meter-bar-wrap"><div class="meter-bar" id="bar-sub"></div></div>
+                    <div class="meter-name">SubCore<br>35-85Hz</div>
+                </div>
+                <div class="meter-col">
+                    <div class="meter-bar-wrap"><div class="meter-bar" id="bar-mud"></div></div>
+                    <div class="meter-name">MudBand<br>200-500</div>
+                </div>
+                <div class="meter-col">
+                    <div class="meter-bar-wrap"><div class="meter-bar" id="bar-voice"></div></div>
+                    <div class="meter-name">Crossfire<br>1-3kHz</div>
+                </div>
+                <div class="meter-col">
+                    <div class="meter-bar-wrap"><div class="meter-bar" id="bar-high"></div></div>
+                    <div class="meter-name">Strato<br>6-16kHz</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modulation & Phase Engine -->
+        <div class="section">
+            <h3 class="section-title">Modulation &amp; Phase Coupling</h3>
+
+            <div class="control-row">
+                <div class="control-header">
+                    <span class="control-label">Audio Coupling</span>
+                    <span class="control-val" id="val-audioCoupling">0.50</span>
+                </div>
+                <input type="range" id="param-audioCoupling" min="0" max="1" step="0.01" value="0.50">
+            </div>
+
+            <div class="control-row">
+                <div class="control-header">
+                    <span class="control-label">Phase Mode</span>
+                </div>
+                <select id="param-phaseMode">
+                    <option value="slow_drift">Slow Phase Drift (緩やかな位相差)</option>
+                    <option value="sync">Sync (完全同期)</option>
+                    <option value="fixed_offset">Fixed Offset (固定位相差)</option>
+                    <option value="independent">Independent (完全独立)</option>
+                </select>
+            </div>
+
+            <div class="control-row">
+                <div class="control-header">
+                    <span class="control-label">Phase Drift Rate (rad/s)</span>
+                    <span class="control-val" id="val-phaseDriftRate">0.03</span>
+                </div>
+                <input type="range" id="param-phaseDriftRate" min="-0.10" max="0.10" step="0.005" value="0.03">
+            </div>
+
+            <div class="control-row">
+                <div class="control-header">
+                    <span class="control-label">Color Flow Speed</span>
+                    <span class="control-val" id="val-colorFlowSpeed">0.35</span>
+                </div>
+                <input type="range" id="param-colorFlowSpeed" min="0" max="1" step="0.01" value="0.35">
+            </div>
+
+            <div class="control-row">
+                <div class="control-header">
+                    <span class="control-label">Spatial Flow Speed</span>
+                    <span class="control-val" id="val-spatialFlowSpeed">0.20</span>
+                </div>
+                <input type="range" id="param-spatialFlowSpeed" min="0" max="1" step="0.01" value="0.20">
+                <div class="quick-split">
+                    <button class="btn" id="btn-color-only">Color Only</button>
+                    <button class="btn" id="btn-shape-only">Shape Only</button>
+                    <button class="btn" id="btn-both-flow">Both</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Geometry & Somatic Vectors -->
+        <div class="section">
+            <h3 class="section-title">Geometry &amp; Convergence / Diffusion</h3>
+
+            <div class="control-row">
+                <div class="control-header">
+                    <span class="control-label">Convergence (収束)</span>
+                    <span class="control-val" id="val-convergence">0.55</span>
+                </div>
+                <input type="range" id="param-convergence" min="0" max="1" step="0.01" value="0.55">
+            </div>
+
+            <div class="control-row">
+                <div class="control-header">
+                    <span class="control-label">Diffusion (拡散)</span>
+                    <span class="control-val" id="val-diffusion">0.60</span>
+                </div>
+                <input type="range" id="param-diffusion" min="0" max="1" step="0.01" value="0.60">
+            </div>
+
+            <div class="control-row">
+                <div class="control-header">
+                    <span class="control-label">Geometry Complexity</span>
+                    <span class="control-val" id="val-geometryComplexity">0.50</span>
+                </div>
+                <input type="range" id="param-geometryComplexity" min="0.1" max="1" step="0.01" value="0.50">
+            </div>
+
+            <div class="control-row">
+                <div class="control-header">
+                    <span class="control-label">Symmetry</span>
+                    <span class="control-val" id="val-symmetry">6</span>
+                </div>
+                <input type="range" id="param-symmetry" min="1" max="16" step="1" value="6">
+            </div>
+        </div>
+
+        <!-- Safety Caps -->
+        <div class="section">
+            <h3 class="section-title">Safety Controls</h3>
+            <div class="control-row">
+                <div class="control-header">
+                    <span class="control-label">Max Luminance Cap</span>
+                    <span class="control-val" id="val-luminanceCap">0.80</span>
+                </div>
+                <input type="range" id="param-luminanceCap" min="0.20" max="0.85" step="0.01" value="0.80">
+            </div>
+        </div>
+    </aside>
+
+    <!-- Right Experience Log Panel -->
+    <aside id="log-modal">
+        <h3 class="section-title">
+            <span>Phenomenology Experience Log</span>
+            <button class="btn" id="close-log-btn" style="padding:2px 6px; font-size:10px;">Close</button>
+        </h3>
+
+        <div class="control-row">
+            <div class="control-header"><span>Altered-State Shift (0-5)</span><span class="control-val" id="lval-shift">0</span></div>
+            <input type="range" id="log-shift" min="0" max="5" step="1" value="0">
+        </div>
+        <div class="control-row">
+            <div class="control-header"><span>Pleasantness (0-5)</span><span class="control-val" id="lval-pleasant">3</span></div>
+            <input type="range" id="log-pleasant" min="0" max="5" step="1" value="3">
+        </div>
+        <div class="control-row">
+            <div class="control-header"><span>Wakefulness Clarity (0-5)</span><span class="control-val" id="lval-clarity">4</span></div>
+            <input type="range" id="log-clarity" min="0" max="5" step="1" value="4">
+        </div>
+        <div class="control-row">
+            <div class="control-header"><span>Spatial / Time Distortion (0-5)</span><span class="control-val" id="lval-spatial">0</span></div>
+            <input type="range" id="log-spatial" min="0" max="5" step="1" value="0">
+        </div>
+        <div class="control-row">
+            <div class="control-header"><span>Body Boundary Softening (0-5)</span><span class="control-val" id="lval-boundary">0</span></div>
+            <input type="range" id="log-boundary" min="0" max="5" step="1" value="0">
+        </div>
+        <div class="control-row">
+            <div class="control-header"><span>Discomfort / Dizziness (0-5)</span><span class="control-val" id="lval-discomfort">0</span></div>
+            <input type="range" id="log-discomfort" min="0" max="5" step="1" value="0">
+        </div>
+        <div class="control-row">
+            <div class="control-header"><span>Observation Notes</span></div>
+            <textarea id="log-notes" rows="4" placeholder="知覚・呼吸・時間感覚・収束拡散の変化を記録..."></textarea>
+        </div>
+        <button class="btn btn-accent" id="export-log-btn" style="width:100%;">Export Session JSON</button>
+    </aside>
+
+    <!-- Safety Notice Modal -->
+    <div id="safety-overlay">
+        <div class="safety-card">
+            <h2>Technodelic Visual Lab — Safety &amp; Protocol Notice</h2>
+            <p>本アプリは、音と連続的な視覚パターンの関係性（結合度・緩やかな位相差・収束と拡散）が知覚構成に与える影響を安全に探索するための実験ツールです。</p>
+            <ul>
+                <li><strong>No Strobe Policy</strong>：高速点滅（ストロボ）や急激な輝度フラッシュは意図的に排除し、輝度上限クランプを実装しています。</li>
+                <li><strong>Calm-Stop</strong>：違和感や酔いを感じた場合は、いつでも <code>Space</code> / <code>Esc</code> キーまたは右上の <strong>Calm-Stop</strong> で0.5秒かけて穏やかに停止できます。</li>
+                <li>光過敏性発作・片頭痛・めまいの既往がある場合はご使用をお控えください。</li>
+            </ul>
+            <button class="btn btn-accent" id="accept-safety-btn" style="width:100%; padding:10px; font-size:13px;">安全事項を確認してラボを開始する</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        // ==========================================
+        // 1. STATE & PARAMETERS
+        // ==========================================
+        const state = {
+            mode: 'RAINBOW_FLOW', // RAINBOW_FLOW | FRACTAL_SPACE | CONVERGENCE_DIFFUSION
+            audioCoupling: 0.50,
+            phaseMode: 'slow_drift',
+            phaseDriftRate: 0.03,
+            colorFlowSpeed: 0.35,
+            spatialFlowSpeed: 0.20,
+            convergence: 0.55,
+            diffusion: 0.60,
+            geometryComplexity: 0.50,
+            symmetry: 6,
+            luminanceCap: 0.80,
+            audioGain: 1.80,
+
+            // Runtime clocks & modulation
+            colorClock: 0,
+            spatialClock: 0,
+            phaseAccum: 0,
+            calmFactor: 1.0,
+            isCalmStopped: false,
+            sessionStartTime: null,
+            audioTrackName: 'none'
+        };
+
+        // Smoothed Pyramid Audio Features
+        const audioFeatures = {
+            subCore: 0,   // 35-85 Hz
+            mudBand: 0,   // 200-500 Hz
+            crossfire: 0, // 1-3 kHz
+            strato: 0,    // 6-16 kHz
+            rms: 0
+        };
+
+        // ==========================================
+        // 2. AUDIO ENGINE (Web Audio API + Test Drone)
+        // ==========================================
+        let audioCtx = null;
+        let analyser = null;
+        let freqData = null;
+        let mediaSource = null;
+        let masterGain = null;
+        let droneNodes = null;
+        let isDronePlaying = false;
+        const audioEl = document.getElementById('audio-element');
+
+        function ensureAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 4096;
+                analyser.smoothingTimeConstant = 0.88; // Low-pass smoothing for anti-strobe
+                freqData = new Uint8Array(analyser.frequencyBinCount);
+
+                masterGain = audioCtx.createGain();
+                masterGain.gain.value = 0.85;
+                masterGain.connect(analyser);
+                analyser.connect(audioCtx.destination);
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function stopDrone() {
+            if (droneNodes) {
+                droneNodes.gain.gain.setTargetAtTime(0.0001, audioCtx.currentTime, 0.2);
+                setTimeout(() => {
+                    try {
+                        droneNodes.osc1.stop();
+                        droneNodes.osc2.stop();
+                        droneNodes.osc3.stop();
+                        droneNodes.lfo.stop();
+                    } catch (e) {}
+                    droneNodes = null;
+                }, 400);
+            }
+            isDronePlaying = false;
+        }
+
+        function toggleTestDrone() {
+            ensureAudioContext();
+            if (isDronePlaying) {
+                stopDrone();
+                document.getElementById('audio-source-label').textContent = 'IDLE';
+                return;
+            }
+            if (!audioEl.paused) audioEl.pause();
+
+            const now = audioCtx.currentTime;
+            const g = audioCtx.createGain();
+            g.gain.setValueAtTime(0.001, now);
+            g.gain.linearRampToValueAtTime(0.28, now + 1.2);
+            g.connect(masterGain);
+
+            // 42Hz SubCore Sine + 84Hz Octave + 528Hz Bowl Harmonic
+            const osc1 = audioCtx.createOscillator();
+            osc1.type = 'sine';
+            osc1.frequency.value = 42.0;
+
+            const osc2 = audioCtx.createOscillator();
+            osc2.type = 'sine';
+            osc2.frequency.value = 84.0;
+
+            const osc3 = audioCtx.createOscillator();
+            osc3.type = 'sine';
+            osc3.frequency.value = 528.0;
+
+            const g1 = audioCtx.createGain(); g1.gain.value = 0.55;
+            const g2 = audioCtx.createGain(); g2.gain.value = 0.25;
+            const g3 = audioCtx.createGain(); g3.gain.value = 0.08;
+
+            // Slow breathing LFO modulating 528Hz & 84Hz amplitude
+            const lfo = audioCtx.createOscillator();
+            lfo.type = 'sine';
+            lfo.frequency.value = 0.12; // ~8.3 sec cycle
+            const lfoGain = audioCtx.createGain();
+            lfoGain.gain.value = 0.05;
+            lfo.connect(lfoGain);
+            lfoGain.connect(g3.gain);
+
+            osc1.connect(g1).connect(g);
+            osc2.connect(g2).connect(g);
+            osc3.connect(g3).connect(g);
+
+            osc1.start(); osc2.start(); osc3.start(); lfo.start();
+            droneNodes = { osc1, osc2, osc3, lfo, gain: g };
+            isDronePlaying = true;
+            state.audioTrackName = 'Internal_Test_Drone_42Hz_528Hz';
+            if (!state.sessionStartTime) state.sessionStartTime = Date.now();
+            document.getElementById('audio-source-label').textContent = 'DRONE ON';
+            wakeFromCalmStop();
+        }
+
+        let playlist = [];
+        let currentTrackIdx = -1;
+
+        function renderPlaylist() {
+            const box = document.getElementById('playlist-box');
+            box.innerHTML = '';
+            if (playlist.length === 0) {
+                box.classList.remove('has-items');
+                return;
+            }
+            box.classList.add('has-items');
+            playlist.forEach((file, idx) => {
+                const div = document.createElement('div');
+                div.className = 'playlist-item' + (idx === currentTrackIdx ? ' active' : '');
+                div.textContent = `${idx + 1}. ${file.name}`;
+                div.addEventListener('click', () => playTrackAt(idx));
+                box.appendChild(div);
+            });
+        }
+
+        function addFilesToPlaylist(fileList) {
+            const audioFiles = Array.from(fileList)
+                .filter(f => /\.(wav|mp3|ogg|m4a|flac|aac)$/i.test(f.name) || f.type.startsWith('audio/'))
+                .sort((a, b) => a.name.localeCompare(b.name, 'ja'))
+                .map(f => ({ type: 'local', file: f, name: f.name }));
+            if (audioFiles.length === 0) return;
+            playlist = audioFiles;
+            playTrackAt(0);
+        }
+
+        let gdriveAccessToken = null;
+
+        async function playTrackAt(idx) {
+            if (idx < 0 || idx >= playlist.length) return;
+            currentTrackIdx = idx;
+            const item = playlist[idx];
+            ensureAudioContext();
+            stopDrone();
+
+            let url = item.blobUrl;
+            if (!url) {
+                if (item.type === 'local') {
+                    url = URL.createObjectURL(item.file);
+                    item.blobUrl = url;
+                } else if (item.type === 'url') {
+                    url = item.url;
+                    item.blobUrl = url;
+                } else if (item.type === 'gdrive') {
+                    document.getElementById('audio-source-label').textContent = 'LOADING WAV...';
+                    document.getElementById('gdrive-status').textContent = `Fetching: ${item.name}`;
+                    try {
+                        const res = await fetch(`https://www.googleapis.com/drive/v3/files/${item.id}?alt=media`, {
+                            headers: { 'Authorization': `Bearer ${gdriveAccessToken}` }
+                        });
+                        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                        const blob = await res.blob();
+                        url = URL.createObjectURL(blob);
+                        item.blobUrl = url;
+                        document.getElementById('gdrive-status').textContent = `Playing from Drive (${playlist.length} tracks)`;
+                    } catch (err) {
+                        document.getElementById('gdrive-status').textContent = `Load error: ${err.message}`;
+                        return;
+                    }
+                }
+            }
+
+            audioEl.src = url;
+            if (!mediaSource) {
+                mediaSource = audioCtx.createMediaElementSource(audioEl);
+                mediaSource.connect(masterGain);
+            }
+            audioEl.play();
+            state.audioTrackName = item.name;
+            if (!state.sessionStartTime) state.sessionStartTime = Date.now();
+            document.getElementById('audio-source-label').textContent = item.name.slice(0, 18);
+            renderPlaylist();
+            wakeFromCalmStop();
+        }
+
+        // Preload synced Google Drive tracks from ./gdrive_files.json & ./audio/
+        async function preloadSyncedDrivePlaylist() {
+            try {
+                const res = await fetch('./gdrive_files.json');
+                if (!res.ok) return;
+                const files = await res.json();
+                if (!Array.isArray(files) || files.length === 0) return;
+                playlist = files
+                    .sort((a, b) => a.name.localeCompare(b.name, 'ja'))
+                    .map(f => ({
+                        type: 'url',
+                        name: f.name,
+                        url: './audio/' + encodeURIComponent(f.name)
+                    }));
+                renderPlaylist();
+                gdriveStatusEl.textContent = `Synced ${playlist.length} WAV tracks from Drive folder.`;
+            } catch (e) {
+                // Ignore when opened via file://
+            }
+        }
+        preloadSyncedDrivePlaylist();
+
+        // Google Drive Integration (OAuth 2.0 + Drive API v3)
+        const gdriveFolderInput = document.getElementById('gdrive-folder-input');
+        const gdriveClientInput = document.getElementById('gdrive-client-id');
+        const gdriveStatusEl = document.getElementById('gdrive-status');
+
+        if (localStorage.getItem('tvl_gdrive_client_id')) {
+            gdriveClientInput.value = localStorage.getItem('tvl_gdrive_client_id');
+        }
+        if (localStorage.getItem('tvl_gdrive_folder_id')) {
+            gdriveFolderInput.value = localStorage.getItem('tvl_gdrive_folder_id');
+        }
+
+        function extractDriveFolderId(raw) {
+            const m = raw.match(/folders\/([a-zA-Z0-9_-]+)/);
+            return m ? m[1] : raw.trim();
+        }
+
+        async function fetchDriveFolderWavs(folderId, token) {
+            gdriveStatusEl.textContent = 'Scanning Drive folder...';
+            const q = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
+            const url = `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,mimeType)&pageSize=100`;
+            const res = await fetch(url, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!res.ok) throw new Error(`Drive API HTTP ${res.status}`);
+            const data = await res.json();
+            const audioItems = (data.files || [])
+                .filter(f => /\.(wav|mp3|ogg|m4a|flac|aac)$/i.test(f.name) || (f.mimeType && f.mimeType.startsWith('audio/')))
+                .sort((a, b) => a.name.localeCompare(b.name, 'ja'))
+                .map(f => ({ type: 'gdrive', id: f.id, name: f.name }));
+
+            if (audioItems.length === 0) {
+                gdriveStatusEl.textContent = 'No audio files found in this folder.';
+                return;
+            }
+            playlist = audioItems;
+            gdriveStatusEl.textContent = `Loaded ${audioItems.length} tracks from Drive.`;
+            await playTrackAt(0);
+        }
+
+        document.getElementById('gdrive-connect-btn').addEventListener('click', () => {
+            const clientId = gdriveClientInput.value.trim();
+            const folderId = extractDriveFolderId(gdriveFolderInput.value);
+            if (!clientId) {
+                gdriveStatusEl.textContent = 'Enter your Google OAuth Client ID first.';
+                return;
+            }
+            if (!window.google || !google.accounts || !google.accounts.oauth2) {
+                gdriveStatusEl.textContent = 'Google Identity script not loaded (check network).';
+                return;
+            }
+            localStorage.setItem('tvl_gdrive_client_id', clientId);
+            localStorage.setItem('tvl_gdrive_folder_id', folderId);
+
+            const tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: clientId,
+                scope: 'https://www.googleapis.com/auth/drive.readonly',
+                callback: async (tokenResponse) => {
+                    if (tokenResponse.error) {
+                        gdriveStatusEl.textContent = `Auth error: ${tokenResponse.error}`;
+                        return;
+                    }
+                    gdriveAccessToken = tokenResponse.access_token;
+                    try {
+                        await fetchDriveFolderWavs(folderId, gdriveAccessToken);
+                    } catch (err) {
+                        gdriveStatusEl.textContent = `Error: ${err.message}`;
+                    }
+                }
+            });
+            tokenClient.requestAccessToken({ prompt: gdriveAccessToken ? '' : 'consent' });
+        });
+
+        audioEl.addEventListener('ended', () => {
+            if (playlist.length > 0) {
+                playTrackAt((currentTrackIdx + 1) % playlist.length);
+            }
+        });
+
+        function updateAudioFeatures(dt) {
+            if (!analyser || !freqData) return;
+            analyser.getByteFrequencyData(freqData);
+            const nyquist = audioCtx.sampleRate / 2;
+            const binHz = nyquist / freqData.length;
+
+            const bandAvg = (minHz, maxHz) => {
+                const start = Math.max(0, Math.floor(minHz / binHz));
+                const end = Math.min(freqData.length - 1, Math.ceil(maxHz / binHz));
+                if (end <= start) return 0;
+                let sum = 0;
+                for (let i = start; i <= end; i++) sum += freqData[i];
+                return Math.min(1.5, ((sum / (end - start + 1)) / 255.0) * state.audioGain);
+            };
+
+            const rawSub = bandAvg(35, 85);
+            const rawMud = bandAvg(200, 500);
+            const rawVoice = bandAvg(1000, 3000);
+            const rawHigh = bandAvg(6000, 16000);
+            const rawRms = (rawSub * 0.4 + rawMud * 0.2 + rawVoice * 0.2 + rawHigh * 0.2);
+
+            // Asymmetric Attack/Release Envelope Smoothing (prevents sharp visual flashes)
+            const smooth = (curr, target) => {
+                const rate = target > curr ? (1 - Math.exp(-dt / 0.16)) : (1 - Math.exp(-dt / 0.42));
+                return curr + (target - curr) * rate;
+            };
+
+            audioFeatures.subCore = smooth(audioFeatures.subCore, rawSub);
+            audioFeatures.mudBand = smooth(audioFeatures.mudBand, rawMud);
+            audioFeatures.crossfire = smooth(audioFeatures.crossfire, rawVoice);
+            audioFeatures.strato = smooth(audioFeatures.strato, rawHigh);
+            audioFeatures.rms = smooth(audioFeatures.rms, rawRms);
+
+            // Update HUD meters
+            document.getElementById('bar-sub').style.height = Math.max(2, Math.min(28, audioFeatures.subCore * 28)) + 'px';
+            document.getElementById('bar-mud').style.height = Math.max(2, Math.min(28, audioFeatures.mudBand * 28)) + 'px';
+            document.getElementById('bar-voice').style.height = Math.max(2, Math.min(28, audioFeatures.crossfire * 28)) + 'px';
+            document.getElementById('bar-high').style.height = Math.max(2, Math.min(28, audioFeatures.strato * 28)) + 'px';
+        }
+
+        // ==========================================
+        // 3. THREE.JS VISUAL ENGINE (3 MODES)
+        // ==========================================
+        const container = document.getElementById('canvas-container');
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        container.appendChild(renderer.domElement);
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.z = 3.2;
+
+        const orthoScene = new THREE.Scene();
+        const orthoCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+        const sharedUniforms = {
+            uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+            uColorTime: { value: 0 },
+            uSpatialTime: { value: 0 },
+            uPhaseOffset: { value: 0 },
+            uAudioCoupling: { value: 0.5 },
+            uSubCore: { value: 0 },
+            uCrossfire: { value: 0 },
+            uStrato: { value: 0 },
+            uComplexity: { value: 0.5 },
+            uSymmetry: { value: 6.0 },
+            uConvergence: { value: 0.55 },
+            uDiffusion: { value: 0.60 },
+            uLuminanceCap: { value: 0.80 },
+            uCalmFactor: { value: 1.0 }
+        };
+
+        // --- MODE 1: RAINBOW FLOW SHADER ---
+        const rainbowMaterial = new THREE.ShaderMaterial({
+            uniforms: sharedUniforms,
+            vertexShader: `
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    gl_Position = vec4(position.xy, 0.0, 1.0);
+                }
+            `,
+            fragmentShader: `
+                precision highp float;
+                varying vec2 vUv;
+                uniform vec2 uResolution;
+                uniform float uColorTime;
+                uniform float uSpatialTime;
+                uniform float uPhaseOffset;
+                uniform float uAudioCoupling;
+                uniform float uSubCore;
+                uniform float uStrato;
+                uniform float uComplexity;
+                uniform float uLuminanceCap;
+                uniform float uCalmFactor;
+
+                // Smooth 2D simplex-like hash noise
+                vec2 hash2(vec2 p) {
+                    p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
+                    return -1.0 + 2.0 * fract(sin(p) * 43758.5453123);
+                }
+
+                float noise(vec2 p) {
+                    vec2 i = floor(p);
+                    vec2 f = fract(p);
+                    vec2 u = f * f * (3.0 - 2.0 * f);
+                    return mix(
+                        mix(dot(hash2(i + vec2(0.0, 0.0)), f - vec2(0.0, 0.0)),
+                            dot(hash2(i + vec2(1.0, 0.0)), f - vec2(1.0, 0.0)), u.x),
+                        mix(dot(hash2(i + vec2(0.0, 1.0)), f - vec2(0.0, 1.0)),
+                            dot(hash2(i + vec2(1.0, 1.0)), f - vec2(1.0, 1.0)), u.x),
+                        u.y
+                    );
+                }
+
+                float fbm(vec2 p, float octaves) {
+                    float v = 0.0;
+                    float a = 0.5;
+                    mat2 rot = mat2(0.8, 0.6, -0.6, 0.8);
+                    for (int i = 0; i < 5; i++) {
+                        if (float(i) >= octaves) break;
+                        v += a * noise(p);
+                        p = rot * p * 2.02;
+                        a *= 0.5;
+                    }
+                    return v;
+                }
+
+                // Cosine iridescent rainbow palette
+                vec3 iridescent(float t) {
+                    vec3 a = vec3(0.45, 0.48, 0.52);
+                    vec3 b = vec3(0.42, 0.42, 0.44);
+                    vec3 c = vec3(1.0, 1.0, 1.0);
+                    vec3 d = vec3(0.00, 0.33, 0.67);
+                    return a + b * cos(6.28318 * (c * t + d));
+                }
+
+                void main() {
+                    vec2 uv = (vUv - 0.5) * vec2(uResolution.x / uResolution.y, 1.0);
+                    float tSpace = uSpatialTime + uSubCore * uAudioCoupling * 0.6;
+                    float oct = 2.0 + floor(uComplexity * 3.0);
+
+                    vec2 q = vec2(
+                        fbm(uv * (1.4 + uComplexity) + vec2(0.0, tSpace * 0.18), oct),
+                        fbm(uv * (1.4 + uComplexity) + vec2(5.2, -tSpace * 0.15), oct)
+                    );
+
+                    vec2 r = vec2(
+                        fbm(uv * 1.8 + 2.2 * q + vec2(1.7, 9.2) + tSpace * 0.12, oct),
+                        fbm(uv * 1.8 + 2.2 * q + vec2(8.3, 2.8) - tSpace * 0.10, oct)
+                    );
+
+                    float f = fbm(uv * 1.5 + 1.8 * r, oct);
+                    float hueShift = uColorTime * 0.22 + uPhaseOffset * 0.15915 + uStrato * uAudioCoupling * 0.35;
+                    vec3 col = iridescent(f * 0.85 + length(q) * 0.4 + hueShift);
+
+                    // Soft radial vignette & calm attenuation
+                    float vignette = 1.0 - smoothstep(0.35, 1.35, length(uv));
+                    col *= (0.45 + 0.55 * vignette);
+                    col = min(col, vec3(uLuminanceCap)) * (0.25 + 0.75 * uCalmFactor);
+
+                    gl_FragColor = vec4(col, 1.0);
+                }
+            `
+        });
+
+        // --- MODE 2: FRACTAL SPACE SHADER (Safe Low-Speed Raymarching) ---
+        const fractalMaterial = new THREE.ShaderMaterial({
+            uniforms: sharedUniforms,
+            vertexShader: `
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    gl_Position = vec4(position.xy, 0.0, 1.0);
+                }
+            `,
+            fragmentShader: `
+                precision highp float;
+                varying vec2 vUv;
+                uniform vec2 uResolution;
+                uniform float uColorTime;
+                uniform float uSpatialTime;
+                uniform float uPhaseOffset;
+                uniform float uAudioCoupling;
+                uniform float uSubCore;
+                uniform float uCrossfire;
+                uniform float uComplexity;
+                uniform float uSymmetry;
+                uniform float uLuminanceCap;
+                uniform float uCalmFactor;
+
+                mat2 rot2(float a) {
+                    float c = cos(a), s = sin(a);
+                    return mat2(c, -s, s, c);
+                }
+
+                float mapSDF(vec3 p, float tSpace) {
+                    // Gentle slow drift forward (very low speed for vestibular safety)
+                    p.z += tSpace * 0.35;
+                    p.xy *= rot2(p.z * 0.12 + uPhaseOffset * 0.25);
+
+                    // Kaleidoscopic symmetry folding
+                    float angle = atan(p.y, p.x);
+                    float rad = length(p.xy);
+                    float seg = 6.28318 / max(1.0, uSymmetry);
+                    angle = mod(angle, seg) - seg * 0.5;
+                    p.xy = vec2(cos(angle), sin(angle)) * rad;
+
+                    // Repeating fractal lattice
+                    vec3 q = mod(p + 1.5, 3.0) - 1.5;
+                    float scale = 1.0;
+                    int iters = 2 + int(uComplexity * 3.0);
+                    for (int i = 0; i < 5; i++) {
+                        if (i >= iters) break;
+                        q = abs(q) - vec3(0.45, 0.45, 0.45);
+                        q.xy *= rot2(0.4 + tSpace * 0.08 + uCrossfire * uAudioCoupling * 0.2);
+                        q *= 1.35;
+                        scale *= 1.35;
+                    }
+                    return (length(q) - 0.35) / scale;
+                }
+
+                vec3 palette(float t) {
+                    return 0.45 + 0.40 * cos(6.28318 * (t + vec3(0.0, 0.33, 0.67)));
+                }
+
+                void main() {
+                    vec2 uv = (vUv - 0.5) * vec2(uResolution.x / uResolution.y, 1.0);
+                    float tSpace = uSpatialTime + uSubCore * uAudioCoupling * 0.3;
+
+                    vec3 ro = vec3(0.0, 0.0, 0.0);
+                    vec3 rd = normalize(vec3(uv, 1.3));
+
+                    float dist = 0.0;
+                    float glow = 0.0;
+                    for (int i = 0; i < 48; i++) {
+                        vec3 p = ro + rd * dist;
+                        float d = mapSDF(p, tSpace);
+                        glow += 0.018 / (0.04 + abs(d));
+                        if (d < 0.005 || dist > 18.0) break;
+                        dist += d * 0.75;
+                    }
+
+                    float hue = dist * 0.06 + uColorTime * 0.15 + uPhaseOffset * 0.15915;
+                    vec3 col = palette(hue) * glow * 0.28;
+                    col = mix(vec3(0.03, 0.05, 0.08), col, exp(-0.05 * dist));
+                    col = min(col, vec3(uLuminanceCap)) * (0.25 + 0.75 * uCalmFactor);
+
+                    gl_FragColor = vec4(col, 1.0);
+                }
+            `
+        });
+
+        const quadMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), rainbowMaterial);
+        orthoScene.add(quadMesh);
+
+        // --- MODE 3: CONVERGENCE / DIFFUSION GPU PARTICLES ---
+        const PARTICLE_COUNT = 16000;
+        const pGeo = new THREE.BufferGeometry();
+        const pPositions = new Float32Array(PARTICLE_COUNT * 3);
+        const pSeeds = new Float32Array(PARTICLE_COUNT * 3);
+
+        for (let i = 0; i < PARTICLE_COUNT; i++) {
+            const u = Math.random() * Math.PI * 2;
+            const v = Math.random() * Math.PI * 2;
+            const r = 0.3 + Math.random() * 0.7;
+            pPositions[i * 3] = Math.cos(u) * (1.2 + Math.cos(v) * r * 0.5);
+            pPositions[i * 3 + 1] = Math.sin(u) * (1.2 + Math.cos(v) * r * 0.5);
+            pPositions[i * 3 + 2] = Math.sin(v) * r * 0.5;
+
+            pSeeds[i * 3] = u;
+            pSeeds[i * 3 + 1] = v;
+            pSeeds[i * 3 + 2] = Math.random();
+        }
+        pGeo.setAttribute('position', new THREE.BufferAttribute(pPositions, 3));
+        pGeo.setAttribute('aSeed', new THREE.BufferAttribute(pSeeds, 3));
+
+        const particleMaterial = new THREE.ShaderMaterial({
+            uniforms: sharedUniforms,
+            transparent: true,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending,
+            vertexShader: `
+                attribute vec3 aSeed;
+                varying float vHue;
+                varying float vAlpha;
+                uniform float uColorTime;
+                uniform float uSpatialTime;
+                uniform float uPhaseOffset;
+                uniform float uAudioCoupling;
+                uniform float uSubCore;
+                uniform float uStrato;
+                uniform float uConvergence;
+                uniform float uDiffusion;
+                uniform float uSymmetry;
+                uniform float uCalmFactor;
+
+                void main() {
+                    float t = uSpatialTime * 0.55;
+                    float u = aSeed.x + t * (0.2 + 0.15 * aSeed.z);
+                    float v = aSeed.y + t * 0.65;
+
+                    // Global Expansion (Diffusion): Torus major radius expands
+                    float diffRadius = 0.65 + uDiffusion * 1.15 + uStrato * uAudioCoupling * 0.45;
+                    // Local Convergence (Micro-vortices along the torus cross-section)
+                    float convTightness = mix(0.65, 0.14, uConvergence);
+                    float vortexTwist = sin(u * uSymmetry + uPhaseOffset) * (0.25 + uConvergence * 0.45);
+                    float minorR = convTightness * (0.5 + 0.5 * sin(v * 2.0 + t + aSeed.z * 6.28));
+
+                    // Pull toward center when convergence dominates over diffusion
+                    float centerPull = clamp(uConvergence - uDiffusion * 0.5, 0.0, 0.85) * (0.5 + uSubCore * uAudioCoupling);
+                    float R = mix(diffRadius, 0.35, centerPull * 0.45);
+
+                    vec3 pos;
+                    pos.x = (R + minorR * cos(v + vortexTwist)) * cos(u);
+                    pos.y = (R + minorR * cos(v + vortexTwist)) * sin(u);
+                    pos.z = minorR * sin(v + vortexTwist) * 1.4;
+
+                    vHue = fract(aSeed.z * 0.35 + u / 6.28318 + uColorTime * 0.12 + uPhaseOffset * 0.08);
+                    vAlpha = (0.25 + 0.45 * (1.0 - aSeed.z)) * (0.25 + 0.75 * uCalmFactor);
+
+                    vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+                    gl_PointSize = (2.8 + 2.2 * (1.0 - aSeed.z)) * (2.5 / -mvPosition.z);
+                    gl_Position = projectionMatrix * mvPosition;
+                }
+            `,
+            fragmentShader: `
+                precision highp float;
+                varying float vHue;
+                varying float vAlpha;
+                uniform float uLuminanceCap;
+
+                vec3 iridescent(float t) {
+                    return 0.48 + 0.42 * cos(6.28318 * (t + vec3(0.0, 0.33, 0.67)));
+                }
+
+                void main() {
+                    float d = length(gl_PointCoord - 0.5);
+                    if (d > 0.5) discard;
+                    float soft = smoothstep(0.5, 0.05, d);
+                    vec3 col = min(iridescent(vHue), vec3(uLuminanceCap));
+                    gl_FragColor = vec4(col, soft * vAlpha);
+                }
+            `
+        });
+
+        const particleSystem = new THREE.Points(pGeo, particleMaterial);
+        scene.add(particleSystem);
+
+        // ==========================================
+        // 4. UI BINDINGS, PRESETS & CALM-STOP
+        // ==========================================
+        function syncUIValues() {
+            const ids = [
+                'audioCoupling', 'phaseDriftRate', 'colorFlowSpeed',
+                'spatialFlowSpeed', 'convergence', 'diffusion',
+                'geometryComplexity', 'symmetry', 'luminanceCap', 'audioGain'
+            ];
+            ids.forEach(id => {
+                const el = document.getElementById('param-' + id);
+                const valEl = document.getElementById('val-' + id);
+                if (el && valEl) {
+                    el.value = state[id];
+                    valEl.textContent = id === 'symmetry' ? String(state[id]) : Number(state[id]).toFixed(2);
+                }
+            });
+            document.getElementById('param-phaseMode').value = state.phaseMode;
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.mode === state.mode);
+            });
+            if (state.mode === 'RAINBOW_FLOW') quadMesh.material = rainbowMaterial;
+            if (state.mode === 'FRACTAL_SPACE') quadMesh.material = fractalMaterial;
+        }
+
+        function wakeFromCalmStop() {
+            state.isCalmStopped = false;
+            document.getElementById('status-badge').textContent = 'ACTIVE (NO STROBE)';
+        }
+
+        function triggerCalmStop() {
+            state.isCalmStopped = true;
+            document.getElementById('status-badge').textContent = 'CALM-STOPPED';
+            if (masterGain && audioCtx) {
+                masterGain.gain.setTargetAtTime(0.0001, audioCtx.currentTime, 0.16);
+                setTimeout(() => {
+                    if (state.isCalmStopped) {
+                        if (!audioEl.paused) audioEl.pause();
+                        stopDrone();
+                        masterGain.gain.value = 0.85;
+                    }
+                }, 550);
+            }
+        }
+
+        // Parameter Listeners
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                state.mode = btn.dataset.mode;
+                syncUIValues();
+                wakeFromCalmStop();
+            });
+        });
+
+        [
+            'audioCoupling', 'phaseDriftRate', 'colorFlowSpeed',
+            'spatialFlowSpeed', 'convergence', 'diffusion',
+            'geometryComplexity', 'symmetry', 'luminanceCap', 'audioGain'
+        ].forEach(key => {
+            const el = document.getElementById('param-' + key);
+            el.addEventListener('input', () => {
+                state[key] = parseFloat(el.value);
+                syncUIValues();
+            });
+        });
+
+        document.getElementById('param-phaseMode').addEventListener('change', (e) => {
+            state.phaseMode = e.target.value;
+        });
+
+        // Quick Split Buttons
+        document.getElementById('btn-color-only').addEventListener('click', () => {
+            state.colorFlowSpeed = 0.40;
+            state.spatialFlowSpeed = 0.00;
+            syncUIValues();
+        });
+        document.getElementById('btn-shape-only').addEventListener('click', () => {
+            state.colorFlowSpeed = 0.00;
+            state.spatialFlowSpeed = 0.35;
+            syncUIValues();
+        });
+        document.getElementById('btn-both-flow').addEventListener('click', () => {
+            state.colorFlowSpeed = 0.35;
+            state.spatialFlowSpeed = 0.20;
+            syncUIValues();
+        });
+
+        // Neural Mantra Presets
+        const PRESETS = {
+            NIRVANA_VELVET: {
+                mode: 'RAINBOW_FLOW', audioCoupling: 0.45, phaseMode: 'slow_drift',
+                phaseDriftRate: 0.025, colorFlowSpeed: 0.35, spatialFlowSpeed: 0.15,
+                geometryComplexity: 0.45, luminanceCap: 0.78
+            },
+            GENESIS_CONTINUUM: {
+                mode: 'CONVERGENCE_DIFFUSION', audioCoupling: 0.60, phaseMode: 'fixed_offset',
+                phaseDriftRate: 0.00, colorFlowSpeed: 0.25, spatialFlowSpeed: 0.25,
+                convergence: 0.65, diffusion: 0.65, symmetry: 8, luminanceCap: 0.80
+            },
+            PRIMAL_ORIGIN: {
+                mode: 'FRACTAL_SPACE', audioCoupling: 0.50, phaseMode: 'sync',
+                phaseDriftRate: 0.00, colorFlowSpeed: 0.30, spatialFlowSpeed: 0.22,
+                geometryComplexity: 0.60, symmetry: 8, luminanceCap: 0.78
+            },
+            BIJA_OVERDRIVE: {
+                mode: 'FRACTAL_SPACE', audioCoupling: 0.55, phaseMode: 'slow_drift',
+                phaseDriftRate: 0.04, colorFlowSpeed: 0.40, spatialFlowSpeed: 0.25,
+                geometryComplexity: 0.75, symmetry: 12, luminanceCap: 0.70
+            },
+            COLOR_ONLY: {
+                mode: 'RAINBOW_FLOW', audioCoupling: 0.40, phaseMode: 'slow_drift',
+                colorFlowSpeed: 0.45, spatialFlowSpeed: 0.00, luminanceCap: 0.78
+            },
+            SHAPE_ONLY: {
+                mode: 'RAINBOW_FLOW', audioCoupling: 0.40, phaseMode: 'slow_drift',
+                colorFlowSpeed: 0.00, spatialFlowSpeed: 0.35, luminanceCap: 0.78
+            }
+        };
+
+        document.getElementById('preset-select').addEventListener('change', (e) => {
+            const p = PRESETS[e.target.value];
+            if (p) {
+                Object.assign(state, p);
+                syncUIValues();
+                wakeFromCalmStop();
+            }
+        });
+
+        // Audio UI Listeners
+        document.getElementById('audio-file-input').addEventListener('change', (e) => {
+            if (e.target.files.length > 0) addFilesToPlaylist(e.target.files);
+        });
+        document.getElementById('audio-folder-input').addEventListener('change', (e) => {
+            if (e.target.files.length > 0) addFilesToPlaylist(e.target.files);
+        });
+        document.getElementById('next-track-btn').addEventListener('click', () => {
+            if (playlist.length > 0) playTrackAt((currentTrackIdx + 1) % playlist.length);
+        });
+
+        // Drag & Drop Audio Files anywhere on drop-zone or canvas
+        const dropZone = document.getElementById('drop-zone');
+        ['dragenter', 'dragover'].forEach(evt => {
+            window.addEventListener(evt, (e) => {
+                e.preventDefault();
+                dropZone.classList.add('drop-active');
+            });
+        });
+        ['dragleave', 'drop'].forEach(evt => {
+            window.addEventListener(evt, (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('drop-active');
+            });
+        });
+        window.addEventListener('drop', (e) => {
+            if (e.dataTransfer && e.dataTransfer.files.length > 0) {
+                addFilesToPlaylist(e.dataTransfer.files);
+            }
+        });
+        document.getElementById('play-pause-btn').addEventListener('click', () => {
+            ensureAudioContext();
+            if (isDronePlaying) { toggleTestDrone(); return; }
+            if (audioEl.src) {
+                if (audioEl.paused) {
+                    audioEl.play();
+                    wakeFromCalmStop();
+                } else {
+                    audioEl.pause();
+                }
+            } else if (playlist.length > 0) {
+                playTrackAt(0);
+            }
+        });
+        document.getElementById('test-drone-btn').addEventListener('click', toggleTestDrone);
+
+        // HUD, Fullscreen, Log, Safety
+        document.getElementById('toggle-hud-btn').addEventListener('click', () => {
+            document.getElementById('hud-panel').classList.toggle('hidden');
+        });
+        document.getElementById('calm-stop-btn').addEventListener('click', triggerCalmStop);
+        document.getElementById('fullscreen-btn').addEventListener('click', () => {
+            if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+            else document.exitFullscreen();
+        });
+        document.getElementById('accept-safety-btn').addEventListener('click', () => {
+            document.getElementById('safety-overlay').style.display = 'none';
+            state.sessionStartTime = Date.now();
+        });
+
+        const logModal = document.getElementById('log-modal');
+        document.getElementById('toggle-log-btn').addEventListener('click', () => logModal.classList.toggle('open'));
+        document.getElementById('close-log-btn').addEventListener('click', () => logModal.classList.remove('open'));
+
+        ['shift', 'pleasant', 'clarity', 'spatial', 'boundary', 'discomfort'].forEach(k => {
+            const inp = document.getElementById('log-' + k);
+            const val = document.getElementById('lval-' + k);
+            inp.addEventListener('input', () => { val.textContent = inp.value; });
+        });
+
+        document.getElementById('export-log-btn').addEventListener('click', () => {
+            const payload = {
+                sessionId: new Date().toISOString().replace(/[:.]/g, '-'),
+                audioTrack: state.audioTrackName,
+                durationSec: state.sessionStartTime ? Math.round((Date.now() - state.sessionStartTime) / 1000) : 0,
+                visualMode: state.mode,
+                parameters: {
+                    audioCoupling: state.audioCoupling,
+                    phaseMode: state.phaseMode,
+                    phaseDriftRate: state.phaseDriftRate,
+                    colorFlowSpeed: state.colorFlowSpeed,
+                    spatialFlowSpeed: state.spatialFlowSpeed,
+                    convergence: state.convergence,
+                    diffusion: state.diffusion,
+                    geometryComplexity: state.geometryComplexity,
+                    symmetry: state.symmetry
+                },
+                subjectiveRatings: {
+                    alteredStateShift: Number(document.getElementById('log-shift').value),
+                    pleasantness: Number(document.getElementById('log-pleasant').value),
+                    wakefulnessClarity: Number(document.getElementById('log-clarity').value),
+                    spatialOrTimeDistortion: Number(document.getElementById('log-spatial').value),
+                    bodyBoundarySoftening: Number(document.getElementById('log-boundary').value),
+                    physicalDiscomfortOrDizziness: Number(document.getElementById('log-discomfort').value)
+                },
+                notes: document.getElementById('log-notes').value
+            };
+            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `technodelic_log_${payload.sessionId}.json`;
+            a.click();
+        });
+
+        // Keyboard shortcuts
+        window.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+            if (e.code === 'Space' || e.code === 'Escape') {
+                e.preventDefault();
+                triggerCalmStop();
+            } else if (e.key === 'h' || e.key === 'H') {
+                document.getElementById('hud-panel').classList.toggle('hidden');
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            sharedUniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
+        });
+
+        // ==========================================
+        // 5. MAIN RENDER LOOP
+        // ==========================================
+        let lastTime = performance.now();
+        function animate(now) {
+            requestAnimationFrame(animate);
+            const dt = Math.min((now - lastTime) / 1000, 0.05);
+            lastTime = now;
+
+            updateAudioFeatures(dt);
+
+            // Smooth Calm-Stop factor
+            const targetCalm = state.isCalmStopped ? 0.0 : 1.0;
+            state.calmFactor += (targetCalm - state.calmFactor) * (1 - Math.exp(-dt / 0.16));
+
+            // Advance independent clocks
+            state.colorClock += dt * state.colorFlowSpeed * 2.0 * state.calmFactor;
+            state.spatialClock += dt * state.spatialFlowSpeed * 2.0 * state.calmFactor;
+
+            if (state.phaseMode === 'slow_drift') {
+                state.phaseAccum += dt * state.phaseDriftRate * state.calmFactor;
+            } else if (state.phaseMode === 'fixed_offset') {
+                state.phaseAccum = 1.5707; // 90 deg fixed offset
+            } else if (state.phaseMode === 'sync') {
+                state.phaseAccum = 0.0;
+            } else {
+                state.phaseAccum += dt * 0.07 * state.calmFactor;
+            }
+
+            // Update Shader Uniforms
+            sharedUniforms.uColorTime.value = state.colorClock;
+            sharedUniforms.uSpatialTime.value = state.spatialClock;
+            sharedUniforms.uPhaseOffset.value = state.phaseAccum;
+            sharedUniforms.uAudioCoupling.value = state.phaseMode === 'independent' ? 0.0 : state.audioCoupling;
+            sharedUniforms.uSubCore.value = audioFeatures.subCore;
+            sharedUniforms.uCrossfire.value = audioFeatures.crossfire;
+            sharedUniforms.uStrato.value = audioFeatures.strato;
+            sharedUniforms.uComplexity.value = state.geometryComplexity;
+            sharedUniforms.uSymmetry.value = state.symmetry;
+            sharedUniforms.uConvergence.value = state.convergence;
+            sharedUniforms.uDiffusion.value = state.diffusion;
+            sharedUniforms.uLuminanceCap.value = state.luminanceCap;
+            sharedUniforms.uCalmFactor.value = state.calmFactor;
+
+            // Timer display
+            if (state.sessionStartTime) {
+                const sec = Math.floor((Date.now() - state.sessionStartTime) / 1000);
+                const mm = String(Math.floor(sec / 60)).padStart(2, '0');
+                const ss = String(sec % 60).padStart(2, '0');
+                document.getElementById('timer-display').textContent = `${mm}:${ss}`;
+            }
+
+            // Render active visual mode
+            if (state.mode === 'CONVERGENCE_DIFFUSION') {
+                particleSystem.rotation.z += dt * 0.04 * state.spatialFlowSpeed * state.calmFactor;
+                particleSystem.rotation.y += dt * 0.03 * state.spatialFlowSpeed * state.calmFactor;
+                renderer.render(scene, camera);
+            } else {
+                renderer.render(orthoScene, orthoCamera);
+            }
+        }
+
+        syncUIValues();
+        requestAnimationFrame(animate);
+    </script>
+</body>
+</html>
