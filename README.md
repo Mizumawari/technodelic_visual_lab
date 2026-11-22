@@ -17,3 +17,13 @@
 1. **MODE 1: `RAINBOW FLOW`**（虹色流体 × `NIRVĀṆA & VELVET` / アンビエント：色彩と形状の独立制御）
 2. **MODE 2: `FRACTAL SPACE`**（幾何学空間・無限フラクタル × `GENESIS CONTINUUM` / 反復電子音：低速・位相差探索）
 3. **MODE 3: `CONVERGENCE / DIFFUSION`**（GPU粒子群による収束と拡散の同時成立 × サブベースドローン）
+
+## Bundled tracks / 同梱曲
+
+The 8 bundled tracks live in `audio/` (mp3), their pre-analysis
+(beats / bars / sections / per-part features / structure) in
+`analysis/track01-08.json`, indexed by `tracks.json` at the repo root.
+Serve this folder over HTTP (e.g. `python3 -m http.server`) and open
+`technodelic_visual_lab_v24_rebalance.html` (latest) — the bundled
+tracks then play with full pre-analysis. Opening via file:// will not
+load tracks.json / analysis due to browser fetch restrictions.

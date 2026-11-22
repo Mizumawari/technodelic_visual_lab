@@ -1,0 +1,50 @@
+[
+ {
+  "name": "CATACOMB",
+  "file": "audio/CATACOMB.mp3",
+  "bpm": 112.3,
+  "analysis": "analysis/track01.json"
+ },
+ {
+  "name": "Neural Mantra",
+  "file": "audio/Neural Mantra.mp3",
+  "bpm": 112.3,
+  "analysis": "analysis/track02.json"
+ },
+ {
+  "name": "SOUND OF A BLANK PAGE",
+  "file": "audio/SOUND OF A BLANK PAGE.mp3",
+  "bpm": 143.6,
+  "analysis": "analysis/track03.json"
+ },
+ {
+  "name": "WHITE LOVE",
+  "file": "audio/WHITE LOVE.mp3",
+  "bpm": 136.0,
+  "analysis": "analysis/track04.json"
+ },
+ {
+  "name": "白痴の玉座の狂乱舞踏 — DANCE AT THE CHAOS THRONE",
+  "file": "audio/白痴の玉座の狂乱舞踏 — DANCE AT THE CHAOS THRONE.mp3",
+  "bpm": 103.4,
+  "analysis": "analysis/track05.json"
+ },
+ {
+  "name": "紫煙と真鍮の囁き — SMOKY SCAT FOR NYARLATHOTEP",
+  "file": "audio/紫煙と真鍮の囁き — SMOKY SCAT FOR NYARLATHOTEP.mp3",
+  "bpm": 103.4,
+  "analysis": "analysis/track06.json"
+ },
+ {
+  "name": "緋色の神楽と千夜の鈴 — CRIMSON KAGURA BELLS",
+  "file": "audio/緋色の神楽と千夜の鈴 — CRIMSON KAGURA BELLS.mp3",
+  "bpm": 95.7,
+  "analysis": "analysis/track07.json"
+ },
+ {
+  "name": "舗装路の終わり",
+  "file": "audio/舗装路の終わり.mp3",
+  "bpm": 136.0,
+  "analysis": "analysis/track08.json"
+ }
+]
