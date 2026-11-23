@@ -1,0 +1,3180 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>TECHNODELIC BULLET HELL v0.8</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #050814; color: #cfe3ff; overflow: hidden;
+    font-family: "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif; }
+  #wrap { display: flex; flex-direction: row; justify-content: center; align-items: stretch; height: 100%; }
+  #field { position: relative; flex: 0 0 auto; background: #02040b; }
+  #field canvas { display: block; }
+  #hud { flex: 0 0 250px; width: 250px; box-sizing: border-box; padding: 18px 16px; background: #070b1c;
+    border-left: 1px solid #1a2348; font-size: 13px; overflow-y: auto; }
+  .row { margin-bottom: 12px; }
+  .lbl { font-size: 11px; letter-spacing: 0.14em; color: #7f8fc0; }
+  .val { font-size: 20px; font-variant-numeric: tabular-nums; color: #eef4ff; }
+  .bar { height: 8px; background: #11183a; border-radius: 4px; overflow: hidden; margin-top: 4px; }
+  .bar > div { height: 100%; width: 0%; border-radius: 4px; }
+  #gaugeFill { background: linear-gradient(90deg, #5a7cff, #c46bff, #ff7ad0); }
+  #convFill { background: #9ff2ff; }
+  #diffFill { background: #8a7dff; }
+  #bossFill { background: linear-gradient(90deg, #ff6a8a, #ffd36a); }
+  #ready { display: none; color: #fff2a8; font-weight: bold; margin-left: 6px; animation: blink 1.2s ease-in-out infinite; }
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+  #bossRow { display: none; }
+  #help { font-size: 11px; line-height: 1.6; color: #7484b4; border-top: 1px solid #1a2348; padding-top: 10px; }
+  #overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(3, 5, 14, 0.82); }
+  #overlay .box { max-width: 88%; text-align: center; line-height: 1.7; }
+  #overlay h1 { font-size: 24px; letter-spacing: 0.12em; margin: 0 0 14px; color: #f2f6ff; }
+  #overlay h2 { font-size: 22px; letter-spacing: 0.2em; margin: 0 0 10px; color: #f2f6ff; }
+  .warn { font-size: 13px; color: #ffd9a8; border: 1px solid #6b4a2a; border-radius: 6px; padding: 8px 10px; margin: 0 0 12px; text-align: left; }
+  .ctl { font-size: 12px; color: #a9b8e6; text-align: left; margin: 0 0 12px; }
+  .go { font-size: 15px; color: #ffffff; }
+  .hidden { display: none !important; }
+  /* ---------- v0.2: touch / responsive ---------- */
+  html, body { touch-action: none; }
+  body { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  #field, #field canvas, #touchBtns button { touch-action: none; }
+  #hudTop, #touchBtns { display: none; }
+  body.portrait #wrap { flex-direction: column; justify-content: flex-start; align-items: center; }
+  body.portrait #hud { display: none; }
+  body.portrait #hudTop { display: block; }
+  body.portrait #touchBtns { display: flex; }
+  /* 高さ固定（ボス行の表示切替で layout() の測定値が変わらないように） */
+  #hudTop { flex: 0 0 auto; align-self: stretch; box-sizing: border-box; height: calc(46px + env(safe-area-inset-top)); overflow: hidden;
+    background: #070b1c; border-bottom: 1px solid #1a2348;
+    padding: calc(6px + env(safe-area-inset-top)) calc(10px + env(safe-area-inset-right)) 6px calc(10px + env(safe-area-inset-left));
+    font-size: 11px; font-variant-numeric: tabular-nums; }
+  #hudTop .tRow { display: flex; align-items: center; gap: 10px; height: 22px; white-space: nowrap; }
+  #hudTop .tl { font-size: 9px; letter-spacing: 0.1em; color: #7f8fc0; margin-right: 3px; }
+  #hudTop .tv { color: #eef4ff; font-size: 13px; }
+  #hudTop .tGauge { flex: 1; display: flex; align-items: center; min-width: 40px; }
+  #hudTop .tGauge .bar { flex: 1; height: 6px; margin-top: 0; }
+  #tGaugeFill { background: linear-gradient(90deg, #5a7cff, #c46bff, #ff7ad0); }
+  #tReady { display: none; color: #fff2a8; font-weight: bold; margin-left: 4px; font-size: 9px; animation: blink 1.2s ease-in-out infinite; }
+  #tBossRow { display: none; height: 10px; padding-top: 2px; }
+  #tBossRow .bar { height: 5px; margin-top: 0; }
+  #tBossFill { background: linear-gradient(90deg, #ff6a8a, #ffd36a); }
+  #touchBtns { flex: 0 0 auto; align-self: stretch; box-sizing: border-box; height: calc(72px + env(safe-area-inset-bottom));
+    padding: 8px calc(10px + env(safe-area-inset-right)) env(safe-area-inset-bottom) calc(10px + env(safe-area-inset-left));
+    justify-content: space-between; align-items: center; gap: 8px; }
+  #touchBtns button { min-width: 56px; min-height: 56px; flex: 0 1 76px; border-radius: 28px; border: 1px solid rgba(160, 180, 255, 0.35);
+    background: rgba(40, 56, 120, 0.35); color: #dfe8ff; font-family: inherit; font-size: 11px; font-weight: bold; line-height: 1; letter-spacing: 0.08em; padding: 0; }
+  #touchBtns button.on { background: rgba(140, 170, 255, 0.55); border-color: #cfe0ff; }
+  #touchBtns button.ready { background: rgba(196, 107, 255, 0.5); border-color: #fff2a8; color: #fff2a8;
+    box-shadow: 0 0 12px rgba(255, 122, 208, 0.7); animation: blink 1.2s ease-in-out infinite; }
+  /* ---------- v0.3 C2: スペル開始バナー ---------- */
+  #banner { position: absolute; left: 0; right: 0; top: 13%; text-align: center; pointer-events: none; opacity: 0; }
+  #banner.show { animation: bannerIn 2.4s forwards; }
+  #bannerName { display: inline-block; letter-spacing: 0.3em; font-size: 21px; font-weight: bold; padding-left: 0.3em;
+    background: linear-gradient(90deg, #7af0ff, #9a8cff, #ff7ad0, #ffd36a, #7af0ff);
+    -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 6px rgba(160, 140, 255, 0.55)); }
+  @keyframes bannerIn {
+    0% { opacity: 0; transform: translateY(8px); }
+    15% { opacity: 1; transform: translateY(0); }
+    75% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(0); }
+  }
+  /* ---------- v0.4: 難易度選択 ---------- */
+  .diffrow { font-size: 12px; color: #a9b8e6; margin: 0 0 12px; }
+  .diffbtn { font-family: inherit; font-size: 12px; letter-spacing: 0.12em; background: transparent; color: #cfe3ff;
+    border: 1px solid #5a6aa8; border-radius: 4px; padding: 4px 12px; margin: 0 4px; cursor: pointer; }
+  .diffbtn.on { background: #cfe3ff; color: #050814; border-color: #cfe3ff; }
+  /* ---------- v0.8: ライブモード ---------- */
+  .ver { font-size: 11px; color: #7d90b8; letter-spacing: 0.08em; }
+  .diffbtn.dis { opacity: 0.35; }
+</style>
+<script src="assets/three.min.js"></script>
+</head>
+<body>
+<div id="wrap">
+  <div id="hudTop">
+    <div class="tRow">
+      <span><span class="tl">SCORE</span><span class="tv" id="tScore">0</span></span>
+      <span><span class="tl">CHAIN</span><span class="tv" id="tChain">0</span> <small id="tMult">×1.0</small></span>
+      <span><span class="tl">L/B</span><span class="tv"><span id="tLives">3</span> / <span id="tBombs">3</span></span></span>
+      <span class="tGauge"><span class="tl">RES</span><div class="bar"><div id="tGaugeFill"></div></div><span id="tReady">READY</span></span>
+      <span><span class="tl">TIME</span><span class="tv" id="tTime">0:00</span></span>
+    </div>
+    <div id="tBossRow"><div class="bar"><div id="tBossFill"></div></div></div>
+  </div>
+  <div id="field">
+    <div id="banner"><div id="bannerName"></div></div>
+    <div id="overlay">
+      <div class="box" id="ovTitle">
+        <h1>TECHNODELIC BULLET HELL</h1>
+        <p class="warn">【光過敏に関する注意】このゲームには、明るさや色彩が連続的に変化する映像が含まれます。光に敏感な方はご注意ください。プレイ中に体調の異変を感じた場合は、直ちにプレイを中止してください。</p>
+        <p class="ctl">
+          矢印キー / WASD：移動<br>
+          Z：ショット　F：自動ショット切替<br>
+          Shift：低速・収束（密な弾幕を抜ける／火力集中）<br>
+          X：ボム（全弾消去＋ボスにダメージ。ただしそのスペルのキャプチャボーナスは消える）<br>
+          C：レゾナンス（ゲージ満タン時。8秒間、グレイズ得点×8・攻撃力×2）<br>
+          グレイズ：弾に掠めるとゲージと得点。弾に近いほど高得点（最大5倍）<br>
+          スペルキャプチャ：被弾もボムもなしでスペルを終えると 200,000 点＋残り時間ボーナス<br>
+          光の展開：上手く避けて掠め続けるほど、万華鏡や分光の光が花開いていく。被弾すると静かにしぼむ<br>
+          Esc / P：ポーズ　R：リスタート<br>
+          ライブモードでは Esc / P は停止（リザルト表示）<br>
+          M：効果音 ON/OFF<br>
+          タッチ：ドラッグで移動（自動ショット）／ 下部ボタン：ボム・レゾナンス・低速・ポーズ
+        </p>
+        <p class="diffrow">難易度：<button id="diffNormal" class="diffbtn on">NORMAL</button><button id="diffHard" class="diffbtn">HARD</button></p>
+        <p class="diffrow">モード：<button id="modeComposed" class="diffbtn on">COMPOSED</button><button id="modeLive" class="diffbtn">LIVE</button></p>
+        <div id="liveOpts" class="hidden">
+          <p class="diffrow">音源：<button id="srcTab" class="diffbtn on">タブ音声</button><button id="srcMic" class="diffbtn">マイク</button></p>
+          <p class="ctl" id="liveInfo"></p>
+          <p class="ctl">ライブモード：タブやマイクの音をその場で解析し、敵と弾幕を編成します。決まったステージはなく、リプレイの再現性もありません（解析は概算です）。タブ音声の取り込みは PC Chrome と単独ページでのみ使えます。マイク使用時はヘッドホン推奨。タブ音源では元のタブをミュートしてください（遅延モニターと二重に聞こえます）。ライブ中はポーズできません（停止でリザルト表示）。</p>
+        </div>
+        <p class="go" id="ovStart">クリックまたは Enter で開始</p>
+        <p class="ver">v0.8 — ライブモード追加（タブ音声／マイク）</p>
+      </div>
+      <div class="box hidden" id="ovPause"><h2>PAUSED</h2><p class="go">Esc / P で再開</p></div>
+      <div class="box hidden" id="ovEnd"><h2 id="endTitle">STAGE CLEAR</h2>
+<p class="go">SCORE <span id="endScore">0</span></p>
+<p class="go" style="font-size:14px">難易度 <span id="endDiff">NORMAL</span> ／ 到達 <span id="endReach">—</span></p>
+<p class="go" style="font-size:14px">スペルキャプチャ <span id="endCapture">×0</span> ／ 残り時間ボーナス <span id="endTimeBonus">0</span><br>
+グレイズ <span id="endGraze">0回 / 0</span> ／ 撃破 <span id="endKill">0</span> ／ ボム消去 <span id="endBomb">0</span> ／ クリア消去 <span id="endClear">0</span><br>
+最大チェイン <span id="endChain">0</span></p>
+<p class="go">タップまたは R でリスタート</p></div>
+      <div class="box hidden" id="ovWait"><h2>LIVE</h2><p class="go">音声を取り込み中… まもなく開始します</p></div>
+    </div>
+  </div>
+  <div id="hud">
+    <div class="row"><div class="lbl">SCORE</div><div class="val" id="hScore">0</div></div>
+    <div class="row"><div class="lbl">CHAIN</div><div class="val"><span id="hChain">0</span> <small id="hMult">×1.0</small></div></div>
+    <div class="row"><div class="lbl">LIVES / BOMBS</div><div class="val"><span id="hLives">3</span> / <span id="hBombs">3</span></div></div>
+    <div class="row"><div class="lbl">RESONANCE<span id="ready">READY</span></div><div class="bar"><div id="gaugeFill"></div></div></div>
+    <div class="row"><div class="lbl">収束 CONV</div><div class="bar"><div id="convFill"></div></div>
+      <div class="lbl" style="margin-top:6px">拡散 DIFF</div><div class="bar"><div id="diffFill"></div></div></div>
+    <div class="row" id="bossRow"><div class="lbl">BOSS — <span id="hSpell"></span></div><div class="bar"><div id="bossFill"></div></div></div>
+    <div class="row"><div class="lbl">TIME</div><div class="val" id="hTime">0:00</div></div>
+    <div class="row"><div class="lbl">TRACK</div><div class="val" style="font-size:15px" id="hTrack">CATACOMB</div></div>
+    <div class="row"><div class="lbl">AUTO SHOT</div><div class="val" style="font-size:15px" id="hAuto">OFF</div></div>
+    <div id="help">移動：矢印 / WASD<br>Z：ショット<br>F：自動ショット切替　Shift：低速・収束<br>X：ボム　C：レゾナンス<br>Esc / P：ポーズ　R：リスタート<br>M：効果音 ON/OFF</div>
+  </div>
+  <div id="touchBtns">
+    <button id="btnBomb">BOMB</button>
+    <button id="btnReso">RESO</button>
+    <button id="btnFocus">FOCUS</button>
+    <button id="btnPause">PAUSE</button>
+    <button id="btnMute">SE ON</button>
+    <button id="btnStop" class="hidden">■ STOP</button>
+  </div>
+</div>
+<audio id="bgm" preload="auto"></audio>
+<script>
+/*
+ * TECHNODELIC BULLET HELL v0.8 — sim-core
+ *
+ * v0.8 変更点（ライブモード追加。作曲モードの挙動・RNG 消費順は v0.7 と完全一致）
+ * - createGame({mode:'live'}) でライブモード。外部の実時間解析フレーム（20fps・6バンド:
+ *   kick/snare/hat/bass/vocal/pad、各 0..1）を pushFrames(sim, frames) で受け取る
+ * - ライブ時は固定タイムラインを作らず（buildTimeline を呼ばない）、ステージ・ディレクター
+ *   （updateDirector / processFrame）が onset・エネルギー・熱量から敵ウェーブとボス出現をその場で編成する
+ * - ライブのボスは chooseSpell で選んだ 1 スペルのみ。終了後は phase 'playing' に戻り道中を再開
+ *   （bosswarn / bossend イベント）。spawnBoss はスペル番号の引数を取る（作曲モードは従来どおり引数なし＝0）
+ * - ライブの節は 12 秒固定周期。1 サイクル（6 節）分の境界を cfg.sections に先行登録し、サイクル到達で次の 6 境界へ差し替えて world の渦・秩序を回す
+ * - ライブの分岐はすべて sim.liveMode ガードの内側。決定論・120Hz 固定刻み・弾プール 1500 は両モード共通
+ *
+ * v0.7 変更点（描画層への情報公開のみ。ゲームロジック・判定・乱数の消費は一切変えない）
+ * - 敵とボスに dmgT（最後にショットダメージを受けた sim 時刻）を記録する。描画側はこれを見て
+ *   「今ダメージを受けている対象」の本体位置に命中エフェクトを固定する（従来は描画側が HP 差分を
+ *   推測し、フラッシュ位置を自機 x に置いていたためビーム線上に浮いて見えた）
+ * - ボスが HP 0 でスペルを終えたとき、advanceSpell が {type:'bossdown', x, y, spell} イベントを
+ *   発行する（撃破エフェクトの発生位置を描画側へ渡すため。タイムアウト終了では発行しない）
+ *
+ * v0.5 変更点
+ * - 難易度：全体スカラー（DIFFICULTY の dens/spd）を 1.0 に廃止し、難易度別パラメータ表 DIFF_PARAMS（sim.dp）で gap・花弁・脱出扇・予告リードを個別調整
+ * - 世界：vortexLead と order 目標を 1.5 秒先行。order が 0.35 を下回った直後 2 秒は新規弾に curve を付与。ボスの渦の実効符号を bossVortex / bossVortexSoon で公開
+ * - スペル：Cathedral は gap 幅のランプと螺旋への gap 継承・20s で渦反転、Garden は 2 層逆回転＋花弁が開く構成、Singularity は 3.2s 固定波＋収束点の距離制約＋脱出扇
+ * - スコア：スペルキャプチャ（被弾・ボムなし）とタイムボーナス、距離傾斜グレイズ、ボス戦グレイズでチェイン、内訳 stats。被弾でボムは戻らない
+ * - レゾナンス：弾消去をやめ、ショットのダメージを 2 倍に増幅
+ *
+ * 設計要点
+ * - 分離原則：このファイルは純粋なゲームシミュレーションのみ。描画・DOM・音声を一切知らない。
+ *   判定（被弾・グレイズ・ダメージ）はすべてここで完結し、描画や光学演出は sim に影響しない。
+ *   描画側は sim.state を読み、state.events を読み終えたらクリアする。
+ * - 決定論：固定刻み 120Hz（1 step = 1/120 秒）。乱数はシード付き mulberry32 のみ
+ *   （Math.random / Date は使わない）。同一シード＋同一入力列なら結果は完全に一致する。
+ * - 上限：敵弾は同時 1500 発のプール制。上限到達時の新規スポーンは捨てる（頭打ちを保証）。
+ *   自機ショットは弾オブジェクトにせず、自機 x を中心とする縦帯のダメージとして計算する。
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.TBH_SIM = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  // ---- 定数 ----
+  var DT = 1 / 120;
+  var W = 480, H = 640;
+  var MARGIN_X0 = -40, MARGIN_X1 = 520, MARGIN_Y0 = -40, MARGIN_Y1 = 680;
+  var PLAYER_X0 = 240, PLAYER_Y0 = 540;
+  var SPEED_NORMAL = 260, SPEED_SLOW = 120;
+  var PLAYER_R = 2.5, GRAZE_R = 26, BULLET_R = 3.5;
+  var MAX_BULLETS = 1500;
+  var INVULN_T = 3;
+  var CHAIN_T = 3;
+  var RES_T = 8;
+  var SPELL_HP = 900, SPELL_TIME = 30;
+  var BOMB_BOSS_DMG = 150;
+  var DIFFICULTY = { normal: { dens: 1.0, spd: 1.0 }, hard: { dens: 1.0, spd: 1.0 } };
+  var DIFF_PARAMS = {
+    normal: { gapBase: 0.40, gapRot: 0.7, gardenOpen: [8, 18], sectorHalf: 0.22, teleLead: 1.5 },
+    hard:   { gapBase: 0.30, gapRot: 0.9, gardenOpen: [4, 12], sectorHalf: 0.14, teleLead: 1.0 }
+  };
+  var BOSS_X = 240, BOSS_Y = 130;
+  var DEFAULT_BPM = 112.3, DEFAULT_LEN = 240, DEFAULT_SECTIONS = [40, 127, 152];
+  var SPELL_NAMES = ['Prism Cathedral', 'Holographic Garden', 'Convergence Singularity'];
+  var ENEMY_HP = { radial: 18, spiral: 30, fan: 24 };
+  var KILL_SCORE = 1000;
+  var TAU = Math.PI * 2;
+
+  // ---- ライブモード（v0.8） ----
+  var LIVE_FPS = 20;
+  var LIVE_BANDS = ['kick', 'snare', 'hat', 'bass', 'vocal', 'pad'];
+  var LIVE_SECTION_SEC = 12;      // ライブの節サイクル（world の渦・秩序を回す周期）
+  var LIVE_SPAWN_LEAD = 1.0;      // ディレクターがフレームを先読みする量(s)
+  var LIVE_ENTRY_LEAD = 0.9;      // onset から出現を前倒しする量(s)。敵の出現→発射開始の遅れを相殺
+  var LIVE_BOSS_HEAT = 20;        // ボス出現に必要な熱量
+  var LIVE_BOSS_TIME = 90;        // 最初の/前回ボス開始からこの秒数が経ち、熱量が半分以上あれば出現
+  var LIVE_BOSS_WARN = 2.0;       // ボス出現の予告(s)
+  var LIVE_BOSS_MIN_GAP = 20;     // ゲーム開始・前回ボス開始からボスを出さない最小間隔(s)
+  var LIVE_MAX_ENEMIES = { normal: 9, hard: 11 };
+  var LIVE_BULLET_BUDGET = { normal: 650, hard: 800 };
+  var LIVE_GROUP_GAP = { normal: 0.45, hard: 0.35 };
+  // ライブの種別ごとの同時存在上限（発射源の多さによる幾何学的閉塞を防ぐ）
+  var LIVE_TYPE_CAPS = {
+    normal: { radial: 4, fan: 4, spiral: 2 },
+    hard:   { radial: 5, fan: 5, spiral: 2 }
+  };
+  var LIVE_PRESSURE_CAP = { normal: 7, hard: 8 };  // 同時存在の敵がこれ以上なら新規グループを繰り下げる
+  var LIVE_DEEP_CAP = 3;                            // y > 400 の敵がこれ以上なら新規グループを繰り下げる
+  var LIVE_DEEP_Y = 400;
+
+  // 節ごとの固定値（analysis が無い場合の intensity と、order の目標値）
+  var SECTION_INTENSITY = [0.3, 0.6, 0.75, 0.9, 0.8, 0.7];
+  var SECTION_ORDER = [0.8, 0.4, 0.6, 0.1, 0.5, 0.3];
+
+  // ---- RNG ----
+  function mulberry32(a) {
+    a = a >>> 0;
+    return function () {
+      a = (a + 0x6D2B79F5) >>> 0;
+      var t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function rr(sim, a, b) { return a + (b - a) * sim.rng(); }
+
+  // ---- analysis ----
+  function isArrayLike(v) { return v != null && typeof v !== 'string' && typeof v.length === 'number'; }
+
+  function normTrack(arr) {
+    if (!isArrayLike(arr) || arr.length === 0) return null;
+    var mx = 0;
+    for (var i = 0; i < arr.length; i++) if (arr[i] > mx) mx = arr[i];
+    var s = mx > 1 ? 1 / mx : 1; // 0..255 (Uint8) でも 0..1 でも 0..1 に正規化
+    var out = new Array(arr.length);
+    for (var j = 0; j < arr.length; j++) out[j] = arr[j] * s;
+    return out;
+  }
+
+  function buildConfig(analysis) {
+    var a = analysis || null;
+    var sections = (a && isArrayLike(a.sections) && a.sections.length) ? Array.prototype.slice.call(a.sections) : DEFAULT_SECTIONS.slice();
+    // タイムラインは先頭3境界を使う（不足分は既定値）
+    var tl = [];
+    for (var i = 0; i < 3; i++) tl.push(sections[i] != null ? sections[i] : DEFAULT_SECTIONS[i]);
+    var beats;
+    if (a && isArrayLike(a.beats) && a.beats.length) beats = Array.prototype.slice.call(a.beats);
+    else {
+      beats = [];
+      var p = 60 / DEFAULT_BPM;
+      for (var t = 0; t < DEFAULT_LEN; t += p) beats.push(t);
+    }
+    var fps = (a && a.fps) || 20;
+    var bass = a && a.f ? normTrack(a.f.bass) : null;
+    var kick = a && a.f ? normTrack(a.f.kick) : null;
+    return { sections: sections, tl: tl, beats: beats, fps: fps, bass: bass, kick: kick };
+  }
+
+  function sectionIndex(cfg, t) {
+    var idx = 0;
+    for (var i = 0; i < cfg.sections.length; i++) if (t >= cfg.sections[i]) idx = i + 1;
+    return idx;
+  }
+
+  function sampleIntensity(cfg, t, secIdx) {
+    if (cfg.bass && cfg.kick) {
+      var fr = Math.floor(t * cfg.fps);
+      if (fr >= 0 && fr < cfg.bass.length && fr < cfg.kick.length) {
+        var v = (cfg.bass[fr] + cfg.kick[fr]) * 0.5;
+        return v < 0 ? 0 : v > 1 ? 1 : v;
+      }
+    }
+    return SECTION_INTENSITY[Math.min(secIdx, SECTION_INTENSITY.length - 1)];
+  }
+
+  // ---- ステージタイムライン（宣言的。RNG と節境界・ビートから決定的に生成） ----
+  function buildTimeline(sim) {
+    var cfg = sim.cfg, tl = [];
+    var s1 = cfg.tl[0], s2 = cfg.tl[1], sBoss = cfg.tl[2];
+    var beats = cfg.beats;
+    var i, j, b;
+
+    // 節0：radial 中心の低密度の波状出現（8 拍ごとに 2〜3 体を 1 拍ずつずらして）
+    var sec0 = [];
+    for (i = 0; i < beats.length; i++) if (beats[i] >= 2 && beats[i] < s1 - 1) sec0.push(i);
+    for (j = 0; j < sec0.length; j += 8) {
+      var k = 2 + Math.floor(sim.rng() * 2);
+      for (var m = 0; m < k; m++) {
+        b = sec0[j] + m;
+        if (b < beats.length && beats[b] < s1 - 1) tl.push({ t: beats[b], kind: 'enemy', type: 'radial', x: rr(sim, 60, 420) });
+      }
+    }
+
+    // 節1：spiral / fan が加わり中密度
+    var lj = 0;
+    for (i = 0; i < beats.length; i++) {
+      b = beats[i];
+      if (b < s1 || b >= s2 - 1) continue;
+      if (lj % 4 === 0) tl.push({ t: b, kind: 'enemy', type: 'radial', x: rr(sim, 60, 420) });
+      if (lj % 16 === 0) tl.push({ t: b, kind: 'enemy', type: 'spiral', x: rr(sim, 100, 380), ty: rr(sim, 90, 170) });
+      if (lj % 16 === 8) {
+        tl.push({ t: b, kind: 'enemy', type: 'fan', side: -1, y: rr(sim, 80, 240), tx: rr(sim, 90, 200) });
+        tl.push({ t: b, kind: 'enemy', type: 'fan', side: 1, y: rr(sim, 80, 240), tx: rr(sim, 280, 390) });
+      }
+      lj++;
+    }
+
+    // 節2：wave 中心の混合、後半（最後の 25%）は小休止
+    var lullT = s2 + (sBoss - s2) * 0.75;
+    lj = 0;
+    for (i = 0; i < beats.length; i++) {
+      b = beats[i];
+      if (b < s2 || b >= lullT) continue;
+      if (lj % 8 === 0) tl.push({ t: b, kind: 'stream', x: rr(sim, 80, 400), y: 20, dur: 2.5 });
+      if (lj % 8 === 4) tl.push({ t: b, kind: 'enemy', type: 'radial', x: rr(sim, 60, 420) });
+      if (lj % 16 === 12) {
+        var side = sim.rng() < 0.5 ? -1 : 1;
+        tl.push({ t: b, kind: 'enemy', type: 'fan', side: side, y: rr(sim, 80, 220), tx: side < 0 ? rr(sim, 90, 200) : rr(sim, 280, 390) });
+      }
+      lj++;
+    }
+
+    tl.push({ t: sBoss, kind: 'boss' });
+
+    // 安定ソート（同時刻は生成順）
+    for (i = 0; i < tl.length; i++) tl[i]._o = i;
+    tl.sort(function (p, q) { return p.t - q.t || p._o - q._o; });
+    return tl;
+  }
+
+  // ---- 弾プール ----
+  function spawnBullet(sim, x, y, ang, speed, o) {
+    var st = sim.state;
+    if (st.bullets.length >= MAX_BULLETS) { sim.dropped++; return null; }
+    var b = sim.pool.length ? sim.pool.pop() : {};
+    b.x = x; b.y = y;
+    speed = speed * sim.spdMul;
+    b.vx = Math.cos(ang) * speed; b.vy = Math.sin(ang) * speed;
+    b.curve = (o && o.curve) || 0;
+    if (sim.lowOrderT > 0) b.curve += (0.35 - st.world.order) * 1.5 * st.world.vortexDir;
+    b.accel = (o && o.accel) || 0;
+    b.r = BULLET_R;
+    b.hue = (((o && o.hue != null) ? o.hue : st.world.hueBase) % 1 + 1) % 1;
+    b.phase = (sim.serial++ * 0.6180339887) % 1;
+    b.grazed = false;
+    b.grazeMin = null;
+    b.mode = 'normal';
+    b.convT = 0;
+    b.tx = 0; b.ty = 0; b.tD = 0; b.tC = 0; b.cs = 0; b.reAccel = 0;
+    st.bullets.push(b);
+    return b;
+  }
+
+  function clearBullets(sim, pts) {
+    var st = sim.state, n = st.bullets.length;
+    for (var i = 0; i < n; i++) sim.pool.push(st.bullets[i]);
+    st.bullets.length = 0;
+    if (pts) st.score += n * pts;
+    return n;
+  }
+
+  // ---- Pattern Engine：エミッタ関数 ----
+  // emitter 共通: {x, y, speed, angle, hue, curve, accel}
+  var patterns = {
+    // 放射。gap {dir, width} を与えると、その方向だけ欠ける。hueSpread で分光
+    radial: function (sim, em) {
+      var n = em.n || 12, base = em.angle || 0;
+      n = Math.max(1, Math.round(n * sim.densMul));
+      for (var i = 0; i < n; i++) {
+        var a = base + TAU * i / n;
+        if (em.gap) {
+          var d = Math.atan2(Math.sin(a - em.gap.dir), Math.cos(a - em.gap.dir));
+          if (Math.abs(d) < em.gap.width) continue;
+        }
+        var hue = em.hueSpread ? (em.hue || 0) + i / n : em.hue;
+        spawnBullet(sim, em.x, em.y, a, em.speed, { hue: hue, curve: em.curve, accel: em.accel });
+      }
+    },
+    // 螺旋：arms 本の腕を等間隔で 1 発ずつ。回転は呼び出し側が angle を進める
+    spiral: function (sim, em) {
+      var arms = em.arms || 2;
+      for (var i = 0; i < arms; i++) {
+        var a = (em.angle || 0) + TAU * i / arms;
+        if (em.gap) {
+          var d = Math.atan2(Math.sin(a - em.gap.dir), Math.cos(a - em.gap.dir));
+          if (Math.abs(d) < em.gap.width) continue;
+        }
+        spawnBullet(sim, em.x, em.y, a, em.speed, { hue: em.hue, curve: em.curve, accel: em.accel });
+      }
+    },
+    // 花弁：放射の発射角・速度を petal 数で変調
+    flower: function (sim, em) {
+      var petal = em.petal || 6, n = em.n || petal * 4, base = em.angle || 0;
+      n = Math.max(1, Math.round(n * sim.densMul));
+      var amp = em.amp != null ? em.amp : 0.18;
+      var sm = em.speedMod != null ? em.speedMod : 0.35;
+      for (var i = 0; i < n; i++) {
+        var th = TAU * i / n;
+        var m = Math.sin(petal * th);
+        spawnBullet(sim, em.x, em.y, base + th + amp * m, em.speed * (1 + sm * m), { hue: em.hue, curve: em.curve, accel: em.accel });
+      }
+    },
+    // 自機狙いストリームを正弦で蛇行（呼ぶたびに 1 発。em.t はストリーム内時間）
+    wave: function (sim, em) {
+      var p = sim.state.player;
+      var a = Math.atan2(p.y - em.y, p.x - em.x) + (em.amp || 0.5) * Math.sin(TAU * (em.freq || 1.2) * (em.t || 0));
+      spawnBullet(sim, em.x, em.y, a, em.speed, { hue: em.hue, curve: em.curve, accel: em.accel });
+    },
+    // 自機狙い扇
+    fan: function (sim, em) {
+      var p = sim.state.player, n = em.n || 5, spread = em.spread || 0.22;
+      n = Math.max(1, Math.round(n * sim.densMul));
+      var aim = Math.atan2(p.y - em.y, p.x - em.x);
+      for (var i = 0; i < n; i++) {
+        spawnBullet(sim, em.x, em.y, aim + (i - (n - 1) / 2) * spread, em.speed, { hue: em.hue, curve: em.curve, accel: em.accel });
+      }
+    },
+    // 拡散→予告点へ収束→再拡散。収束点は発射時に決定的に決め、convT で段階管理
+    convDiff: function (sim, em) {
+      var n = em.n || 48, base = em.angle || 0;
+      n = Math.max(1, Math.round(n * sim.densMul));
+      var tx = em.tx != null ? em.tx : rr(sim, 100, 380);
+      var ty = em.ty != null ? em.ty : rr(sim, 360, 560);
+      var tD = em.tDiffuse || 1.6, tC = em.tConverge || 1.2;
+      var dist = em.speed * tD + 0.5 * (em.accel || 0) * tD * tD;
+      for (var i = 0; i < n; i++) {
+        var a = base + TAU * i / n;
+        if (em.sector) {
+          var px = em.x + Math.cos(a) * dist, py = em.y + Math.sin(a) * dist;
+          var arr = Math.atan2(ty - py, tx - px);
+          var d = Math.atan2(Math.sin(arr - em.sector.dir), Math.cos(arr - em.sector.dir));
+          if (Math.abs(d) < em.sector.half) continue;
+        }
+        var b = spawnBullet(sim, em.x, em.y, a, em.speed, { hue: em.hue != null ? em.hue : i / n, accel: em.accel });
+        if (!b) continue;
+        b.mode = 'converge'; b.convT = 0; b.curve = 0;
+        b.tx = tx; b.ty = ty; b.tD = tD; b.tC = tC; b.cs = 0;
+        b.reAccel = em.reAccel || 0;
+      }
+      sim.convPoints.push({ x: tx, y: ty, at: sim.state.time + tD + tC, sector: em.sector ? em.sector.dir : null, sectorHalf: em.sector ? em.sector.half : 0 });
+    }
+  };
+
+  // ---- 生成 ----
+  function createGame(opts) {
+    opts = opts || {};
+    var seed = opts.seed != null ? opts.seed : 1;
+    var difficulty = (opts.difficulty === 'normal' || opts.difficulty === 'hard') ? opts.difficulty : 'normal';
+    var liveMode = opts.mode === 'live';
+    // v0.8 ライブ：解析フレームの受け口（cfg.bass / cfg.kick は同一配列参照）
+    var bands = liveMode ? { kick: [], snare: [], hat: [], bass: [], vocal: [], pad: [] } : null;
+    var sim = {
+      liveMode: liveMode,
+      rng: mulberry32(seed),
+      densMul: DIFFICULTY[difficulty].dens,
+      spdMul: DIFFICULTY[difficulty].spd,
+      dp: DIFF_PARAMS[difficulty],
+      cfg: liveMode
+        ? { sections: liveSectionBounds(0), tl: DEFAULT_SECTIONS.slice(), beats: [], fps: LIVE_FPS, bass: bands.bass, kick: bands.kick }
+        : buildConfig(opts.analysis),
+      invincible: !!opts.invincible,
+      pool: [],
+      serial: 0,
+      dropped: 0,
+      tlIndex: 0,
+      streams: [],
+      convPoints: [],
+      prevBomb: false,
+      prevRes: false,
+      lowOrderT: 0,
+      prevOrder: SECTION_ORDER[0],
+      state: {
+        time: 0,
+        phase: 'ready',
+        difficulty: difficulty,
+        score: 0,
+        chain: 0, chainTimer: 0, mult: 1,
+        lives: 3, bombs: 3,
+        gauge: 0,
+        resonanceT: 0,
+        conv: 0.3, diff: 0.9,
+        player: { x: PLAYER_X0, y: PLAYER_Y0, alive: true, invulnT: 0, slow: false },
+        enemies: [],
+        bullets: [],
+        boss: null,
+        world: { vortexDir: 1, vortexLead: 1, hueBase: 0, intensity: 0, order: SECTION_ORDER[0] },
+        bossVortex: 1,
+        bossVortexSoon: 1,
+        spellHit: false,
+        spellBomb: false,
+        bossGraze: 0,
+        stats: { capturePts: 0, captures: 0, timeBonusPts: 0, grazePts: 0, grazeCount: 0, killPts: 0, bombPts: 0, maxChain: 0, bombsUsed: 0, resonanceUsed: 0, clearPts: 0 },
+        spellIndex: -1,
+        spellName: '',
+        telegraph: null,
+        events: []
+      }
+    };
+    if (liveMode) {
+      sim.liveBands = bands;
+      sim.timeline = []; // ライブは buildTimeline を呼ばない（RNG を消費しない）
+      sim.state.live = { frames: 0, heat: 0, bossCount: 0, quiet: false, spawns: 0 };
+      sim.live = {
+        procF: 0,               // 次に処理するフレーム番号
+        prev: { kick: 0, snare: 0, hat: 0, bass: 0, vocal: 0 },
+        refr: { kick: 0, snare: 0, hat: 0, bass: 0, vocal: 0 },  // バンド別：この frame 未満では onset を取らない
+        lastKickF: -100, lastSnareF: -100, lastHatF: -100,
+        lastStreamT: -100,      // 最後に stream を出した sim 時刻
+        lastGroupT: -100,       // 最後にグループ先頭を実行した sim 時刻
+        pending: [],            // 出現アクション {at, kind:'enemy'|'stream', head, retries, ...}
+        heat: 0, eSum: 0, eCount: 0,
+        bossAt: -1,             // 予約済みボス出現時刻（-1 = なし）
+        pendingSpell: 0,
+        lastBossRefT: 0,        // 最初のボスはゲーム開始(0)基準
+        bossCount: 0,
+        cycle: 0,
+        secBase: 0,             // 現サイクルの起点（境界は secBase + LIVE_SECTION_SEC × 1..6）
+        quietNow: false
+      };
+    } else {
+      sim.timeline = buildTimeline(sim);
+    }
+    updateWorld(sim, 0);
+    return sim;
+  }
+
+  // ---- ライブモード：フレーム受け口（v0.8） ----
+  function pushFrames(sim, frames) {
+    if (!sim.liveMode || !frames) return 0;
+    var n = 0;
+    for (var i = 0; i < frames.length; i++) {
+      var f = frames[i] || {};
+      for (var j = 0; j < LIVE_BANDS.length; j++) {
+        var k = LIVE_BANDS[j], v = f[k];
+        v = (typeof v === 'number' && isFinite(v)) ? (v < 0 ? 0 : v > 1 ? 1 : v) : 0;
+        sim.liveBands[k].push(v);
+      }
+      n++;
+    }
+    return n;
+  }
+
+  // ---- ライブモード：ステージ・ディレクター（v0.8） ----
+  function bandMean(arr, f0, f1) {
+    var s = 0, n = 0;
+    for (var i = f0 < 0 ? 0 : f0; i <= f1; i++) { s += arr[i]; n++; }
+    return n ? s / n : 0;
+  }
+
+  function frameLevel(lb, i) {
+    return (lb.kick[i] + lb.snare[i] + lb.hat[i] + lb.bass[i] + lb.vocal[i] + lb.pad[i]) / 6;
+  }
+
+  function liveSchedule(sim, a) {
+    a.retries = 0;
+    sim.live.pending.push(a);
+  }
+
+  function liveSingleFan(sim, at) {
+    var side = sim.rng() < 0.5 ? -1 : 1;
+    var y = rr(sim, 80, 240);
+    var tx = side < 0 ? rr(sim, 90, 200) : rr(sim, 280, 390);
+    liveSchedule(sim, { at: at, kind: 'enemy', type: 'fan', side: side, y: y, tx: tx, head: true });
+  }
+
+  function liveStream(sim, at, ft) {
+    liveSchedule(sim, { at: at, kind: 'stream', x: rr(sim, 80, 400), y: 20, dur: 2.5, head: true });
+    sim.live.lastStreamT = ft;
+  }
+
+  function processFrame(sim, f) {
+    var st = sim.state, live = sim.live, lb = sim.liveBands;
+    var ft = f / LIVE_FPS;
+    var cur = { kick: lb.kick[f], snare: lb.snare[f], hat: lb.hat[f], bass: lb.bass[f], vocal: lb.vocal[f], pad: lb.pad[f] };
+
+    // エネルギー
+    var es = 0, en = 0;
+    for (var i = Math.max(0, f - 39); i <= f; i++) { es += (lb.kick[i] + lb.bass[i]) / 2; en++; }
+    var E2 = es / en;
+    live.eSum += E2; live.eCount++;
+    var R = live.eSum / live.eCount;
+
+    // 静けさ
+    var ls = 0, ln = 0;
+    for (var q = Math.max(0, f - 29); q <= f; q++) { ls += frameLevel(lb, q); ln++; }
+    live.quietNow = (ls / ln) < 0.06;
+    st.live.quiet = live.quietNow;
+
+    // 熱量
+    if (st.phase === 'playing' && !live.quietNow) live.heat += Math.max(0, E2 - 0.12) / LIVE_FPS;
+    st.live.heat = live.heat;
+
+    // onset 検出（発火時は refr を進める。prev は最後に全バンド更新）
+    function onset(band, thr, lvl, refrF) {
+      var v = cur[band];
+      if (v >= lvl && (v - live.prev[band]) >= thr && f >= live.refr[band]) {
+        live.refr[band] = f + refrF;
+        return true;
+      }
+      return false;
+    }
+    var oK = onset('kick', 0.15, 0.38, 6);
+    var oB = onset('bass', 0.15, 0.38, 6);
+    var oS = onset('snare', 0.15, 0.35, 5);
+    var oH = onset('hat', 0.12, 0.30, 4);
+    var oV = onset('vocal', 0.15, 0.35, 6);
+
+    var canSched = st.phase === 'playing' && live.bossAt < 0 && ft >= st.time - 0.25;
+    if (canSched) {
+      var weak = E2 < 0.10;
+      var at = Math.max(ft - LIVE_ENTRY_LEAD, st.time);
+      var j, v;
+
+      // kick → radial グループ
+      v = cur.kick;
+      if (oK && (!weak || v >= 0.6)) {
+        var n = v >= 0.75 ? 3 : 2;
+        if (E2 > R * 1.25 && R > 0.05) n = Math.min(4, n + 1);
+        if (weak) n = 1;
+        for (j = 0; j < n; j++) {
+          var x = Math.min(420, Math.max(60, 240 + (j - (n - 1) / 2) * 110 + rr(sim, -30, 30)));
+          liveSchedule(sim, { at: at + j * 0.18, kind: 'enemy', type: 'radial', x: x, head: j === 0 });
+        }
+        live.lastKickF = f;
+      }
+
+      // bass → spiral / radial（kick と二重にしない）
+      v = cur.bass;
+      if (oB && (!weak || v >= 0.6) && !(f - live.lastKickF <= 2)) {
+        if (bandMean(lb.bass, f - 9, f) >= 0.45) {
+          var sx = rr(sim, 100, 380), sty = rr(sim, 90, 170);
+          liveSchedule(sim, { at: at, kind: 'enemy', type: 'spiral', x: sx, ty: sty, head: true });
+        } else {
+          liveSchedule(sim, { at: at, kind: 'enemy', type: 'radial', x: rr(sim, 60, 420), head: true });
+        }
+      }
+
+      // snare → fan ペア / 単体
+      v = cur.snare;
+      if (oS && (!weak || v >= 0.6)) {
+        if (v >= 0.5) {
+          var y1 = rr(sim, 80, 240), tx1 = rr(sim, 90, 200);
+          liveSchedule(sim, { at: at, kind: 'enemy', type: 'fan', side: -1, y: y1, tx: tx1, head: true });
+          var y2 = rr(sim, 80, 240), tx2 = rr(sim, 280, 390);
+          liveSchedule(sim, { at: at, kind: 'enemy', type: 'fan', side: 1, y: y2, tx: tx2, head: false });
+        } else {
+          liveSingleFan(sim, at);
+        }
+        live.lastSnareF = f;
+      }
+
+      // hat → クラスタなら stream、そうでなければ単体 fan
+      v = cur.hat;
+      if (oH && (!weak || v >= 0.6)) {
+        if (f - live.lastHatF <= 10 || f - live.lastSnareF <= 10) {
+          if (ft - live.lastStreamT >= 6) liveStream(sim, at, ft);
+        } else {
+          liveSingleFan(sim, at);
+        }
+        live.lastHatF = f;
+      }
+
+      // vocal → radial 1 体
+      v = cur.vocal;
+      if (oV && (!weak || v >= 0.6)) {
+        liveSchedule(sim, { at: at, kind: 'enemy', type: 'radial', x: rr(sim, 60, 420), head: true });
+      }
+
+      // pad 持続 → stream（weak ゲート対象外）
+      if (bandMean(lb.pad, f - 19, f) >= 0.5 && ft - live.lastStreamT >= 6) liveStream(sim, at, ft);
+    }
+
+    live.prev.kick = cur.kick; live.prev.snare = cur.snare; live.prev.hat = cur.hat;
+    live.prev.bass = cur.bass; live.prev.vocal = cur.vocal;
+  }
+
+  function chooseSpell(sim) {
+    var lb = sim.liveBands, live = sim.live;
+    var end = Math.min(live.procF, lb.kick.length); // 処理済み（＝直近）のフレームまで
+    var start = Math.max(0, end - 240);
+    var cnt = end - start, padN = 0, onsetCount = 0, mn = Infinity, mx = -Infinity;
+    for (var i = start; i < end; i++) {
+      if (lb.pad[i] >= 0.5) padN++;
+      if (lb.kick[i] >= 0.5) onsetCount++;
+      if (lb.snare[i] >= 0.5) onsetCount++;
+      var l = frameLevel(lb, i);
+      if (l < mn) mn = l;
+      if (l > mx) mx = l;
+    }
+    var padRatio = cnt ? padN / cnt : 0;
+    var levelRange = cnt ? mx - mn : 0;
+    if (padRatio >= 0.45) return 1;
+    if (onsetCount >= 55) return 0;
+    if (levelRange >= 0.35) return 2;
+    return (live.cycle++) % 3;
+  }
+
+  function liveSectionBounds(base) {
+    var a = [];
+    for (var k = 1; k <= 6; k++) a.push(base + LIVE_SECTION_SEC * k);
+    return a;
+  }
+
+  function updateDirector(sim, dt) {
+    var st = sim.state, live = sim.live, lb = sim.liveBands, diff = st.difficulty;
+    st.live.frames = lb.kick.length;
+
+    // 節サイクル（境界は先行登録済み。サイクル末尾に達したら次の 6 境界へ差し替える）
+    var prevBase = live.secBase;
+    while (st.time >= live.secBase + LIVE_SECTION_SEC * 6) { live.secBase += LIVE_SECTION_SEC * 6; }
+    if (live.secBase !== prevBase) sim.cfg.sections = liveSectionBounds(live.secBase);
+
+    // フレーム処理（先読み LIVE_SPAWN_LEAD まで）
+    var avail = lb.kick.length;
+    var horizonF = Math.floor((st.time + LIVE_SPAWN_LEAD) * LIVE_FPS);
+    while (live.procF < avail && live.procF <= horizonF) { processFrame(sim, live.procF); live.procF++; }
+
+    // ボス予約の実行
+    if (live.bossAt >= 0 && st.time >= live.bossAt && st.phase === 'playing') {
+      spawnBoss(sim, live.pendingSpell);
+      live.bossAt = -1;
+      live.bossCount++;
+      st.live.bossCount = live.bossCount;
+      live.lastBossRefT = st.time;
+    }
+
+    // pending の実行（挿入順）
+    var pd = live.pending, keep = [];
+    for (var i = 0; i < pd.length; i++) {
+      var a = pd[i];
+      if (a.at > st.time) { keep.push(a); continue; }
+      if (st.phase !== 'playing') continue; // ボス中・終了後は破棄
+      if (a.head && st.time - live.lastGroupT < LIVE_GROUP_GAP[diff]) {
+        a.at = live.lastGroupT + LIVE_GROUP_GAP[diff];
+        keep.push(a);
+        continue;
+      }
+      if (a.kind === 'enemy') {
+        // 種別キャップ（変換/破棄はその場で確定。retries は消費しない）
+        var caps = LIVE_TYPE_CAPS[diff], cnt = { radial: 0, fan: 0, spiral: 0 };
+        for (var ei = 0; ei < st.enemies.length; ei++) {
+          var et = st.enemies[ei].type;
+          if (cnt[et] !== undefined) cnt[et]++;
+        }
+        if (a.type === 'radial' && cnt.radial >= caps.radial) {
+          if (cnt.fan < caps.fan) {
+            a.type = 'fan';
+            a.side = a.x < 240 ? -1 : 1;
+            a.y = rr(sim, 80, 240);
+            a.tx = a.side < 0 ? rr(sim, 90, 200) : rr(sim, 280, 390);
+          } else {
+            continue; // 破棄
+          }
+        } else if (a.type === 'fan' && cnt.fan >= caps.fan) {
+          continue; // 破棄
+        } else if (a.type === 'spiral' && cnt.spiral >= caps.spiral) {
+          continue; // 破棄
+        }
+        // 圧力ゲート → 低空ゲート → 総数・弾数予算（どれに該当しても retries は1回だけ増やす）
+        var deepN = 0;
+        for (var di = 0; di < st.enemies.length; di++) {
+          if (st.enemies[di].y > LIVE_DEEP_Y) deepN++;
+        }
+        if (st.enemies.length >= LIVE_PRESSURE_CAP[diff] || deepN >= LIVE_DEEP_CAP ||
+            st.enemies.length >= LIVE_MAX_ENEMIES[diff] || st.bullets.length > LIVE_BULLET_BUDGET[diff]) {
+          a.retries++;
+          a.at += 0.4;
+          if (a.retries <= 2) keep.push(a);
+          continue;
+        }
+        spawnEnemy(sim, a);
+      } else {
+        if (st.bullets.length > LIVE_BULLET_BUDGET[diff]) {
+          a.retries++;
+          a.at += 0.4;
+          if (a.retries <= 2) keep.push(a);
+          continue;
+        }
+        sim.streams.push({ x: a.x, y: a.y, t: 0, dur: a.dur, fireT: 0, speed: 150, amp: 0.5, freq: 1.2 });
+      }
+      st.live.spawns++;
+      if (a.head) live.lastGroupT = st.time;
+    }
+    live.pending = keep;
+
+    // ボストリガ判定
+    if (st.phase === 'playing' && live.bossAt < 0 && st.time - live.lastBossRefT >= LIVE_BOSS_MIN_GAP &&
+        (live.heat >= LIVE_BOSS_HEAT || (st.time - live.lastBossRefT >= LIVE_BOSS_TIME && live.heat >= LIVE_BOSS_HEAT * 0.5))) {
+      live.bossAt = st.time + LIVE_BOSS_WARN;
+      live.pendingSpell = chooseSpell(sim);
+      live.pending.length = 0; // 予約済みウェーブは掃除する
+      st.events.push({ type: 'bosswarn', spell: live.pendingSpell, in: LIVE_BOSS_WARN });
+    }
+  }
+
+  // ---- world ----
+  function updateWorld(sim, dt) {
+    var st = sim.state, w = st.world;
+    var idx = sectionIndex(sim.cfg, st.time);
+    var leadIdx = sectionIndex(sim.cfg, st.time + 1.5);
+    w.vortexDir = idx % 2 === 0 ? 1 : -1;
+    w.vortexLead = leadIdx % 2 === 0 ? 1 : -1;
+    w.hueBase = ((st.time / 90 + idx * 0.17) % 1 + 1) % 1;
+    w.intensity = sampleIntensity(sim.cfg, st.time, idx);
+    var target = SECTION_ORDER[Math.min(leadIdx, SECTION_ORDER.length - 1)];
+    w.order += (target - w.order) * Math.min(1, dt * 0.5);
+    sim.lowOrderT = Math.max(0, sim.lowOrderT - dt);
+    if (sim.prevOrder >= 0.35 && w.order < 0.35) sim.lowOrderT = 2.0;
+    sim.prevOrder = w.order;
+  }
+
+  function fireRate(sim) { return 0.9 + 0.2 * sim.state.world.intensity; }
+
+  // ---- 敵 ----
+  function spawnEnemy(sim, ev) {
+    var e = { x: 0, y: 0, vx: 0, vy: 0, hp: ENEMY_HP[ev.type], maxHp: ENEMY_HP[ev.type], type: ev.type, t: 0, fireT: 0, score: KILL_SCORE, dmgT: -1 };
+    if (ev.type === 'radial') {
+      e.x = ev.x; e.y = -30; e.vy = 45; e.ph = rr(sim, 0, TAU); e.fireT = 0.8;
+    } else if (ev.type === 'spiral') {
+      e.x = ev.x; e.y = -30; e.ty = ev.ty; e.stay = 9; e.ang = rr(sim, 0, TAU); e.fireT = 1.0;
+    } else { // fan
+      e.side = ev.side; e.x = ev.side < 0 ? -30 : 510; e.y = ev.y; e.tx = ev.tx; e.stay = 7; e.fireT = 1.0;
+    }
+    sim.state.enemies.push(e);
+  }
+
+  function updateEnemies(sim, dt) {
+    var st = sim.state, rate = fireRate(sim), vd = st.world.vortexDir;
+    for (var i = 0; i < st.enemies.length; i++) {
+      var e = st.enemies[i];
+      e.t += dt;
+      if (e.type === 'radial') {
+        e.vx = 50 * Math.sin(1.1 * e.t + e.ph);
+        e.vy = 45;
+      } else if (e.type === 'spiral') {
+        if (e.t < e.stay) { e.vy = (e.ty - e.y) * 1.8; e.vx = 15 * Math.sin(0.7 * e.t); }
+        else { e.vy = -70; e.vx = 0; }
+      } else {
+        if (e.t < e.stay) { e.vx = (e.tx - e.x) * 1.5; e.vy = 0; }
+        else { e.vx = e.side < 0 ? -90 : 90; e.vy = 0; }
+      }
+      e.x += e.vx * dt; e.y += e.vy * dt;
+
+      var onScreen = e.x >= 0 && e.x <= W && e.y >= 0 && e.y <= H;
+      if (!onScreen) continue;
+      if (e.type === 'radial') {
+        e.fireT -= dt * rate;
+        if (e.fireT <= 0) {
+          e.fireT += 1.6;
+          patterns.radial(sim, { x: e.x, y: e.y, n: 12 + Math.round(8 * st.world.intensity), speed: 90, angle: e.t * 0.5 });
+        }
+      } else if (e.type === 'spiral') {
+        e.ang += vd * 2.2 * dt;
+        if (e.t < e.stay) {
+          e.fireT -= dt * rate;
+          while (e.fireT <= 0) {
+            e.fireT += 0.09;
+            patterns.spiral(sim, { x: e.x, y: e.y, arms: 2, speed: 110, angle: e.ang });
+          }
+        }
+      } else {
+        if (e.t < e.stay) {
+          e.fireT -= dt * rate;
+          if (e.fireT <= 0) {
+            e.fireT += 1.3;
+            patterns.fan(sim, { x: e.x, y: e.y, n: 7, spread: 0.22, speed: 140 });
+          }
+        }
+      }
+    }
+  }
+
+  function updateStreams(sim, dt) {
+    var rate = fireRate(sim);
+    for (var i = sim.streams.length - 1; i >= 0; i--) {
+      var s = sim.streams[i];
+      s.t += dt;
+      if (s.t >= s.dur) { sim.streams.splice(i, 1); continue; }
+      s.fireT -= dt * rate;
+      while (s.fireT <= 0) { s.fireT += 0.06; patterns.wave(sim, s); }
+    }
+  }
+
+  // ---- ボス ----
+  function startSpell(sim, idx) {
+    var st = sim.state, bo = st.boss;
+    bo.spell = idx; bo.spellT = 0; bo.hp = SPELL_HP; bo.maxHp = SPELL_HP;
+    bo.fireT = [0.5, 0.5, 0.5, 0.5]; bo.ring = 0;
+    st.spellIndex = idx;
+    st.spellName = SPELL_NAMES[idx];
+    st.spellHit = false; st.spellBomb = false; st.bossGraze = 0;
+    st.events.push({ type: 'spell', name: st.spellName });
+  }
+
+  function spawnBoss(sim, spellIdx) {
+    var st = sim.state;
+    st.enemies.length = 0; // スペル中は道中敵なし
+    sim.streams.length = 0;
+    st.boss = { x: BOSS_X, y: BOSS_Y, hp: SPELL_HP, maxHp: SPELL_HP, t: 0, spell: 0, spellT: 0, fireT: [0, 0, 0], ring: 0, dmgT: -1 };
+    st.phase = 'boss';
+    startSpell(sim, spellIdx || 0); // 作曲モードは引数なし＝スペル0
+  }
+
+  var GARDEN_LAYERS = [
+    { period: 0.8, speed: 105, rot: 0.5 },
+    { period: 1.05, speed: 140, rot: 0.38 }
+  ];
+  var WAVE_INTERVAL = 3.2, CONV_N = 470, CONV_N2 = 120;
+
+  // スペル内フェーズランプ：発射間隔を baseInterval / ramp に短縮
+  function ramp(bo) { return bo.spellT < 10 ? 1.0 : bo.spellT < 20 ? 1.3 : 1.6; }
+
+  function updateBoss(sim, dt) {
+    var st = sim.state, bo = st.boss;
+    if (!bo) return;
+    bo.t += dt; bo.spellT += dt;
+    bo.x = BOSS_X + 60 * Math.sin(0.4 * bo.t);
+    bo.y = BOSS_Y;
+    var rate = fireRate(sim), vd = st.world.vortexDir, rp = ramp(bo), dp = sim.dp;
+    // 渦の実効符号：節パリティ、Cathedral は spellT 20s 以降で反転
+    function vortexAt(dtAhead) {
+      var s = sectionIndex(sim.cfg, st.time + dtAhead) % 2 === 0 ? 1 : -1;
+      if (bo.spell === 0 && bo.spellT + dtAhead >= 20) s = -s;
+      return s;
+    }
+    st.bossVortex = vortexAt(0);
+    st.bossVortexSoon = vortexAt(1.5);
+    if (bo.spell === 0) {
+      var vdEff = st.bossVortex;
+      var stage = bo.spellT < 10 ? 0 : bo.spellT < 20 ? 1 : 2;
+      var gapW = dp.gapBase + 0.11 * stage;
+      var gapDir = bo.spellT * dp.gapRot * vdEff;
+      bo.fireT[0] -= dt * rate;
+      if (bo.fireT[0] <= 0) {
+        bo.fireT[0] += 0.28 / rp;
+        patterns.radial(sim, {
+          x: bo.x, y: bo.y, n: 48, speed: 115,
+          angle: bo.ring * 0.13 * vdEff,
+          gap: { dir: gapDir, width: gapW },
+          hue: st.world.hueBase, hueSpread: true
+        });
+        bo.ring++;
+      }
+      if (bo.spellT >= 8) {
+        bo.fireT[1] -= dt * rate;
+        while (bo.fireT[1] <= 0) {
+          bo.fireT[1] += 0.09 / rp;
+          patterns.spiral(sim, { x: bo.x, y: bo.y, arms: 2, speed: 100, angle: bo.spellT * 2.4 * vdEff, hue: st.world.hueBase + 0.5, gap: { dir: gapDir, width: gapW } });
+        }
+      }
+    } else if (bo.spell === 1) {
+      var petal = bo.spellT < dp.gardenOpen[0] ? 6 : bo.spellT < dp.gardenOpen[1] ? 8 : 10;
+      for (var k = 0; k < GARDEN_LAYERS.length; k++) {
+        var L = GARDEN_LAYERS[k];
+        bo.fireT[k] -= dt * rate;
+        if (bo.fireT[k] <= 0) {
+          bo.fireT[k] += L.period / rp;
+          patterns.flower(sim, {
+            x: bo.x, y: bo.y, petal: petal, n: petal * 5, speed: L.speed,
+            angle: bo.spellT * L.rot * vd * (k === 0 ? 1 : -1), speedMod: 0.10,
+            hue: (st.world.hueBase + k / 3) % 1
+          });
+        }
+      }
+    } else {
+      bo.fireT[0] -= dt;
+      if (bo.fireT[0] <= 0) {
+        bo.fireT[0] += WAVE_INTERVAL;
+        // 収束点：自機から 140–220px の候補を最大 8 回抽選、外れたらボス→自機方向の延長点
+        var p = st.player, tx = 0, ty = 0, found = false;
+        for (var c = 0; c < 8; c++) {
+          var cx = rr(sim, 90, 390), cy = rr(sim, 330, 570);
+          var ddx = cx - p.x, ddy = cy - p.y, dd = Math.sqrt(ddx * ddx + ddy * ddy);
+          if (dd >= 140 && dd <= 220) { tx = cx; ty = cy; found = true; break; }
+        }
+        if (!found) {
+          var ux = p.x - bo.x, uy = p.y - bo.y, ul = Math.sqrt(ux * ux + uy * uy);
+          if (ul > 0) { ux /= ul; uy /= ul; } else { ux = 0; uy = 1; }
+          // 自機中心・半径 180px の 16 方向（ボス→自機方向から 22.5° 刻み）で範囲内の最初の点
+          var a0 = Math.atan2(uy, ux);
+          for (var q = 0; q < 16; q++) {
+            var aq = a0 + q * Math.PI / 8;
+            var qx = p.x + Math.cos(aq) * 180, qy = p.y + Math.sin(aq) * 180;
+            if (qx >= 70 && qx <= 410 && qy >= 300 && qy <= 590) { tx = qx; ty = qy; found = true; break; }
+          }
+          if (!found) {
+            // 最終手段：従来の射影＋クランプ
+            tx = Math.min(410, Math.max(70, p.x + ux * 180));
+            ty = Math.min(590, Math.max(300, p.y + uy * 180));
+          }
+        }
+        var sectorDir = Math.atan2(ty - bo.y, tx - bo.x);
+        var waveAng = bo.spellT * 0.2 * vd;
+        patterns.convDiff(sim, {
+          x: bo.x, y: bo.y, n: CONV_N, speed: 170, accel: -90,
+          angle: waveAng, tDiffuse: 1.6, tConverge: 1.2, reAccel: 50,
+          tx: tx, ty: ty, sector: { dir: sectorDir, half: dp.sectorHalf }
+        });
+        patterns.convDiff(sim, {
+          x: bo.x, y: bo.y, n: CONV_N2, speed: 170, accel: -90,
+          angle: waveAng + 0.35, tDiffuse: 1.6, tConverge: 1.2, reAccel: 50,
+          tx: tx, ty: ty, sector: { dir: sectorDir, half: dp.sectorHalf }
+        });
+      }
+    }
+  }
+
+  function advanceSpell(sim) {
+    var st = sim.state, bo = st.boss;
+    // v0.7: HP を削り切った場合のみ、撃破位置を描画側へ知らせる（情報公開のみ）
+    if (bo.hp <= 0) st.events.push({ type: 'bossdown', x: bo.x, y: bo.y, spell: bo.spell });
+    if (!st.spellHit && !st.spellBomb) {
+      var bonus = 200000, tb = 0;
+      if (bo.hp <= 0) { tb = Math.round((SPELL_TIME - bo.spellT) * 1000); bonus += tb; }
+      st.score += bonus;
+      st.stats.capturePts += 200000; st.stats.timeBonusPts += tb; st.stats.captures++;
+      st.events.push({ type: 'capture', amount: bonus, spell: bo.spell });
+    }
+    // v0.8 ライブ：1 スペルで終了し道中へ戻る（heat リセット。lastBossRefT は出現時に更新済み）
+    if (sim.liveMode) {
+      var nLive = clearBullets(sim, 10);
+      st.stats.clearPts += nLive * 10;
+      st.boss = null;
+      st.telegraph = null;
+      sim.convPoints.length = 0;
+      st.phase = 'playing';
+      sim.live.heat = 0;
+      st.live.heat = 0;
+      st.events.push({ type: 'bossend' });
+      return;
+    }
+    if (bo.spell < 2) { startSpell(sim, bo.spell + 1); return; }
+    // 3 スペル目終了 → クリア。残弾は得点化して消去
+    var n = clearBullets(sim, 10);
+    st.stats.clearPts += n * 10;
+    st.boss = null;
+    st.telegraph = null;
+    sim.convPoints.length = 0;
+    st.phase = 'clear';
+    st.events.push({ type: 'clear' });
+  }
+
+  // ---- ショット（ダメージ帯） ----
+  function bandDamage(sim, x, y, dt) {
+    var st = sim.state, p = st.player;
+    if (y >= p.y || y < -10) return 0; // 自機より上・画面内の対象のみ
+    var dx = Math.abs(x - p.x);
+    var rm = st.resonanceT > 0 ? 2 : 1;
+    if (dx <= 10) return 90 * st.conv * dt * rm;
+    if (dx <= 70) return 45 * st.diff * dt * rm;
+    return 0;
+  }
+
+  function killEnemy(sim, idx) {
+    var st = sim.state, e = st.enemies[idx];
+    st.score += Math.round(e.score * st.mult);
+    st.stats.killPts += Math.round(e.score * st.mult);
+    st.chain++;
+    st.chainTimer = CHAIN_T;
+    st.mult = 1 + Math.min(st.chain, 50) * 0.1;
+    st.events.push({ type: 'kill', x: e.x, y: e.y, enemy: e.type });
+    st.enemies.splice(idx, 1);
+  }
+
+  function applyShot(sim, dt) {
+    var st = sim.state;
+    for (var i = 0; i < st.enemies.length; i++) {
+      var e = st.enemies[i];
+      var d = bandDamage(sim, e.x, e.y, dt);
+      e.hp -= d;
+      if (d > 0) e.dmgT = st.time; // v0.7: 描画層への情報公開のみ（判定には使わない）
+    }
+    if (st.boss) {
+      var bd = bandDamage(sim, st.boss.x, st.boss.y, dt);
+      st.boss.hp -= bd;
+      if (bd > 0) st.boss.dmgT = st.time; // v0.7: 同上
+    }
+  }
+
+  function resolveKills(sim) {
+    var st = sim.state;
+    for (var i = st.enemies.length - 1; i >= 0; i--) if (st.enemies[i].hp <= 0) killEnemy(sim, i);
+  }
+
+  // ---- 弾の更新 ----
+  function updateBullets(sim, dt) {
+    var st = sim.state, bs = st.bullets, w = 0;
+    for (var i = 0; i < bs.length; i++) {
+      var b = bs[i];
+      if (b.mode === 'converge') {
+        b.convT += dt;
+        if (b.cs === 0 && b.convT >= b.tD) {
+          b.cs = 1; b.accel = 0; b.curve = 0;
+          b.vx = (b.tx - b.x) / b.tC; b.vy = (b.ty - b.y) / b.tC;
+        } else if (b.cs === 1 && b.convT >= b.tD + b.tC) {
+          b.cs = 2; b.mode = 'normal'; b.accel = b.reAccel; // 収束点を通過して再拡散
+        }
+      }
+      if (b.curve !== 0) {
+        var c = Math.cos(b.curve * dt), s = Math.sin(b.curve * dt);
+        var nvx = b.vx * c - b.vy * s;
+        b.vy = b.vx * s + b.vy * c; b.vx = nvx;
+      }
+      if (b.accel !== 0) {
+        var sp = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+        if (sp > 0) {
+          var ns = Math.max(10, sp + b.accel * dt);
+          b.vx *= ns / sp; b.vy *= ns / sp;
+        }
+      }
+      b.x += b.vx * dt; b.y += b.vy * dt;
+      if (b.x < MARGIN_X0 || b.x > MARGIN_X1 || b.y < MARGIN_Y0 || b.y > MARGIN_Y1) { sim.pool.push(b); continue; }
+      bs[w++] = b;
+    }
+    bs.length = w;
+
+    for (var j = st.enemies.length - 1; j >= 0; j--) {
+      var e = st.enemies[j];
+      if (e.x < MARGIN_X0 || e.x > MARGIN_X1 || e.y < MARGIN_Y0 || e.y > MARGIN_Y1) st.enemies.splice(j, 1);
+    }
+  }
+
+  function updateTelegraph(sim) {
+    var st = sim.state, cp = sim.convPoints, best = null;
+    for (var i = cp.length - 1; i >= 0; i--) {
+      var rem = cp[i].at - st.time;
+      if (rem < 0) { cp.splice(i, 1); continue; }
+      if (rem <= sim.dp.teleLead && (!best || rem < best.t)) best = { x: cp[i].x, y: cp[i].y, t: rem, sector: cp[i].sector, sectorHalf: cp[i].sectorHalf };
+    }
+    st.telegraph = best;
+  }
+
+  // ---- 被弾・グレイズ ----
+  function onHit(sim) {
+    var st = sim.state, p = st.player;
+    st.events.push({ type: 'hit', x: p.x, y: p.y });
+    if (!sim.invincible) st.lives--;
+    st.chain = 0; st.chainTimer = 0; st.mult = 1;
+    clearBullets(sim, 0);
+    p.invulnT = INVULN_T;
+    if (st.boss) st.spellHit = true;
+    p.x = PLAYER_X0; p.y = PLAYER_Y0;
+    if (st.lives < 0) {
+      st.lives = 0;
+      p.alive = false;
+      st.phase = 'gameover';
+      st.events.push({ type: 'gameover' });
+    }
+  }
+
+  function collide(sim) {
+    var st = sim.state, p = st.player;
+    if (!p.alive) return;
+    var hitD2 = (PLAYER_R + BULLET_R) * (PLAYER_R + BULLET_R), grD2 = GRAZE_R * GRAZE_R;
+    var bs = st.bullets;
+    for (var i = 0; i < bs.length; i++) {
+      var b = bs[i], dx = b.x - p.x, dy = b.y - p.y, d2 = dx * dx + dy * dy;
+      if (d2 < grD2) {
+        if (d2 < hitD2) {
+          if (p.invulnT > 0) continue;
+          onHit(sim);
+          return;
+        }
+        if (!b.grazed) {
+          var d = Math.sqrt(d2);
+          b.grazeMin = Math.min(b.grazeMin == null ? Infinity : b.grazeMin, d);
+        }
+        continue;
+      }
+      // 範囲外へ出た時点で、最小接近距離で支払う
+      if (b.grazeMin != null && !b.grazed) {
+        var f = (GRAZE_R - b.grazeMin) / (GRAZE_R - 14);
+        f = f < 0 ? 0 : f > 1 ? 1 : f;
+        var pts = Math.round(50 + 200 * f);
+        if (st.resonanceT > 0) pts *= 8;
+        st.score += pts; st.stats.grazePts += pts; st.stats.grazeCount++;
+        if (st.resonanceT <= 0) st.gauge = Math.min(100, st.gauge + 2);
+        if (st.boss) {
+          st.bossGraze++;
+          if (st.bossGraze % 10 === 0) { st.chain++; st.chainTimer = CHAIN_T; st.mult = 1 + Math.min(st.chain, 50) * 0.1; }
+        }
+        b.grazed = true; b.grazeMin = null;
+        st.events.push({ type: 'graze', x: b.x, y: b.y });
+      }
+    }
+  }
+
+  // ---- ボム / Resonance ----
+  function doBomb(sim) {
+    var st = sim.state;
+    st.bombs--;
+    if (st.boss) st.spellBomb = true;
+    st.stats.bombsUsed++;
+    var n = clearBullets(sim, 100);
+    st.stats.bombPts += n * 100;
+    for (var i = 0; i < st.enemies.length; i++) st.enemies[i].hp -= 60;
+    if (st.boss) st.boss.hp -= BOMB_BOSS_DMG;
+    resolveKills(sim);
+    st.player.invulnT = INVULN_T;
+    st.events.push({ type: 'bomb' });
+  }
+
+  function doResonance(sim) {
+    var st = sim.state;
+    st.resonanceT = RES_T;
+    st.stats.resonanceUsed++;
+    st.events.push({ type: 'resonance' });
+  }
+
+  // ---- 1 ステップ ----
+  function step(sim, input) {
+    var st = sim.state, dt = DT;
+    input = input || {};
+    if (st.phase === 'clear' || st.phase === 'gameover') return sim;
+    if (st.phase === 'ready') st.phase = 'playing';
+
+    st.time += dt;
+    updateWorld(sim, dt);
+
+    // 入力（エッジ管理）
+    var bombEdge = !!input.bomb && !sim.prevBomb;
+    var resEdge = !!input.resonance && !sim.prevRes;
+    sim.prevBomb = !!input.bomb; sim.prevRes = !!input.resonance;
+
+    // 自機移動
+    var p = st.player;
+    p.slow = !!input.slow;
+    var dx = input.dx | 0, dy = input.dy | 0;
+    if (dx && dy) { dx *= Math.SQRT1_2; dy *= Math.SQRT1_2; }
+    var spd = p.slow ? SPEED_SLOW : SPEED_NORMAL;
+    p.x += dx * spd * dt; p.y += dy * spd * dt;
+    if (p.x < 0) p.x = 0; else if (p.x > W) p.x = W;
+    if (p.y < 0) p.y = 0; else if (p.y > H) p.y = H;
+
+    // 収束／拡散
+    if (st.resonanceT > 0) { st.conv = 1; st.diff = 1; }
+    else if (p.slow) { st.conv = 1.0; st.diff = 0.2; }
+    else { st.conv = 0.3; st.diff = 0.9; }
+
+    if (bombEdge && st.bombs > 0) doBomb(sim);
+    if (resEdge && st.gauge >= 100 && st.resonanceT <= 0) { doResonance(sim); st.conv = 1; st.diff = 1; }
+
+    // タイムライン（内部時計で進行）。v0.8: ライブ時はディレクターが編成する
+    if (sim.liveMode) updateDirector(sim, dt);
+    else {
+      var tl = sim.timeline;
+      while (sim.tlIndex < tl.length && tl[sim.tlIndex].t <= st.time) {
+        var ev = tl[sim.tlIndex++];
+        if (st.phase === 'boss' && ev.kind !== 'boss') continue;
+        if (ev.kind === 'enemy') spawnEnemy(sim, ev);
+        else if (ev.kind === 'stream') sim.streams.push({ x: ev.x, y: ev.y, t: 0, dur: ev.dur, fireT: 0, speed: 150, amp: 0.5, freq: 1.2 });
+        else if (ev.kind === 'boss') spawnBoss(sim);
+      }
+    }
+
+    updateEnemies(sim, dt);
+    updateStreams(sim, dt);
+    updateBoss(sim, dt);
+    if (!st.boss) { st.bossVortex = st.world.vortexDir; st.bossVortexSoon = st.world.vortexLead; }
+
+    // ショット
+    if (input.shot) applyShot(sim, dt);
+    resolveKills(sim);
+
+    updateBullets(sim, dt);
+    updateTelegraph(sim);
+    collide(sim);
+    if (st.phase === 'gameover') return sim;
+    if (st.boss && (st.boss.hp <= 0 || st.boss.spellT >= SPELL_TIME)) advanceSpell(sim);
+    if (st.phase === 'clear') return sim;
+
+    // タイマー
+    if (st.chain > st.stats.maxChain) st.stats.maxChain = st.chain;
+    if (p.invulnT > 0) p.invulnT = Math.max(0, p.invulnT - dt);
+    if (st.chainTimer > 0) {
+      st.chainTimer -= dt;
+      if (st.chainTimer <= 0) { st.chainTimer = 0; st.chain = 0; st.mult = 1; }
+    }
+    if (st.resonanceT > 0) {
+      st.gauge = Math.max(0, st.gauge - (100 / RES_T) * dt);
+      st.resonanceT = Math.max(0, st.resonanceT - dt);
+      if (st.gauge <= 0) st.resonanceT = 0;
+    }
+    return sim;
+  }
+
+  return {
+    DT: DT,
+    MAX_BULLETS: MAX_BULLETS,
+    DIFFICULTY: DIFFICULTY,
+    DIFF_PARAMS: DIFF_PARAMS,
+    createGame: createGame,
+    step: step,
+    pushFrames: pushFrames,
+    patterns: patterns,
+    mulberry32: mulberry32
+  };
+});
+
+</script>
+<script>
+const ASSET_BASE = 'assets/';
+(function () {
+  'use strict';
+  var W = 480, H = 640, DT = 1 / 120, MAX_STEPS = 8, CAP = 1500, SEED = 1;
+  var $ = function (id) { return document.getElementById(id); };
+  var field = $('field'), overlay = $('overlay'), bgm = $('bgm');
+  var hudTop = $('hudTop'), touchBtns = $('touchBtns');
+
+  // ---------- assets ----------
+  var analysis = null, trackFile = 'audio/CATACOMB.mp3';
+  function decodePart(v) {
+    if (typeof v !== 'string') return v;
+    var bin = atob(v), u8 = new Uint8Array(bin.length), out = new Array(bin.length);
+    for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    for (var j = 0; j < u8.length; j++) out[j] = u8[j] / 255;
+    return out;
+  }
+  function loadAssets() {
+    return fetch(ASSET_BASE + 'tracks.json').then(function (r) { if (!r.ok) throw new Error('tracks'); return r.json(); })
+      .then(function (tracks) {
+        var t0 = tracks[0];
+        if (t0.file) trackFile = t0.file;
+        return fetch(ASSET_BASE + t0.analysis).then(function (r) { if (!r.ok) throw new Error('analysis'); return r.json(); });
+      })
+      .then(function (a) {
+        var f = {};
+        if (a.f) for (var k in a.f) f[k] = decodePart(a.f[k]);
+        a.f = f;
+        analysis = a;
+      })
+      .catch(function () { analysis = null; });
+  }
+
+  // ---------- three setup ----------
+  var hasThree = typeof THREE !== 'undefined';
+  var renderer, scene, camera;
+  var scale = 1;
+  var isPortrait = false; // v0.3: layout が決める portrait 判定（draw 側の間引きで参照）
+  function layout() {
+    var portrait = window.innerHeight > window.innerWidth;
+    isPortrait = portrait;
+    // class 切替 → CSS で #wrap 方向・#hud/#hudTop/#touchBtns の表示を切替（測定はその後）
+    document.body.classList.toggle('portrait', portrait);
+    if (portrait) {
+      scale = Math.max(0.3, Math.min(window.innerWidth / W, (window.innerHeight - hudTop.offsetHeight - touchBtns.offsetHeight) / H));
+    } else {
+      scale = Math.max(0.3, Math.min(window.innerHeight / H, (window.innerWidth - 250) / W));
+    }
+    field.style.width = Math.round(W * scale) + 'px';
+    field.style.height = Math.round(H * scale) + 'px';
+    if (renderer) {
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(Math.round(W * scale), Math.round(H * scale));
+    }
+  }
+  window.addEventListener('resize', layout);
+
+  function wx(x) { return x - 240; }
+  function wy(y) { return 320 - y; }
+  function basic(color, opts) {
+    var m = new THREE.MeshBasicMaterial(Object.assign({ color: color, transparent: true, depthTest: false, depthWrite: false }, opts || {}));
+    return m;
+  }
+  function add(obj, z, order) { obj.position.z = z; obj.renderOrder = order; scene.add(obj); return obj; }
+
+  var teleSector; // v0.5: テレグラフの脱出扇
+  var bg, bgMat, telegraph, shotConv, shotDiff, ship, shipCore, shipCoreBack, slowRing;
+  var bOutline, bHalo, bCore, boss, bossWire, bossCore;
+  var bMembrane, haloMat, membraneMat, haloHue, haloPhase, memHue, memPhase;
+  var GW = 24, GH = 32, denData, denTex, denMat, denMesh, denFrame = 0;
+  var bossShards = [], bossRing1, bossRing2, shardAng = 0, shardR = 44;
+  var TRAIL_N = 8, TRAIL_HIST = 24, TRAIL_DT = 0.016, shipTrail = [], trailHist = [], trailAcc = 0, trailLastT = -1, prevPx = null;
+  var enemyPools = { radial: [], spiral: [], fan: [] }, enemyGeo = {};
+  var ripples = [], bigRing;
+  // v0.3 C1/C3: 粒子・閃光・第2リング・ショットの光の筋
+  var PART_CAP = 240, PART_CAP_PORTRAIT = 140, particles = [], partN = 0, partMesh;
+  var flashMesh, flashLife = 0, FLASH_DUR = 0.45, bigRing2, fxLastT = -1;
+  var shotTex, shotGeo, muzzle, bannerEl = $('banner'), bannerName = $('bannerName'), bannerPaused = false;
+  // v0.4: ヒットフィードバック（スパーク時刻）
+  // v0.7: 命中フラッシュは sim が公開する dmgT（最終被ダメージ時刻）を見て、ダメージを受けている
+  // 敵・ボスの本体位置へ固定するプール方式に変更（従来は自機 x × 対象 y に置くためビーム線上に浮いた）
+  var enemySparkT = new Map();
+  var bossSparkT = -1, hitLastT = -1;
+  var FLASH_N = 10, hitFlashes = [], HIT_FLASH_DUR = 0.08;
+  // v0.7: 撃破時のプリズム片（分光の三角形破片。InstancedMesh プール）
+  var SHARD_CAP = 180, SHARD_CAP_PORTRAIT = 120, shards = [], shardN = 0, shardMesh;
+  var tmpV = new THREE.Vector3();
+  var tmpM = new THREE.Matrix4(), tmpC = new THREE.Color(), white = new THREE.Color(1, 1, 1);
+
+  var VERT = [
+    'varying vec2 vUv;',
+    'void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }'
+  ].join('\n');
+  var FRAG = [
+    'varying vec2 vUv;',
+    'uniform float uTime;',
+    'uniform float uHue;',
+    'uniform float uVortex;',
+    'uniform float uIntensity;',
+    'uniform float uOrder;',
+    'uniform float uRes;',
+    'uniform float uQuality;',
+    'uniform float uBloom;',
+    'float hash21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }',
+    'float vnoise(vec2 p) {',
+    '  vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);',
+    '  float a = hash21(i); float b = hash21(i + vec2(1.0, 0.0));',
+    '  float c = hash21(i + vec2(0.0, 1.0)); float d = hash21(i + vec2(1.0, 1.0));',
+    '  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);',
+    '}',
+    'float fbm3(vec2 p) {',
+    '  float s = 0.0; float amp = 0.5;',
+    '  for (int k = 0; k < 3; k++) { s += amp * vnoise(p); p = p * 2.03 + vec2(1.7, 9.2); amp *= 0.5; }',
+    '  if (uQuality > 0.5) { s += amp * vnoise(p); }',
+    '  return s;',
+    '}',
+    'vec3 spectral(float h) { return 0.5 + 0.5 * cos(6.28318 * (h + vec3(0.0, 0.333, 0.667))); }',
+    'vec2 rot2(vec2 p, float a) { float c = cos(a); float s = sin(a); return vec2(c * p.x - s * p.y, s * p.x + c * p.y); }',
+    'void main() {',
+    '  vec2 p = (vUv - 0.5) * vec2(1.5, 2.0);',
+    '  float r = length(p);',
+    '  float dir = uVortex >= 0.0 ? 1.0 : -1.0;',
+    '  float swirl = dir * (uTime * 0.07 + 1.4 / (1.0 + 3.0 * r));',
+    '  vec2 q = rot2(p, swirl);',
+    '  float n1 = fbm3(q * 1.8 + vec2(0.0, uTime * 0.04));',
+    '  float n2 = fbm3(q * 3.1 + n1 * 1.6 - vec2(uTime * 0.03, 0.0));',
+    '  float spread = mix(0.85, 0.3, clamp(uOrder, 0.0, 1.0));',
+    '  float hue = uHue + n1 * spread * (1.0 + 0.9 * uBloom) + r * 0.12;',
+    '  vec3 col = vec3(0.010, 0.016, 0.045) + vec3(0.006, 0.010, 0.030) * n1;',
+    '  float hl = smoothstep(0.52, 0.86, n2) * (0.09 + 0.22 * uIntensity);',
+    '  col += spectral(hue) * hl;',
+    '  float rings = 0.5 + 0.5 * cos(r * 26.0 - n1 * 5.0 - uTime * 0.4);',
+    '  float lens = smoothstep(0.6, 1.0, rings) * uRes * (0.05 + 0.08 * uIntensity);',
+    '  col += spectral(hue + 0.5 + r * 0.3) * lens;',
+    '  float bands = vnoise(vec2(q.x * 1.2 + n1 * 2.0, q.y * 6.0 - uTime * 0.05));',
+    '  col += spectral(uHue + bands * 0.7) * bands * (0.03 + 0.06 * uIntensity);',
+    '  float kang = atan(q.y, q.x);',
+    '  float kseg = mix(2.0, 8.0, uBloom);',
+    '  float kfa = abs(mod(kang, 6.28318 / kseg) - 3.14159 / kseg);',
+    '  vec2 kp = vec2(cos(kfa), sin(kfa)) * r;',
+    '  float n3 = fbm3(kp * 3.4 + n1 * 1.4 - vec2(0.0, uTime * 0.02));',
+    '  float khl = smoothstep(0.48, 0.92, n3) * uBloom * (0.10 + 0.20 * uIntensity);',
+    '  col += spectral(uHue + n3 * 1.1 + r * 0.25) * khl;',
+    '  vec2 spc = p * 38.0;',
+    '  float sp = step(0.997, hash21(floor(spc) + floor(uTime * 3.0))) * smoothstep(0.52, 0.06, length(fract(spc) - 0.5)) * (0.08 + 0.22 * uIntensity);',
+    '  col += sp * spectral(uHue + 0.3);',
+    '  gl_FragColor = vec4(col, 1.0);',
+    '}'
+  ].join('\n');
+
+  // ---------- v0.3 A1/A2: 弾ハロー・膜（instanced, aHue/aPhase） ----------
+  var HALO_VERT = [
+    'attribute float aHue;',
+    'attribute float aPhase;',
+    'varying vec2 vP;',
+    'varying float vHue;',
+    'varying float vPhase;',
+    'void main() {',
+    '  vP = position.xy; vHue = aHue; vPhase = aPhase;',
+    '  gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);',
+    '}'
+  ].join('\n');
+  var HALO_FRAG = [
+    'uniform float uTime;',
+    'uniform float uBloom;',
+    'varying vec2 vP;',
+    'varying float vHue;',
+    'varying float vPhase;',
+    'vec3 spectral(float h) { return 0.5 + 0.5 * cos(6.28318 * (h + vec3(0.0, 0.333, 0.667))); }',
+    'void main() {',
+    '  float r = length(vP);',
+    '  if (r > 1.0) discard;',
+    '  float ang = atan(vP.y, vP.x);',
+    '  float ph = vPhase * 6.2831;',
+    '  vec3 dom = spectral(vHue);',
+    '  float fringe = sin(r * 16.0 - uTime * 2.5 + ph + ang * 1.5);',
+    '  vec3 col = dom * (1.0 + 0.35 * fringe * (1.0 + 0.9 * uBloom));',
+    '  col = mix(col, spectral(vHue + r * 0.22 + 0.06 * sin(ang * 3.0 + ph)), 0.45 * r);',
+    '  float glint = pow(max(0.0, sin(uTime * 2.0 + vPhase * 39.0 + r * 9.0)), 24.0) * (1.0 - r);',
+    '  col += vec3(1.0) * glint * 1.2 * (1.0 + 0.6 * uBloom);',
+    '  float a = smoothstep(1.0, 0.1, r) * 0.55;',
+    '  gl_FragColor = vec4(col, a);',
+    '}'
+  ].join('\n');
+  var MEMBRANE_VERT = [
+    'attribute float aHue;',
+    'attribute float aPhase;',
+    'varying vec2 vP;',
+    'varying float vHue;',
+    'varying float vPhase;',
+    'void main() {',
+    '  vP = position.xy; vHue = aHue; vPhase = aPhase;',
+    '  gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);',
+    '}'
+  ].join('\n');
+  var MEMBRANE_FRAG = [
+    'uniform float uTime;',
+    'uniform float uBloom;',
+    'varying vec2 vP;',
+    'varying float vHue;',
+    'varying float vPhase;',
+    'vec3 spectral(float h) { return 0.5 + 0.5 * cos(6.28318 * (h + vec3(0.0, 0.333, 0.667))); }',
+    'void main() {',
+    '  float r = length(vP);',
+    '  if (r > 1.0) discard;',
+    '  float rim = smoothstep(0.55, 0.92, r) * smoothstep(1.0, 0.94, r);',
+    '  float scene = max(0.0, sin(r * 20.0 - uTime * 2.0 + vPhase * 6.2831)) * 0.08;',
+    '  vec3 col = spectral(vHue + 0.5) * (rim + scene);',
+    '  float a = min(0.35, rim * 0.35 * (1.0 + 0.6 * uBloom) + scene);',
+    '  gl_FragColor = vec4(col, a);',
+    '}'
+  ].join('\n');
+
+  // ---------- v0.3 A3: 弾密度の干渉模様 ----------
+  var DEN_VERT = [
+    'varying vec2 vUv;',
+    'void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }'
+  ].join('\n');
+  var DEN_FRAG = [
+    'uniform sampler2D uDen;',
+    'uniform float uTime;',
+    'uniform float uHue;',
+    'uniform float uBloom;',
+    'varying vec2 vUv;',
+    'vec3 spectral(float h) { return 0.5 + 0.5 * cos(6.28318 * (h + vec3(0.0, 0.333, 0.667))); }',
+    'void main() {',
+    '  float d = texture2D(uDen, vUv).r;',
+    '  float bands = sin(vUv.x * 90.0 + vUv.y * 70.0 + d * 22.0 + uTime * 0.7) * sin(vUv.y * 110.0 - d * 18.0 - uTime * 0.5);',
+    '  float moire = smoothstep(0.72, 1.0, bands * 0.5 + 0.5) * d;',
+    '  vec3 col = spectral(uHue + d * 0.6 + bands * 0.05) * moire * 0.33 * (1.0 + 1.8 * uBloom);',
+    '  gl_FragColor = vec4(col, min(1.0, moire * (0.5 + 0.5 * uBloom)));',
+    '}'
+  ].join('\n');
+
+  // PlaneGeometry(2,2) の instanced 層（aHue/aPhase 付き）
+  function makeSpectralLayer(mat, z, order) {
+    var geo = new THREE.PlaneGeometry(2, 2);
+    var hueA = new THREE.InstancedBufferAttribute(new Float32Array(CAP), 1);
+    var phA = new THREE.InstancedBufferAttribute(new Float32Array(CAP), 1);
+    hueA.setUsage(THREE.DynamicDrawUsage); phA.setUsage(THREE.DynamicDrawUsage);
+    geo.setAttribute('aHue', hueA);
+    geo.setAttribute('aPhase', phA);
+    var im = new THREE.InstancedMesh(geo, mat, CAP);
+    im.frustumCulled = false;
+    im.count = 0;
+    im.userData.hue = hueA; im.userData.phase = phA;
+    return add(im, z, order);
+  }
+  function spectralMat(vert, frag) {
+    return new THREE.ShaderMaterial({
+      vertexShader: vert, fragmentShader: frag, uniforms: { uTime: { value: 0 }, uBloom: { value: 0 } },
+      transparent: true, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending
+    });
+  }
+
+  function makeBulletLayer(radiusMul, mat, z, order, withColor) {
+    var geo = new THREE.CircleGeometry(1, 14);
+    var im = new THREE.InstancedMesh(geo, mat, CAP);
+    im.frustumCulled = false;
+    if (withColor) {
+      for (var i = 0; i < CAP; i++) im.setColorAt(i, white);
+      im.instanceColor.needsUpdate = true;
+    }
+    im.count = 0;
+    im.userData.mul = radiusMul;
+    return add(im, z, order);
+  }
+
+  function initScene() {
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setClearColor(0x02040b, 1);
+    renderer.sortObjects = true;
+    field.insertBefore(renderer.domElement, overlay);
+    scene = new THREE.Scene();
+    camera = new THREE.OrthographicCamera(-240, 240, 320, -320, -100, 100);
+    camera.position.z = 50;
+    layout();
+
+    // 1. 背景
+    bgMat = new THREE.ShaderMaterial({
+      vertexShader: VERT, fragmentShader: FRAG, depthTest: false, depthWrite: false,
+      uniforms: { uTime: { value: 0 }, uHue: { value: 0 }, uVortex: { value: 1 }, uIntensity: { value: 0 }, uOrder: { value: 0.8 }, uRes: { value: 0 }, uQuality: { value: 1 }, uBloom: { value: 0 } }
+    });
+    bg = add(new THREE.Mesh(new THREE.PlaneGeometry(W, H), bgMat), -10, -10);
+
+    // 1b. v0.3 A3: 弾密度の干渉層
+    denData = new Uint8Array(GW * GH);
+    denTex = new THREE.DataTexture(denData, GW, GH, THREE.RedFormat, THREE.UnsignedByteType);
+    denTex.magFilter = THREE.LinearFilter; denTex.minFilter = THREE.LinearFilter;
+    denTex.generateMipmaps = false;
+    denTex.needsUpdate = true;
+    denMat = new THREE.ShaderMaterial({
+      vertexShader: DEN_VERT, fragmentShader: DEN_FRAG,
+      uniforms: { uDen: { value: denTex }, uTime: { value: 0 }, uHue: { value: 0 }, uBloom: { value: 0 } },
+      transparent: true, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending
+    });
+    denMesh = add(new THREE.Mesh(new THREE.PlaneGeometry(W, H), denMat), -5, -5);
+
+    // 2. テレグラフ
+    telegraph = new THREE.Group();
+    var tMat = basic(0xffffff, { opacity: 0.8, blending: THREE.AdditiveBlending });
+    telegraph.add(new THREE.Mesh(new THREE.RingGeometry(0.88, 1, 48), tMat));
+    telegraph.add(new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.05), tMat));
+    telegraph.add(new THREE.Mesh(new THREE.PlaneGeometry(0.05, 2.4), tMat));
+    telegraph.userData.mat = tMat;
+    telegraph.visible = false;
+    add(telegraph, 0, 0);
+    // v0.5: 脱出扇（geometry は draw で sim 座標から生成して差し替え）
+    teleSector = add(new THREE.Mesh(new THREE.BufferGeometry(), basic(0xffffff, { opacity: 0.16, blending: THREE.AdditiveBlending })), 1.5, 2);
+    teleSector.visible = false;
+
+    // 3. 敵
+    // v0.3 B3: 敵はパーツ構成（本体＋白コア、spiral は直交小トーラスも）
+    enemyGeo.radial = new THREE.OctahedronGeometry(13);
+    enemyGeo.spiral = new THREE.TorusGeometry(11, 4, 8, 20);
+    enemyGeo.spiralSub = new THREE.TorusGeometry(7, 2.4, 8, 18);
+    enemyGeo.fan = new THREE.ConeGeometry(11, 22, 4);
+    enemyGeo.core = new THREE.SphereGeometry(4.5, 12, 8);
+
+    // v0.3 B1: ボス = 光学構造（コア球・外殻ワイヤー・プリズム片×3・傾いたリング×2）
+    boss = new THREE.Group();
+    bossWire = new THREE.Mesh(new THREE.IcosahedronGeometry(64, 1), basic(0xffffff, { wireframe: true, opacity: 0.32 }));
+    bossCore = new THREE.Mesh(new THREE.SphereGeometry(11, 20, 14), basic(0xffffff, { opacity: 0.95 }));
+    var shardGeo = new THREE.TetrahedronGeometry(24);
+    for (var si = 0; si < 3; si++) {
+      var shd = new THREE.Mesh(shardGeo, basic(0xffffff, { opacity: 0.5, blending: THREE.AdditiveBlending }));
+      shd.scale.set(1, 1.9, 1);
+      shd.rotation.order = 'ZYX'; // 長軸(y)まわりの自転 → z で放射方向へ向ける
+      shd.renderOrder = 1;
+      bossShards.push(shd);
+    }
+    bossRing1 = new THREE.Mesh(new THREE.TorusGeometry(56, 1.5, 8, 72), basic(0xffffff, { opacity: 0.7, blending: THREE.AdditiveBlending }));
+    bossRing2 = new THREE.Mesh(new THREE.TorusGeometry(72, 1.1, 8, 72), basic(0xffffff, { opacity: 0.55, blending: THREE.AdditiveBlending }));
+    bossRing1.rotation.x = 1.05; bossRing2.rotation.x = 0.55;
+    boss.add(bossWire); boss.add(bossRing2); boss.add(bossRing1);
+    for (si = 0; si < 3; si++) boss.add(bossShards[si]);
+    boss.add(bossCore);
+    boss.visible = false;
+    add(boss, 1, 1);
+    // 正射影なので z は見た目に影響しない。外殻・リングの z 振れ幅（±72）がカメラの near/far(-50..150) で切れないよう z だけ圧縮
+    boss.scale.set(1, 1, 0.3);
+    bossWire.renderOrder = 1; bossRing1.renderOrder = 1; bossRing2.renderOrder = 1; bossCore.renderOrder = 1;
+
+    // 4. 自機ショット
+    // v0.3 C3: グラデーションの光の筋（CanvasTexture 64x256、白で描いて素材色で着色）
+    shotTex = makeShotTexture();
+    shotGeo = new THREE.PlaneGeometry(1, 1);
+    shotGeo.translate(0, 0.5, 0); // 下端（自機側）を原点に
+    shotDiff = new THREE.Group();
+    var DIFF_ROT = [-0.21, -0.105, 0, 0.105, 0.21];
+    for (var di = 0; di < DIFF_ROT.length; di++) {
+      var dm = new THREE.Mesh(shotGeo, basic(0x9a8cff, { map: shotTex, opacity: 0.32, blending: THREE.AdditiveBlending }));
+      dm.rotation.z = DIFF_ROT[di];
+      dm.renderOrder = 2;
+      shotDiff.add(dm);
+    }
+    add(shotDiff, 2, 2);
+    shotConv = new THREE.Group();
+    var convOuter = new THREE.Mesh(shotGeo, basic(0xe6fbff, { map: shotTex, opacity: 0.22, blending: THREE.AdditiveBlending }));
+    var convCore = new THREE.Mesh(shotGeo, basic(0xe6fbff, { map: shotTex, opacity: 0.9, blending: THREE.AdditiveBlending }));
+    convOuter.renderOrder = 2; convCore.renderOrder = 2;
+    shotConv.add(convOuter); shotConv.add(convCore);
+    shotConv.userData.outer = convOuter; shotConv.userData.core = convCore;
+    add(shotConv, 2, 2);
+    muzzle = add(new THREE.Mesh(new THREE.CircleGeometry(5, 20), basic(0xe6fbff, { opacity: 0.6, blending: THREE.AdditiveBlending })), 2, 2);
+    muzzle.visible = false;
+
+    // 5. 敵弾（3層＋ボス戦の膜）
+    bOutline = makeBulletLayer(2.0, basic(0x04050a, { opacity: 1 }), 3, 3, false);
+    haloMat = spectralMat(HALO_VERT, HALO_FRAG);
+    bHalo = makeSpectralLayer(haloMat, 4, 4);
+    bHalo.userData.mul = 3.4;
+    haloHue = bHalo.userData.hue; haloPhase = bHalo.userData.phase;
+    membraneMat = spectralMat(MEMBRANE_VERT, MEMBRANE_FRAG);
+    bMembrane = makeSpectralLayer(membraneMat, 4.5, 4);
+    bMembrane.userData.mul = 4.4;
+    memHue = bMembrane.userData.hue; memPhase = bMembrane.userData.phase;
+    bCore = makeBulletLayer(1.05, basic(0xffffff, { opacity: 1 }), 5, 100, true);
+
+    // 6. 自機
+    // v0.3 B2: 凧形の光の破片＋残光ゴースト
+    var kite = new THREE.Shape();
+    kite.moveTo(0, 14); kite.lineTo(5, -6); kite.lineTo(10, -12); kite.lineTo(0, -7); kite.lineTo(-10, -12); kite.lineTo(-5, -6); kite.closePath();
+    var shipGeo = new THREE.ShapeGeometry(kite);
+    for (var gi = 0; gi < TRAIL_N; gi++) {
+      var gh = add(new THREE.Mesh(shipGeo, basic(0x9fd8ff, { opacity: 0.20 - 0.16 * gi / (TRAIL_N - 1), blending: THREE.AdditiveBlending })), 5.5, 5);
+      gh.visible = false;
+      shipTrail.push(gh);
+    }
+    ship = add(new THREE.Mesh(shipGeo, basic(0x9fd8ff, { opacity: 0.75 })), 6, 6);
+    shipCoreBack = add(new THREE.Mesh(new THREE.CircleGeometry(4.2, 20), basic(0x04050a, { opacity: 1 })), 6, 7);
+    shipCore = add(new THREE.Mesh(new THREE.CircleGeometry(2.5, 20), basic(0xffffff, { opacity: 1 })), 6, 8);
+    slowRing = add(new THREE.Mesh(new THREE.RingGeometry(6, 7.2, 32), basic(0xffffff, { opacity: 0.85 })), 6, 8);
+
+    // 7. グレイズ波紋（プール 32）＋大リング
+    var rg = new THREE.RingGeometry(0.85, 1, 32);
+    for (var i = 0; i < 32; i++) {
+      var m = add(new THREE.Mesh(rg, basic(0xffffff, { opacity: 0, blending: THREE.AdditiveBlending })), 7, 9);
+      m.visible = false; m.userData.life = 0;
+      ripples.push(m);
+    }
+    bigRing = add(new THREE.Mesh(new THREE.RingGeometry(0.94, 1, 64), basic(0xffffff, { opacity: 0, blending: THREE.AdditiveBlending })), 7, 9);
+    bigRing.visible = false; bigRing.userData.life = 0;
+    // v0.3 C1: ボムの第2リング（遅延発火）
+    bigRing2 = add(new THREE.Mesh(new THREE.RingGeometry(0.94, 1, 64), basic(0xffffff, { opacity: 0, blending: THREE.AdditiveBlending })), 7, 9);
+    bigRing2.visible = false; bigRing2.userData.life = 0; bigRing2.userData.delay = 0;
+
+    // 8. v0.3 C1: 粒子プール（instanceColor で色・減衰）
+    partMesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(2, 2), basic(0xffffff, { map: makeGlowTexture(64, 64), opacity: 1, blending: THREE.AdditiveBlending }), PART_CAP); // v0.6: 円形グロー化（暗い四角の残像対策）
+    partMesh.frustumCulled = false;
+    for (i = 0; i < PART_CAP; i++) {
+      partMesh.setColorAt(i, white);
+      particles.push({ x: 0, y: 0, vx: 0, vy: 0, life: 0, max: 1, size: 1, hue: 0 });
+    }
+    partMesh.instanceColor.needsUpdate = true;
+    partMesh.count = 0;
+    add(partMesh, 7.5, 9);
+
+    // 9. v0.3 C1: レゾナンスの全面閃光（単発減衰のみ。renderOrder は自機・弾コアより下）
+    flashMesh = add(new THREE.Mesh(new THREE.PlaneGeometry(W, H), basic(0xffffff, { opacity: 0, blending: THREE.AdditiveBlending })), 8, 5);
+    flashMesh.visible = false;
+
+    // 10. v0.4: 命中点フラッシュ → v0.7: ダメージ中の敵・ボスの本体へ固定するプール（対象ごとに1枚）
+    // v0.6: テクスチャなし矩形が「ビームの先端の灰色の板」に見えたため、楕円ラジアル減衰の
+    // ソフトグローに変更（輪郭が消え、命中点の光としてだけ読めるようにする）
+    var flashTex = makeGlowTexture();
+    for (var fi = 0; fi < FLASH_N; fi++) {
+      var fm = add(new THREE.Mesh(new THREE.PlaneGeometry(36, 18), basic(0xffffff, { map: flashTex, opacity: 0, blending: THREE.AdditiveBlending })), 7.6, 9);
+      fm.visible = false; fm.userData.life = 0;
+      hitFlashes.push(fm);
+    }
+
+    // 11. v0.7: プリズム片プール（撃破位置から分光色の三角形破片が飛散する）
+    var shardGeo = new THREE.BufferGeometry();
+    shardGeo.setAttribute('position', new THREE.Float32BufferAttribute([0, 1, 0, -0.45, -1, 0, 0.45, -1, 0], 3));
+    shardMesh = new THREE.InstancedMesh(shardGeo, basic(0xffffff, { opacity: 1, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }), SHARD_CAP);
+    shardMesh.frustumCulled = false;
+    for (var sj = 0; sj < SHARD_CAP; sj++) {
+      shardMesh.setColorAt(sj, white);
+      shards.push({ x: 0, y: 0, vx: 0, vy: 0, ang: 0, va: 0, life: 0, max: 1, size: 1, hue: 0 });
+    }
+    shardMesh.instanceColor.needsUpdate = true;
+    shardMesh.count = 0;
+    add(shardMesh, 7.5, 9);
+  }
+
+  // v0.3 C3: 横は中心が濃く端で 0、縦は下（自機側）が濃く上端で 0.55 のアルファ
+  function makeShotTexture() {
+    var cw = 64, ch = 256, cv = document.createElement('canvas');
+    cv.width = cw; cv.height = ch;
+    var ctx = cv.getContext('2d'), img = ctx.createImageData(cw, ch), d = img.data;
+    for (var y = 0; y < ch; y++) {
+      var vy = 0.55 + 0.45 * (y / (ch - 1)); // canvas の上端 = 平面の上端
+      for (var x = 0; x < cw; x++) {
+        var hx = 1 - Math.abs((x + 0.5) / cw * 2 - 1);
+        hx = hx * hx * (3 - 2 * hx);
+        var o = (y * cw + x) * 4;
+        d[o] = d[o + 1] = d[o + 2] = 255;
+        d[o + 3] = Math.round(255 * hx * vy);
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+    var tex = new THREE.CanvasTexture(cv);
+    tex.needsUpdate = true;
+    return tex;
+  }
+
+  // v0.6: ソフトグロー（ラジアル減衰、四隅は完全に透明）。引数なし=楕円（命中フラッシュ用）、
+  // (64,64)=正円（パーティクル用。減衰で暗くなった粒子が紺色の四角に見える問題への対処）
+  function makeGlowTexture(cw, ch) {
+    cw = cw || 64; ch = ch || 32;
+    var cv = document.createElement('canvas');
+    cv.width = cw; cv.height = ch;
+    var ctx = cv.getContext('2d'), img = ctx.createImageData(cw, ch), d = img.data;
+    for (var y = 0; y < ch; y++) {
+      var ny = (y + 0.5) / ch * 2 - 1;
+      for (var x = 0; x < cw; x++) {
+        var nx = (x + 0.5) / cw * 2 - 1;
+        var a = Math.max(0, 1 - (nx * nx + ny * ny));
+        a = a * a * (3 - 2 * a);
+        var o = (y * cw + x) * 4;
+        d[o] = d[o + 1] = d[o + 2] = 255;
+        d[o + 3] = Math.round(255 * a);
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+    var tex = new THREE.CanvasTexture(cv);
+    tex.needsUpdate = true;
+    return tex;
+  }
+
+  function enemyMesh(type, idx) {
+    var pool = enemyPools[type];
+    while (pool.length <= idx) {
+      // v0.3 B3: グループ＋パーツ。parts[i] = { mesh, lOff（明度オフセット） }
+      var g = new THREE.Group(), parts = [];
+      enemyPart(g, parts, enemyGeo[type], 0.92, 0);
+      if (type === 'spiral') {
+        var sub = enemyPart(g, parts, enemyGeo.spiralSub, 0.85, 0.12);
+        sub.rotation.x = Math.PI / 2;
+      }
+      enemyPart(g, parts, enemyGeo.core, 1, 0.4);
+      g.userData.parts = parts;
+      add(g, 1, 1);
+      g.visible = false;
+      pool.push(g);
+    }
+    return pool[idx];
+  }
+  function enemyPart(g, parts, geo, opacity, lOff) {
+    var mesh = new THREE.Mesh(geo, basic(0xffffff, { opacity: opacity }));
+    mesh.renderOrder = 1;
+    g.add(mesh);
+    parts.push({ mesh: mesh, lOff: lOff });
+    return mesh;
+  }
+  var TYPE_HUE = { radial: 0.0, spiral: 0.33, fan: 0.66 };
+  var SPELL_HUE = [0.55, 0.85, 0.12];
+
+  // ---------- game state ----------
+  var game = null, mode = 'title', acc = 0, lastT = 0, autoShot = false, resVis = 0, ripIdx = 0;
+  var keys = {}, bombLatch = false, resLatch = false;
+  var difficulty = 'normal'; // v0.4: 'normal' | 'hard'（リスタートも同じ難易度）
+  var lastInp = null;        // v0.4: 直近の readInput の戻り値（shot SE 用）
+  var bloom = 0, bloomVis = 0, prevChain = 0; // v0.5: 光学展開（描画層のみ）
+  // v0.8: ライブモード
+  var gameMode = 'composed'; // 'composed' | 'live'
+  var liveSrc = 'tab'; // 'tab' | 'mic'
+  var sessionLive = false; // 現在プレイ中のセッションがライブか
+
+  // ---------- v0.4: 効果音（WebAudio 合成のみ。BGM には干渉しない） ----------
+  var seCtx = null, seMaster = null, seNoiseBuf = null, seMuted = false;
+  var seLastShot = -1e9, seLastGraze = -1e9;
+  function seInit() {
+    if (!seCtx) {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      try { seCtx = new AC(); } catch (err) { seCtx = null; return; }
+      seMaster = seCtx.createGain();
+      seMaster.gain.value = seMuted ? 0 : 0.16;
+      seMaster.connect(seCtx.destination);
+      var len = Math.floor(seCtx.sampleRate * 0.6);
+      seNoiseBuf = seCtx.createBuffer(1, len, seCtx.sampleRate);
+      var d = seNoiseBuf.getChannelData(0);
+      for (var i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    }
+    if (seCtx.state === 'suspended' && seCtx.resume) { var rp = seCtx.resume(); if (rp && rp.catch) rp.catch(function () {}); }
+  }
+  function seToggleMute() {
+    seMuted = !seMuted;
+    if (seMaster) seMaster.gain.value = seMuted ? 0 : 0.16;
+    $('btnMute').textContent = seMuted ? 'SE OFF' : 'SE ON';
+  }
+  function seEnv(g, t0, dur, vol) {
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(vol, t0 + Math.min(0.005, dur * 0.2));
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  }
+  function seTone(type, f0, f1, dur, vol, delay) {
+    var t0 = seCtx.currentTime + (delay || 0);
+    var o = seCtx.createOscillator(), g = seCtx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(f0, t0);
+    if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t0 + dur);
+    seEnv(g, t0, dur, vol);
+    o.connect(g); g.connect(seMaster);
+    o.start(t0); o.stop(t0 + dur + 0.02);
+  }
+  function seNoise(dur, vol, ftype, fq0, fq1) {
+    var t0 = seCtx.currentTime;
+    var s = seCtx.createBufferSource(), f = seCtx.createBiquadFilter(), g = seCtx.createGain();
+    s.buffer = seNoiseBuf;
+    f.type = ftype;
+    f.frequency.setValueAtTime(fq0, t0);
+    if (fq1 !== fq0) f.frequency.exponentialRampToValueAtTime(fq1, t0 + dur);
+    seEnv(g, t0, dur, vol);
+    s.connect(f); f.connect(g); g.connect(seMaster);
+    s.start(t0); s.stop(t0 + dur + 0.02);
+  }
+  function se(name) {
+    if (!seCtx || seMuted || seCtx.state !== 'running') return;
+    var now = performance.now();
+    if (name === 'shot') {
+      if (now - seLastShot < 95) return;
+      seLastShot = now;
+      seTone('square', 880, 660, 0.05, 0.25);
+    } else if (name === 'graze') {
+      if (now - seLastGraze < 60) return;
+      seLastGraze = now;
+      seTone('sine', 1900, 1900, 0.03, 0.12);
+    } else if (name === 'kill') {
+      seNoise(0.12, 0.35, 'lowpass', 1200, 1200);
+      seTone('triangle', 520, 180, 0.1, 0.3);
+    } else if (name === 'bossdown') { // v0.7
+      seNoise(0.35, 0.6, 'lowpass', 2400, 300);
+      seTone('triangle', 392, 98, 0.3, 0.5);
+      seTone('sine', 1568, 1568, 0.18, 0.2);
+    } else if (name === 'hit') {
+      seNoise(0.3, 0.9, 'lowpass', 500, 500);
+      seTone('sine', 160, 40, 0.35, 0.9);
+    } else if (name === 'bomb') {
+      seNoise(0.5, 0.6, 'bandpass', 300, 2400);
+      seTone('sine', 90, 30, 0.5, 0.7);
+    } else if (name === 'spell') {
+      seTone('triangle', 523, 523, 0.12, 0.3, 0);
+      seTone('triangle', 659, 659, 0.12, 0.3, 0.09);
+      seTone('triangle', 784, 784, 0.16, 0.3, 0.18);
+    } else if (name === 'bosswarn') { // v0.8: ライブのボス出現予告（短い警告音×3）
+      for (var w2 = 0; w2 < 3; w2++) seTone('square', 440, 440, 0.1, 0.22, w2 * 0.2);
+    } else if (name === 'resonance') {
+      seTone('sine', 1046, 1046, 0.25, 0.3);
+      seTone('sine', 1568, 1568, 0.25, 0.3);
+    } else if (name === 'clear') {
+      var up = [523, 659, 784, 1046];
+      for (var i = 0; i < up.length; i++) seTone('triangle', up[i], up[i], i === 3 ? 0.4 : 0.14, 0.3, i * 0.12);
+    } else if (name === 'gameover') {
+      var dn = [392, 311, 233];
+      for (var j = 0; j < dn.length; j++) seTone('triangle', dn[j], dn[j], j === 2 ? 0.5 : 0.2, 0.3, j * 0.18);
+    }
+  }
+
+  // セッション開始時の描画側の後始末（作曲・ライブ共通。v0.7 の newGame と同じ内容）
+  function resetSessionVis() {
+    acc = 0; resVis = 0; bombLatch = false; resLatch = false; lastInp = null;
+    bloom = 0; bloomVis = 0; prevChain = 0;
+    for (var i = 0; i < ripples.length; i++) { ripples[i].visible = false; ripples[i].userData.life = 0; }
+    if (bigRing) { bigRing.visible = false; bigRing.userData.life = 0; }
+  }
+  function newGame() {
+    game = TBH_SIM.createGame({ seed: SEED, analysis: analysis, invincible: false, difficulty: difficulty });
+    resetSessionVis();
+  }
+  // v0.8: ライブ用（作曲側の newGame には触らない）
+  function newGameLive() {
+    var g = TBH_SIM.createGame({ seed: (Date.now() % 90000) + 1, mode: 'live', difficulty: difficulty });
+    game = g;
+    resetSessionVis();
+  }
+  function playAudio() {
+    if (sessionLive) return; // v0.8: ライブでは bgm を鳴らさない
+    if (!bgm.src) { bgm.src = ASSET_BASE + encodeURI(trackFile); bgm.loop = true; bgm.volume = 0.8; }
+    var p = bgm.play();
+    if (p && p.catch) p.catch(function () {});
+  }
+  function showOverlay(which) {
+    overlay.classList.toggle('hidden', !which);
+    $('ovTitle').classList.toggle('hidden', which !== 'title');
+    $('ovPause').classList.toggle('hidden', which !== 'pause');
+    $('ovEnd').classList.toggle('hidden', which !== 'end');
+    $('ovWait').classList.toggle('hidden', which !== 'wait'); // v0.8
+  }
+  function start() {
+    if (mode !== 'title' || !hasThree) return;
+    if (liveStarting) return; // v0.8: ライブの取り込み準備中は二重開始しない
+    if (gameMode === 'live') { startLive(); return; } // v0.8
+    sessionLive = false;
+    seInit(); // v0.4
+    newGame();
+    mode = 'playing';
+    showOverlay(null);
+    playAudio();
+    lastT = performance.now();
+  }
+  function restart() {
+    if (sessionLive) { cancelLive(); return; } // v0.8: ライブはタイトルへ戻る
+    seInit();
+    newGame();
+    mode = 'playing';
+    showOverlay(null);
+    try { bgm.currentTime = 0; } catch (e) {}
+    playAudio();
+    lastT = performance.now();
+  }
+  function togglePause() {
+    seInit();
+    if (sessionLive) { // v0.8: ライブ中はポーズせず停止
+      if (mode === 'playing') finishLive();
+      else if (mode === 'waiting') cancelLive();
+      return;
+    }
+    if (mode === 'playing') { mode = 'paused'; bgm.pause(); showOverlay('pause'); }
+    else if (mode === 'paused') { mode = 'playing'; showOverlay(null); playAudio(); lastT = performance.now(); }
+  }
+
+  // ---------- v0.8: フレーム解析器と量子化（RESONANCE resonance-live-v07.js と同一方式の移植） ----------
+  var LIVE_FPS = 20, LIVE_WIN = 2048, LIVE_DELAY = 5.0, LIVE_PAD_TAU = 0.4;
+  var LIVE_FREEZE_LAG = 10, LIVE_SILENT_REF = 1e-7;
+  var LIVE_BANDS = {
+    kick: [30, 120],
+    bass: [120, 350],
+    snare: [350, 1200],
+    vocal: [1000, 3400],
+    hat: [6000, 12000],
+    pad: [300, 2400]
+  };
+  var LIVE_SCALE = {
+    kick: { p: 0.99, target: 240 },
+    bass: { p: 0.99, target: 240 },
+    snare: { p: 0.99, target: 240 },
+    vocal: { p: 0.99, target: 240 },
+    hat: { p: 0.99, target: 240 },
+    pad: { p: 0.90, target: 200 }
+  };
+  var LIVE_KEYS = ['kick', 'bass', 'snare', 'hat', 'pad', 'vocal'];
+
+  // 基数2・反復型 FFT（RESONANCE と同一）
+  function makeFFT(N) {
+    var levels = Math.round(Math.log(N) / Math.LN2);
+    if ((1 << levels) !== N) throw new Error('FFT size must be a power of 2');
+    var rev = new Uint32Array(N);
+    for (var i = 0; i < N; i++) {
+      var r = 0, x = i;
+      for (var b = 0; b < levels; b++) { r = (r << 1) | (x & 1); x >>= 1; }
+      rev[i] = r;
+    }
+    var cosT = new Float64Array(N / 2), sinT = new Float64Array(N / 2);
+    for (var k = 0; k < N / 2; k++) {
+      cosT[k] = Math.cos(2 * Math.PI * k / N);
+      sinT[k] = -Math.sin(2 * Math.PI * k / N);
+    }
+    return function fft(re, im) {
+      for (var i = 0; i < N; i++) {
+        var j = rev[i];
+        if (j > i) {
+          var t = re[i]; re[i] = re[j]; re[j] = t;
+          t = im[i]; im[i] = im[j]; im[j] = t;
+        }
+      }
+      for (var size = 2; size <= N; size <<= 1) {
+        var half = size >> 1, step = N / size;
+        for (var s = 0; s < N; s += size) {
+          for (var m = 0, ti = 0; m < half; m++, ti += step) {
+            var a = s + m, bb = a + half;
+            var wr = cosT[ti], wi = sinT[ti];
+            var xr = re[bb] * wr - im[bb] * wi;
+            var xi = re[bb] * wi + im[bb] * wr;
+            re[bb] = re[a] - xr; im[bb] = im[a] - xi;
+            re[a] += xr; im[a] += xi;
+          }
+        }
+      }
+    };
+  }
+
+  // ストリーミング解析器: FFT 2048 / hop = sampleRate/20 / バンド平均マグニチュード → onRawFrame(raw, idx)
+  function createFrameAnalyzer(sampleRate, onRawFrame) {
+    if (!(sampleRate > 0)) throw new Error('sampleRate must be > 0');
+    var hop = sampleRate / LIVE_FPS;
+    var half = LIVE_WIN / 2;
+    var binHz = sampleRate / LIVE_WIN;
+    var nyqBin = LIVE_WIN / 2;
+    var keys = Object.keys(LIVE_BANDS);
+    var ranges = {};
+    keys.forEach(function (k) {
+      var lo = Math.max(1, Math.ceil(LIVE_BANDS[k][0] / binHz));
+      var hi = Math.min(nyqBin, Math.floor(LIVE_BANDS[k][1] / binHz) + 1);
+      ranges[k] = [lo, hi];
+    });
+    var hann = new Float64Array(LIVE_WIN);
+    for (var w = 0; w < LIVE_WIN; w++) hann[w] = 0.5 - 0.5 * Math.cos(2 * Math.PI * w / (LIVE_WIN - 1));
+    var fft = makeFFT(LIVE_WIN);
+    var re = new Float64Array(LIVE_WIN), im = new Float64Array(LIVE_WIN);
+    var mag = new Float64Array(nyqBin + 1);
+
+    // サンプルバッファ: buf[0] が絶対サンプル番号 bufStart、有効長 bufLen
+    var buf = new Float32Array(LIVE_WIN + Math.ceil(hop) * 4);
+    var bufStart = 0, bufLen = 0;
+    var total = 0;
+    var nextFrame = 0;
+
+    function sampleAt(abs) {
+      var i = abs - bufStart;
+      if (abs < 0 || abs >= total || i < 0 || i >= bufLen) return 0;
+      var v = buf[i];
+      return v === v ? v : 0;
+    }
+    function computeFrame(f) {
+      var start = Math.round(f * hop) - half;
+      for (var i = 0; i < LIVE_WIN; i++) {
+        re[i] = sampleAt(start + i) * hann[i];
+        im[i] = 0;
+      }
+      fft(re, im);
+      for (var b = 0; b <= nyqBin; b++) mag[b] = Math.sqrt(re[b] * re[b] + im[b] * im[b]);
+      var out = {};
+      for (var ki = 0; ki < keys.length; ki++) {
+        var key = keys[ki], rg = ranges[key];
+        var sum = 0, cnt = rg[1] - rg[0];
+        for (var bb = rg[0]; bb < rg[1]; bb++) sum += mag[bb];
+        out[key] = cnt > 0 ? sum / cnt : 0;
+      }
+      return out;
+    }
+    function compact() {
+      // 次フレームの窓の先頭以降だけを残す（bufStart は次に追加されるサンプルの絶対番号と整合させる）
+      var keepFrom = Math.round(nextFrame * hop) - half;
+      var drop = keepFrom - bufStart;
+      if (drop <= 0) return;
+      if (drop >= bufLen) { bufStart += bufLen; bufLen = 0; return; }
+      buf.copyWithin(0, drop, bufLen);
+      bufLen -= drop;
+      bufStart += drop;
+    }
+    function pushSamples(samples) {
+      if (!samples || !samples.length) return;
+      var n = samples.length, off = 0;
+      while (off < n) {
+        compact();
+        if (bufLen === buf.length) {
+          var nb = new Float32Array(buf.length * 2);
+          nb.set(buf.subarray(0, bufLen));
+          buf = nb;
+        }
+        var take = Math.min(n - off, buf.length - bufLen);
+        buf.set(samples.subarray ? samples.subarray(off, off + take) :
+          Array.prototype.slice.call(samples, off, off + take), bufLen);
+        bufLen += take;
+        total += take;
+        off += take;
+        while (Math.round(nextFrame * hop) + half <= total) {
+          var raw = computeFrame(nextFrame);
+          var idx = nextFrame;
+          nextFrame++;
+          if (onRawFrame) onRawFrame(raw, idx);
+        }
+      }
+      compact();
+    }
+    return {
+      pushSamples: pushSamples,
+      framesEmitted: function () { return nextFrame; },
+      totalSamples: function () { return total; }
+    };
+  }
+
+  // 伸長可能な Float64 配列と、二分挿入のソート済みマルチセット（RESONANCE と同一）
+  function LiveGrowF64() { this.a = new Float64Array(1024); this.n = 0; }
+  LiveGrowF64.prototype.push = function (v) {
+    if (this.n === this.a.length) { var b = new Float64Array(this.a.length * 2); b.set(this.a); this.a = b; }
+    this.a[this.n++] = v;
+  };
+  function LiveSorted() { this.a = new Float64Array(1024); this.n = 0; }
+  LiveSorted.prototype.insert = function (v) {
+    if (this.n === this.a.length) { var b = new Float64Array(this.a.length * 2); b.set(this.a); this.a = b; }
+    var lo = 0, hi = this.n;
+    while (lo < hi) { var mid = (lo + hi) >> 1; if (this.a[mid] <= v) lo = mid + 1; else hi = mid; }
+    this.a.copyWithin(lo + 1, lo, this.n);
+    this.a[lo] = v;
+    this.n++;
+  };
+  LiveSorted.prototype.percentile = function (p) {
+    if (!this.n) return 0;
+    var idx = Math.min(this.n - 1, Math.max(0, Math.floor(p * (this.n - 1))));
+    return this.a[idx];
+  };
+  function liveFinite(v) { return (typeof v === 'number' && isFinite(v)) ? v : 0; }
+
+  // 量子化器: 受信済み履歴のパーセンタイルで 0..255 に量子化し、FREEZE_LAG フレーム遅れで確定して onFrame へ
+  function createLiveQuantizer(onFrame) {
+    var padAlpha = 1 - Math.exp(-1 / (LIVE_FPS * LIVE_PAD_TAU));
+    var rawHist = {}, sorted = {};
+    LIVE_KEYS.forEach(function (k) { rawHist[k] = new LiveGrowF64(); sorted[k] = new LiveSorted(); });
+    var padY = 0, pushed = 0, frozen = 0;
+    function freezeFrame(f) {
+      var by = {};
+      for (var i = 0; i < LIVE_KEYS.length; i++) {
+        var k = LIVE_KEYS[i];
+        var ref = sorted[k].percentile(LIVE_SCALE[k].p);
+        var b = 0;
+        if (ref > LIVE_SILENT_REF && isFinite(ref)) {
+          var v = Math.round(rawHist[k].a[f] * (LIVE_SCALE[k].target / ref));
+          b = v > 255 ? 255 : v < 0 || v !== v ? 0 : v;
+        }
+        by[k] = b;
+      }
+      frozen = f + 1;
+      if (onFrame) onFrame({ kick: by.kick / 255, snare: by.snare / 255, hat: by.hat / 255, bass: by.bass / 255, vocal: by.vocal / 255, pad: by.pad / 255 });
+    }
+    function push(raw) {
+      raw = raw || {};
+      padY += padAlpha * (liveFinite(raw.pad) - padY); // pad は tau=0.4s の指数平滑後に履歴へ
+      for (var i = 0; i < LIVE_KEYS.length; i++) {
+        var k = LIVE_KEYS[i];
+        var v = k === 'pad' ? padY : liveFinite(raw[k]);
+        rawHist[k].push(v);
+        sorted[k].insert(v);
+      }
+      pushed++;
+      while (pushed - frozen >= LIVE_FREEZE_LAG + 1) freezeFrame(frozen);
+    }
+    return {
+      push: push,
+      pushed: function () { return pushed; },
+      frozen: function () { return frozen; }
+    };
+  }
+
+  // ---------- v0.8: ライブセッションのライフサイクル ----------
+  var live = null, liveStarting = false, liveInfoBase = '';
+  function setLiveInfo(msg) {
+    var el = $('liveInfo');
+    if (el) el.textContent = (msg || '') + (msg && liveInfoBase ? ' ' : '') + liveInfoBase;
+  }
+  function stopTracks(stream) {
+    try { if (stream && stream.getTracks) stream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} }); } catch (e) {}
+  }
+  function liveFailReason(err) {
+    var nm = err && err.name;
+    if (nm === 'NotAllowedError' || nm === 'AbortError') return '音声の取り込みがキャンセル／拒否されました。';
+    if (nm === 'NotFoundError') return '取り込める音声デバイスが見つかりません。';
+    if (nm === 'NotReadableError') return '音声デバイスを開けませんでした（他のアプリが使用中の可能性があります）。';
+    if (nm === 'NotSupportedError' || nm === 'TypeError') return 'この環境では音声取り込みに対応していません。';
+    if (nm === 'SecurityError') return 'ブラウザのセキュリティ制限で音声取り込みが使えません。';
+    return '音声の取り込みに失敗しました（' + ((err && (err.message || err.name)) || '不明なエラー') + '）。';
+  }
+  function liveFail(err, plain) {
+    setLiveInfo(plain ? String(err) : liveFailReason(err) + 'ライブモードは単独ページを PC Chrome で開くと使えます。');
+  }
+  function teardownLive() {
+    var s = live;
+    live = null;
+    if (s) {
+      stopTracks(s.stream);
+      try { if (s.proc) s.proc.onaudioprocess = null; } catch (e) {}
+      try { if (s.srcNode) s.srcNode.disconnect(); } catch (e) {}
+      try { if (s.proc) s.proc.disconnect(); } catch (e) {}
+      try { var cp = s.ctx && s.ctx.close ? s.ctx.close() : null; if (cp && cp.catch) cp.catch(function () {}); } catch (e) {}
+    }
+    $('btnStop').classList.add('hidden');
+  }
+  function cancelLive() {
+    teardownLive();
+    mode = 'title';
+    showOverlay('title');
+    sessionLive = false;
+    $('hTrack').textContent = 'CATACOMB';
+    setLiveInfo('');
+  }
+  function liveReach(st) {
+    var sec = Math.floor(st.time || 0), mm = Math.floor(sec / 60);
+    return 'ライブ ' + (mm < 10 ? '0' : '') + mm + ':' + ('0' + (sec % 60)).slice(-2) + ' ／ ボス ' + (st.live ? st.live.bossCount : 0) + '回';
+  }
+  function finishLive() {
+    if (!sessionLive || (mode !== 'waiting' && mode !== 'playing')) return;
+    mode = 'over';
+    if (game && game.state) fillEnd('LIVE RESULT', liveReach(game.state));
+    showOverlay('end');
+    teardownLive();
+  }
+  function pumpLive() {
+    if (!live || !game || !live.pending.length) return;
+    try { TBH_SIM.pushFrames(game, live.pending.splice(0)); } catch (e) { if (window.console) console.warn('pushFrames failed', e); }
+  }
+  function acquireLiveStream(src) {
+    var md = navigator.mediaDevices;
+    if (src === 'tab') {
+      if (!md || !md.getDisplayMedia) return Promise.reject({ name: 'NotSupportedError' });
+      return md.getDisplayMedia({ video: true, audio: true });
+    }
+    if (!md || !md.getUserMedia) return Promise.reject({ name: 'NotSupportedError' });
+    return md.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+  }
+  function startLive(streamOverride) {
+    if (mode !== 'title' || !hasThree || liveStarting) return Promise.resolve(false);
+    if (typeof TBH_SIM === 'undefined' || typeof TBH_SIM.pushFrames !== 'function') {
+      liveFail('このビルドのシミュレータはライブモードに対応していません。', true);
+      return Promise.resolve(false);
+    }
+    liveStarting = true;
+    var src = liveSrc;
+    try { seInit(); } catch (e) {}
+    setLiveInfo('音声の取り込みを開始しています…');
+    var acq;
+    try { acq = streamOverride ? Promise.resolve(streamOverride) : acquireLiveStream(src); }
+    catch (err) { acq = Promise.reject(err); }
+    return Promise.resolve(acq).then(function (stream) {
+      liveStarting = false;
+      if (mode !== 'title') { if (!streamOverride) stopTracks(stream); return false; }
+      if (!stream || !stream.getAudioTracks || stream.getAudioTracks().length === 0) {
+        if (!streamOverride) stopTracks(stream);
+        liveFail(src === 'tab'
+          ? '音声トラックが共有されていません（共有ダイアログで「タブの音声を共有」を有効にしてください）'
+          : '音声トラックを取得できませんでした。', true);
+        return false;
+      }
+      var sess = { ctx: null, stream: stream, srcNode: null, proc: null, delay: null, monGain: null,
+        analyzer: null, quantizer: null, pending: [], captureStart: 0, pumpTimer: null, stepsDone: 0 };
+      try {
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) throw { name: 'NotSupportedError' };
+        var ctx = new AC();
+        sess.ctx = ctx;
+        if (ctx.state === 'suspended' && ctx.resume) { var rp = ctx.resume(); if (rp && rp.catch) rp.catch(function () {}); }
+        sess.captureStart = ctx.currentTime;
+        sess.quantizer = createLiveQuantizer(function (fr) { if (live === sess) sess.pending.push(fr); });
+        sess.analyzer = createFrameAnalyzer(ctx.sampleRate, function (raw) { sess.quantizer.push(raw); });
+        sess.srcNode = ctx.createMediaStreamSource(stream);
+        // 解析タップ（無音で destination へつなぎ、処理を回す）
+        sess.proc = ctx.createScriptProcessor(4096, 1, 1);
+        var mute = ctx.createGain();
+        mute.gain.value = 0;
+        sess.srcNode.connect(sess.proc);
+        sess.proc.connect(mute);
+        mute.connect(ctx.destination);
+        sess.proc.onaudioprocess = function (e) {
+          if (live !== sess) return;
+          try { sess.analyzer.pushSamples(new Float32Array(e.inputBuffer.getChannelData(0))); } catch (err) {}
+        };
+        // 遅延モニター（解析がプレイヤーより LIVE_DELAY 秒先行する）
+        sess.delay = ctx.createDelay(10);
+        sess.delay.delayTime.value = LIVE_DELAY;
+        sess.monGain = ctx.createGain();
+        sess.monGain.gain.value = src === 'tab' ? 1.0 : 0.8;
+        sess.srcNode.connect(sess.delay);
+        sess.delay.connect(sess.monGain);
+        sess.monGain.connect(ctx.destination);
+        stream.getTracks().forEach(function (t) {
+          t.addEventListener('ended', function () {
+            if (live === sess && (mode === 'waiting' || mode === 'playing')) finishLive();
+          });
+        });
+        live = sess;
+        newGameLive();
+      } catch (err) {
+        live = null;
+        if (sess.proc) { try { sess.proc.onaudioprocess = null; } catch (e) {} }
+        if (!streamOverride) stopTracks(stream);
+        try { if (sess.ctx) { var cp = sess.ctx.close(); if (cp && cp.catch) cp.catch(function () {}); } } catch (e) {}
+        if (window.console) console.warn('startLive failed', err);
+        liveFail(err);
+        return false;
+      }
+      sessionLive = true;
+      mode = 'waiting';
+      showOverlay('wait');
+      $('hTrack').textContent = src === 'tab' ? 'LIVE（タブ音声）' : 'LIVE（マイク）';
+      $('btnStop').classList.remove('hidden');
+      setLiveInfo('');
+      return true;
+    }, function (err) {
+      liveStarting = false;
+      if (window.console) console.warn('live capture failed', err);
+      liveFail(err);
+      return false;
+    }).catch(function (err) {
+      // 想定外の例外も外へ投げない（タイトルに留まる）
+      liveStarting = false;
+      if (sessionLive && mode === 'waiting') cancelLive();
+      if (window.console) console.warn('startLive error', err);
+      liveFail(err);
+      return false;
+    });
+  }
+
+  // ---------- input ----------
+  var GAME_KEYS = { ArrowUp: 1, ArrowDown: 1, ArrowLeft: 1, ArrowRight: 1, KeyW: 1, KeyA: 1, KeyS: 1, KeyD: 1, KeyF: 1, KeyZ: 1, KeyX: 1, KeyC: 1, KeyP: 1, KeyR: 1, KeyM: 1, Escape: 1, Enter: 1, ShiftLeft: 1, ShiftRight: 1, Space: 1 };
+  window.addEventListener('keydown', function (e) {
+    seInit();
+    var c = e.code;
+    if (GAME_KEYS[c]) e.preventDefault();
+    if (c === 'KeyM' && !e.repeat) seToggleMute(); // v0.4: 効果音 ON/OFF（全モード）
+    if (mode === 'title') { if (c === 'Enter') start(); return; }
+    if (e.repeat) { keys[c] = true; return; }
+    keys[c] = true;
+    if (c === 'Escape' || c === 'KeyP') togglePause();
+    else if (c === 'KeyR') restart();
+    else if (mode === 'playing') {
+      if (c === 'KeyF') autoShot = !autoShot;
+      else if (c === 'KeyX') bombLatch = true;
+      else if (c === 'KeyC') resLatch = true;
+    }
+  });
+  window.addEventListener('keyup', function (e) { keys[e.code] = false; });
+  window.addEventListener('blur', function () { keys = {}; });
+  overlay.addEventListener('click', function () { if (mode === 'title') start(); else if (mode === 'playing' && bgm.paused) playAudio(); });
+
+  // ---------- touch input (v0.2) ----------
+  var TOUCH_OFF = 56;
+  var dragging = false, dragId = null, dragLastX = 0, dragLastY = 0, dragTargetX = 0, dragTargetY = 0;
+  var focusBtn = false;
+  function clampF(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
+  // タッチの pointerdown は user activation にならない（pointerup/touchend はなる）ため、
+  // 再生が始まっていなければ pointerup で取り直す
+  function ensureAudio() { if (sessionLive) return; if (mode === 'playing' && bgm.paused) playAudio(); }
+
+  field.addEventListener('pointerdown', function (e) {
+    if (mode !== 'playing' || !game) return;
+    if (!e.target || e.target.tagName !== 'CANVAS') return;
+    dragging = true;
+    dragId = e.pointerId;
+    dragLastX = e.clientX; dragLastY = e.clientY;
+    dragTargetX = game.state.player.x;
+    dragTargetY = clampF(game.state.player.y - TOUCH_OFF, 10, H - 10);
+    try { field.setPointerCapture(e.pointerId); } catch (err) {}
+    e.preventDefault();
+  });
+  field.addEventListener('pointermove', function (e) {
+    if (!dragging || e.pointerId !== dragId) return;
+    var dxPx = e.clientX - dragLastX, dyPx = e.clientY - dragLastY;
+    dragLastX = e.clientX; dragLastY = e.clientY;
+    dragTargetX = clampF(dragTargetX + dxPx / scale, 10, W - 10);
+    dragTargetY = clampF(dragTargetY + dyPx / scale, 10, H - 10);
+    e.preventDefault();
+  });
+  function endDrag(e) {
+    if (e.pointerId === dragId) { dragging = false; dragId = null; }
+    if (e.type === 'pointerup') ensureAudio();
+  }
+  field.addEventListener('pointerup', endDrag);
+  field.addEventListener('pointercancel', endDrag);
+  field.addEventListener('touchmove', function (e) { e.preventDefault(); }, { passive: false });
+  touchBtns.addEventListener('touchmove', function (e) { e.preventDefault(); }, { passive: false });
+  overlay.addEventListener('pointerdown', function () {
+    if (mode === 'title') start();
+    else if (mode === 'paused') togglePause();
+    else if (mode === 'over') restart();
+  });
+  window.addEventListener('blur', function () { dragging = false; dragId = null; focusBtn = false; $('btnFocus').classList.remove('on'); });
+
+  function btn(id, down, up) {
+    var el = $(id);
+    function h(fn) { return function (e) { e.preventDefault(); e.stopPropagation(); if (fn) fn(e); }; }
+    el.addEventListener('pointerdown', h(down));
+    el.addEventListener('pointerup', h(function (e) { if (up) up(e); ensureAudio(); }));
+    el.addEventListener('pointercancel', h(up));
+    el.addEventListener('pointerleave', h(up));
+  }
+  btn('btnBomb', function () { if (mode === 'playing') bombLatch = true; });
+  btn('btnReso', function () { if (mode === 'playing') resLatch = true; });
+  btn('btnFocus', function () { focusBtn = true; $('btnFocus').classList.add('on'); },
+    function () { focusBtn = false; $('btnFocus').classList.remove('on'); });
+  btn('btnPause', function () { togglePause(); });
+  btn('btnMute', function () { seToggleMute(); }); // v0.4
+  btn('btnStop', function () { finishLive(); }); // v0.8: ライブ停止 → リザルト
+
+  // v0.4: 難易度選択（タイトル画面でのみ有効。overlay の pointerdown/click による start() と競合しないよう伝播を止める）
+  function setDifficulty(d) {
+    if (mode !== 'title') return;
+    difficulty = d;
+    $('diffNormal').classList.toggle('on', d === 'normal');
+    $('diffHard').classList.toggle('on', d === 'hard');
+  }
+  // v0.8 fix: 無効（.dis）ボタンは何もしない（伝播は止めて下の overlay に開始させない）
+  $('diffNormal').addEventListener('pointerdown', function (e) { e.stopPropagation(); if (this.classList.contains('dis')) return; setDifficulty('normal'); });
+  $('diffHard').addEventListener('pointerdown', function (e) { e.stopPropagation(); if (this.classList.contains('dis')) return; setDifficulty('hard'); });
+  $('diffNormal').addEventListener('click', function (e) { e.stopPropagation(); });
+  $('diffHard').addEventListener('click', function (e) { e.stopPropagation(); });
+  // v0.4: タイトル画面での最初の pointerdown で SE を初期化（capture なので難易度ボタンでも届く）
+  window.addEventListener('pointerdown', function () { seInit(); }, true);
+
+  // v0.8: モード／音源選択（難易度ボタンと同じ流儀。タイトル時のみ有効）
+  function setGameMode(m) {
+    if (mode !== 'title' || liveStarting) return;
+    gameMode = m === 'live' ? 'live' : 'composed';
+    $('modeComposed').classList.toggle('on', gameMode === 'composed');
+    $('modeLive').classList.toggle('on', gameMode === 'live');
+    $('liveOpts').classList.toggle('hidden', gameMode !== 'live');
+  }
+  function setLiveSrc(s) {
+    if (mode !== 'title' || liveStarting) return;
+    liveSrc = s === 'mic' ? 'mic' : 'tab';
+    $('srcTab').classList.toggle('on', liveSrc === 'tab');
+    $('srcMic').classList.toggle('on', liveSrc === 'mic');
+  }
+  [['modeComposed', function () { setGameMode('composed'); }], ['modeLive', function () { setGameMode('live'); }],
+   ['srcTab', function () { setLiveSrc('tab'); }], ['srcMic', function () { setLiveSrc('mic'); }]].forEach(function (b) {
+    $(b[0]).addEventListener('pointerdown', function (e) { e.stopPropagation(); if (this.classList.contains('dis')) return; b[1](); }); // v0.8 fix: .dis は無反応
+    $(b[0]).addEventListener('click', function (e) { e.stopPropagation(); });
+  });
+  // v0.8: 機能検出
+  var liveCaps = {
+    dm: !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia),
+    um: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)
+  };
+  (function () {
+    var notes = [];
+    if (!liveCaps.dm) $('srcTab').classList.add('dis');
+    if (!liveCaps.um) $('srcMic').classList.add('dis');
+    if (!liveCaps.dm && !liveCaps.um) {
+      $('modeLive').classList.add('dis');
+      notes.push('この環境では音声取り込み（getDisplayMedia / getUserMedia）が使えません。ライブモードは単独ページ（GitHub Pages 等）を PC Chrome で開くと使えます。');
+    } else if (!liveCaps.dm) setLiveSrc('mic');
+    else if (!liveCaps.um) setLiveSrc('tab');
+    var embedded = false;
+    try { embedded = window.self !== window.top; } catch (e) { embedded = true; }
+    if (embedded) notes.push('埋め込み表示ではブラウザの制限で音声取り込みが使えないことがあります。');
+    liveInfoBase = notes.join(' ');
+    setLiveInfo('');
+  })();
+
+  window.__bhDebug = {
+    difficulty: function () { return difficulty; },
+    seMuted: function () { return seMuted; },
+    seReady: function () { return !!seCtx; },
+    bloom: function () { return { bloom: bloom, vis: bloomVis }; },
+    playerX: function () { return game ? game.state.player.x : null; },
+    playerY: function () { return game ? game.state.player.y : null; },
+    mode: function () { return mode; },
+    dragging: function () { return dragging; },
+    // v0.3 C5: プローブ専用（読み取り用途）
+    state: function () { return game ? game.state : null; },
+    game: function () { return game; },
+    info: function () { return renderer ? renderer.info.render : null; },
+    // v0.8: ライブモード
+    gameMode: function () { return gameMode; },
+    sessionLive: function () { return sessionLive; },
+    liveState: function () { return game && game.state ? (game.state.live || null) : null; },
+    livePending: function () { return live ? live.pending.length : 0; },
+    startLiveWithStream: function (stream, kind) { setGameMode('live'); if (kind) setLiveSrc(kind); return startLive(stream); },
+    pushFrames: function (frames) { return game ? TBH_SIM.pushFrames(game, frames) : 0; }
+  };
+
+  function readInput() {
+    // dx/dy は -1/0/1 の整数で渡す（sim は dx|0 で整数化し、斜めを 1/√2 に丸めて長さ 1 にする。
+    // 小数を渡すと 0 に潰れるため、ここでは正規化しない）
+    // 自動ショット切替は F キー（A は WASD の左移動）
+    var dx, dy;
+    if (dragging) {
+      // タッチ：目標点との差を符号化のみ（±3 の不感帯で振動防止）
+      var p = game.state.player, ex = dragTargetX - p.x, ey = dragTargetY - p.y;
+      dx = ex > 3 ? 1 : (ex < -3 ? -1 : 0);
+      dy = ey > 3 ? 1 : (ey < -3 ? -1 : 0);
+    } else {
+      dx = ((keys.ArrowRight || keys.KeyD) ? 1 : 0) - ((keys.ArrowLeft || keys.KeyA) ? 1 : 0);
+      dy = ((keys.ArrowDown || keys.KeyS) ? 1 : 0) - ((keys.ArrowUp || keys.KeyW) ? 1 : 0);
+    }
+    var inp = {
+      dx: dx, dy: dy,
+      shot: !!keys.KeyZ || autoShot || dragging,
+      slow: !!(keys.ShiftLeft || keys.ShiftRight) || focusBtn,
+      bomb: bombLatch, resonance: resLatch
+    };
+    bombLatch = false; resLatch = false;
+    return inp;
+  }
+
+  // ---------- render ----------
+  function hsl(h, s, l) { return tmpC.setHSL(((h % 1) + 1) % 1, s, l); }
+
+  function spawnRipple(x, y, big, whiteTint, opts) {
+    var m;
+    if (big) { m = bigRing; m.userData.life = 1; m.userData.dur = 0.8; m.userData.r0 = 20; m.userData.r1 = 200; m.userData.delay = 0; }
+    else {
+      m = ripples[ripIdx]; ripIdx = (ripIdx + 1) % ripples.length;
+      m.userData.life = 1; m.userData.dur = 0.35; m.userData.r0 = 5; m.userData.r1 = 26; m.userData.delay = 0;
+    }
+    if (opts) { // v0.7: 撃破リング用に大きさ・遅延を上書きできるように
+      if (opts.dur) m.userData.dur = opts.dur;
+      if (opts.r0 != null) m.userData.r0 = opts.r0;
+      if (opts.r1) m.userData.r1 = opts.r1;
+      if (opts.delay) m.userData.delay = opts.delay;
+    }
+    m.userData.hueOff = (opts && opts.hueOff) || 0; // v0.7: 対象の色でリングを染める
+    m.userData.white = !!whiteTint; // v0.3 C1: 被弾は白系
+    m.position.x = wx(x); m.position.y = wy(y);
+    m.visible = true;
+  }
+  function updateRipple(m, dt, hue) {
+    var u = m.userData;
+    if (u.life <= 0) { m.visible = false; return; }
+    if (u.delay > 0) { u.delay -= dt; m.visible = false; return; } // v0.3 C1: 遅延発火
+    m.visible = true;
+    u.life -= dt / u.dur;
+    if (u.life <= 0) { m.visible = false; return; }
+    var k = 1 - u.life, s = u.r0 + (u.r1 - u.r0) * k;
+    m.scale.set(s, s, 1);
+    m.material.opacity = 0.7 * u.life;
+    if (u.white) m.material.color.copy(hsl(hue, 0.25, 0.92));
+    else m.material.color.copy(hsl(hue + k * 0.3, 0.8, 0.7));
+  }
+
+  // ---------- v0.3 C1: エフェクト ----------
+  function spectralColor(h) {
+    var tau = 6.28318;
+    return tmpC.setRGB(0.5 + 0.5 * Math.cos(tau * h), 0.5 + 0.5 * Math.cos(tau * (h + 0.333)), 0.5 + 0.5 * Math.cos(tau * (h + 0.667)));
+  }
+  function spawnBurst(x, y, hue, count) {
+    var lim = isPortrait ? PART_CAP_PORTRAIT : PART_CAP;
+    for (var i = 0; i < count && partN < lim; i++) {
+      var pt = particles[partN++], ang = Math.random() * Math.PI * 2, sp = 30 + Math.random() * 100;
+      pt.x = x; pt.y = y;
+      pt.vx = Math.cos(ang) * sp; pt.vy = Math.sin(ang) * sp - 25; // sim 座標は y 下向き → 少し上向き
+      pt.life = pt.max = 0.45;
+      pt.size = 2 + Math.random() * 2.5;
+      pt.hue = hue;
+    }
+  }
+  // v0.4: 命中スパーク（kill バーストより小さく速く・短命）
+  function spawnSparks(x, y, hue, n) {
+    var lim = isPortrait ? PART_CAP_PORTRAIT : PART_CAP;
+    for (var i = 0; i < n && partN < lim; i++) {
+      var pt = particles[partN++], ang = Math.random() * Math.PI * 2, sp = 60 + Math.random() * 100;
+      pt.x = x; pt.y = y;
+      pt.vx = Math.cos(ang) * sp; pt.vy = Math.sin(ang) * sp;
+      pt.life = pt.max = 0.18;
+      pt.size = 1.5 + Math.random() * 1.0;
+      pt.hue = hue;
+    }
+  }
+  // v0.7: 撃破時のプリズム片（分光色の三角形破片が撃破位置から飛散し、回転しながら減衰する）
+  function spawnShards(x, y, hue, count, big) {
+    var lim = isPortrait ? SHARD_CAP_PORTRAIT : SHARD_CAP;
+    for (var i = 0; i < count && shardN < lim; i++) {
+      var pt = shards[shardN++], ang = Math.random() * Math.PI * 2, sp = 40 + Math.random() * (big ? 210 : 150);
+      pt.x = x; pt.y = y;
+      pt.vx = Math.cos(ang) * sp; pt.vy = Math.sin(ang) * sp - 20;
+      pt.ang = Math.random() * Math.PI * 2;
+      pt.va = (Math.random() - 0.5) * 14;
+      pt.life = pt.max = 0.5 + Math.random() * 0.4;
+      pt.size = (big ? 6 : 3) + Math.random() * (big ? 8 : 4);
+      pt.hue = hue + (i / Math.max(1, count)) * 0.45 + Math.random() * 0.06; // 分光の広がり
+    }
+  }
+  // v0.7: sim が公開する dmgT（最終被ダメージ時刻）で「今ダメージを受けている対象」を知り、
+  // スパークとフラッシュを対象の本体位置へ固定する（sim の判定には触れない、描画のみ）
+  function updateHitFx(st, frameDt) {
+    var t = st.time, w = st.world, i, e;
+    if (t < hitLastT) {
+      enemySparkT.clear(); bossSparkT = -1;
+      for (i = 0; i < hitFlashes.length; i++) hitFlashes[i].userData.life = 0;
+    }
+    hitLastT = t;
+    var DMG_WIN = 0.05; // dmgT からこの時間内なら「今ダメージを受けている」
+    var slot = 0, fm;
+    for (i = 0; i < st.enemies.length; i++) {
+      e = st.enemies[i];
+      if (e.dmgT >= 0 && t - e.dmgT <= DMG_WIN) {
+        var lt = enemySparkT.get(e);
+        if (lt === undefined || t - lt >= 0.05) {
+          spawnSparks(e.x, e.y, (TYPE_HUE[e.type] || 0) + w.hueBase, 3);
+          enemySparkT.set(e, t);
+        }
+        if (slot < FLASH_N) { // フラッシュは敵の本体上に固定（ビーム線上でなく）
+          fm = hitFlashes[slot++];
+          fm.position.x = wx(e.x); fm.position.y = wy(e.y);
+          fm.scale.set(1, 1, 1);
+          fm.userData.life = 1;
+        }
+      }
+    }
+    enemySparkT.forEach(function (v, k) { if (st.enemies.indexOf(k) < 0) enemySparkT.delete(k); });
+    var bo = (st.boss && st.phase === 'boss') ? st.boss : null;
+    if (bo && bo.dmgT >= 0 && t - bo.dmgT <= DMG_WIN) {
+      if (bossSparkT < 0 || t - bossSparkT >= 0.06) {
+        spawnSparks(bo.x, bo.y, SPELL_HUE[Math.max(0, st.spellIndex) % SPELL_HUE.length], 4);
+        bossSparkT = t;
+      }
+      if (slot < FLASH_N) { // ボスは本体が大きいのでフラッシュも大きく
+        fm = hitFlashes[slot++];
+        fm.position.x = wx(bo.x); fm.position.y = wy(bo.y);
+        fm.scale.set(2.4, 2.4, 1);
+        fm.userData.life = 1;
+      }
+    }
+    // ダメージが止んだ対象のフラッシュは短く減衰して消える
+    for (i = 0; i < hitFlashes.length; i++) {
+      fm = hitFlashes[i];
+      if (i >= slot && fm.userData.life > 0) {
+        fm.userData.life -= frameDt / HIT_FLASH_DUR;
+        if (fm.userData.life < 0) fm.userData.life = 0;
+      }
+      fm.visible = fm.userData.life > 0;
+      fm.material.opacity = 0.6 * fm.userData.life; // v0.6: ソフトグローのピーク
+    }
+  }
+  function spawnBigRing2(x, y) {
+    var u = bigRing2.userData;
+    u.life = 1; u.dur = 0.9; u.r0 = 20; u.r1 = 260; u.delay = 0.12;
+    bigRing2.position.x = wx(x); bigRing2.position.y = wy(y);
+    bigRing2.visible = false;
+  }
+  function spawnFlash(hue) {
+    flashLife = 1;
+    flashMesh.material.color.copy(spectralColor(hue + 0.5));
+  }
+  function showBanner(name) {
+    bannerName.textContent = name || '';
+    bannerEl.classList.remove('show');
+    void bannerEl.offsetWidth; // リフローしてアニメーションを再発火
+    bannerEl.classList.add('show');
+  }
+  function resetFx() {
+    partN = 0; partMesh.count = 0;
+    shardN = 0; if (shardMesh) shardMesh.count = 0; // v0.7
+    for (var fi2 = 0; fi2 < hitFlashes.length; fi2++) { hitFlashes[fi2].userData.life = 0; hitFlashes[fi2].visible = false; } // v0.7
+    flashLife = 0; flashMesh.visible = false;
+    bigRing2.userData.life = 0; bigRing2.userData.delay = 0; bigRing2.visible = false;
+    bannerEl.classList.remove('show');
+  }
+  function updateFx(dt) {
+    // 粒子
+    var j = 0;
+    for (var i = 0; i < partN; i++) {
+      var pt = particles[i];
+      pt.life -= dt;
+      if (pt.life <= 0) continue;
+      var drag = Math.max(0, 1 - 2.2 * dt);
+      pt.vx *= drag; pt.vy *= drag;
+      pt.x += pt.vx * dt; pt.y += pt.vy * dt;
+      if (j !== i) { particles[i] = particles[j]; particles[j] = pt; }
+      var k = pt.life / pt.max, s = pt.size * (0.45 + 0.55 * k);
+      tmpM.makeRotationZ(0.7854);
+      tmpM.scale(tmpV.set(s, s, 1));
+      tmpM.setPosition(wx(pt.x), wy(pt.y), 7.5);
+      partMesh.setMatrixAt(j, tmpM);
+      partMesh.setColorAt(j, hsl(pt.hue, 0.9, 0.62).lerp(white, 0.35 * k).multiplyScalar(k));
+      j++;
+    }
+    partN = j;
+    partMesh.count = j;
+    if (j > 0) { partMesh.instanceMatrix.needsUpdate = true; partMesh.instanceColor.needsUpdate = true; }
+    // v0.7: プリズム片（回転しながら飛散・減衰）
+    var sj = 0;
+    for (i = 0; i < shardN; i++) {
+      var sp2 = shards[i];
+      sp2.life -= dt;
+      if (sp2.life <= 0) continue;
+      var drag2 = Math.max(0, 1 - 1.6 * dt);
+      sp2.vx *= drag2; sp2.vy *= drag2;
+      sp2.x += sp2.vx * dt; sp2.y += sp2.vy * dt;
+      sp2.ang += sp2.va * dt;
+      if (sj !== i) { shards[i] = shards[sj]; shards[sj] = sp2; }
+      var sk = sp2.life / sp2.max;
+      tmpM.makeRotationZ(sp2.ang);
+      tmpM.scale(tmpV.set(sp2.size * 0.55, sp2.size, 1));
+      tmpM.setPosition(wx(sp2.x), wy(sp2.y), 7.5);
+      shardMesh.setMatrixAt(sj, tmpM);
+      shardMesh.setColorAt(sj, hsl(sp2.hue, 0.9, 0.62).lerp(white, 0.35 * sk).multiplyScalar(sk));
+      sj++;
+    }
+    shardN = sj;
+    shardMesh.count = sj;
+    if (sj > 0) { shardMesh.instanceMatrix.needsUpdate = true; shardMesh.instanceColor.needsUpdate = true; }
+    // 閃光（単発の減衰のみ）
+    if (flashLife > 0) {
+      flashLife -= dt / FLASH_DUR;
+      if (flashLife < 0) flashLife = 0;
+    }
+    flashMesh.visible = flashLife > 0;
+    flashMesh.material.opacity = 0.5 * flashLife * flashLife;
+  }
+
+  function draw(frameDt) {
+    var st = game.state, t = st.time, p = st.player, w = st.world;
+    // v0.5: ボス回転系は先行予告の向き（ボス存在時は bossVortexSoon、不在時は vortexLead）
+    var vdLead = (w.vortexLead != null ? w.vortexLead : w.vortexDir);
+    var vdSoon = st.boss ? (st.bossVortexSoon != null ? st.bossVortexSoon : vdLead) : vdLead;
+
+    // v0.3 C1: リスタート（sim 時刻の巻き戻り）でエフェクトを初期化
+    if (t < fxLastT) resetFx();
+    fxLastT = t;
+    updateHitFx(st, frameDt); // v0.4: ヒットフィードバック
+
+    // events（視覚のみ）＋ v0.4: 効果音
+    for (var i = 0; i < st.events.length; i++) {
+      var ev = st.events[i];
+      se(ev.type); // v0.4: graze/kill/hit/bomb/spell/resonance/clear/gameover
+      // v0.5: 光学展開
+      if (ev.type === 'graze') bloom = Math.min(1, bloom + 0.012);
+      else if (ev.type === 'kill') bloom = Math.min(1, bloom + 0.02);
+      else if (ev.type === 'capture') bloom = Math.min(1, bloom + 0.25);
+      else if (ev.type === 'bossdown') bloom = Math.min(1, bloom + 0.3); // v0.7
+      else if (ev.type === 'spell') bloom = Math.min(1, bloom + 0.06);
+      else if (ev.type === 'resonance') bloom = Math.min(1, bloom + 0.10);
+      else if (ev.type === 'hit') bloom *= 0.35;
+      if (ev.type === 'graze') spawnRipple(p.x, p.y, false);
+      else if (ev.type === 'bomb' || ev.type === 'resonance') {
+        spawnRipple(p.x, p.y, true);
+        // v0.3 C1: ボム = 第2リング（遅延）、レゾナンス = 全面の単発閃光
+        if (ev.type === 'bomb') spawnBigRing2(p.x, p.y);
+        else spawnFlash(w.hueBase);
+      }
+      else if (ev.type === 'kill') {
+        // v0.7: 撃破エフェクトは敵の位置で複合化（丸粒子＋プリズム片＋敵色の輪。敵種で量が変わる）
+        var kh = (TYPE_HUE[ev.enemy] || 0) + w.hueBase;
+        spawnBurst(ev.x, ev.y, kh, 12);
+        spawnShards(ev.x, ev.y, kh, ev.enemy === 'spiral' ? 10 : ev.enemy === 'fan' ? 8 : 6, false);
+        spawnRipple(ev.x, ev.y, false, false, { hueOff: TYPE_HUE[ev.enemy] || 0 });
+        if (ev.enemy === 'spiral') spawnRipple(ev.x, ev.y, false, false, { hueOff: 0.15, delay: 0.12, r1: 40, dur: 0.45 });
+      }
+      else if (ev.type === 'bossdown') {
+        // v0.7: ボス撃破は一段大きく（発生位置はボス本体。閃光は単発減衰のみでストロボにはしない）
+        var bh2 = SPELL_HUE[Math.max(0, ev.spell) % SPELL_HUE.length] + w.hueBase;
+        spawnBurst(ev.x, ev.y, bh2, 30);
+        spawnShards(ev.x, ev.y, bh2, 30, true);
+        spawnRipple(ev.x, ev.y, false, false, { hueOff: bh2 - w.hueBase, r0: 14, r1: 120, dur: 0.7 });
+        spawnRipple(ev.x, ev.y, false, false, { hueOff: bh2 - w.hueBase + 0.2, r0: 10, r1: 170, dur: 0.9, delay: 0.15 });
+        spawnFlash(bh2);
+      }
+      else if (ev.type === 'hit') spawnRipple(p.x, p.y, false, true);
+      else if (ev.type === 'spell') showBanner(ev.name);
+      else if (ev.type === 'bosswarn') showBanner('BOSS APPROACH'); // v0.8（警告音は se('bosswarn')）
+    }
+    st.events.length = 0;
+    // バナーはポーズ中は止める（表示のみ）
+    var bpz = mode === 'paused';
+    if (bpz !== bannerPaused) { bannerPaused = bpz; bannerEl.style.animationPlayState = bpz ? 'paused' : 'running'; }
+
+    // v0.5: 光学展開（フレーム連動）
+    if (frameDt > 0) {
+      if (st.chain >= 5) bloom = Math.min(1, bloom + frameDt * 0.05 * Math.min(1, st.chain / 20));
+      bloom *= Math.pow(0.5, frameDt / 14);
+      if (prevChain >= 5 && st.chain === 0) bloom *= 0.65;
+      prevChain = st.chain;
+      bloomVis += (bloom - bloomVis) * Math.min(1, frameDt * 2.2);
+    }
+
+    // 背景
+    resVis += ((st.resonanceT > 0 ? 1 : 0) - resVis) * Math.min(1, frameDt * 3);
+    var u = bgMat.uniforms;
+    u.uTime.value = t; u.uHue.value = w.hueBase; u.uVortex.value = (w.vortexLead != null ? w.vortexLead : w.vortexDir);
+    u.uBloom.value = bloomVis;
+    u.uIntensity.value = w.intensity; u.uOrder.value = w.order; u.uRes.value = resVis;
+    u.uQuality.value = isPortrait ? 0 : 1; // v0.3 C4
+
+    // テレグラフ
+    var tg = st.telegraph;
+    if (tg) {
+      telegraph.visible = true;
+      telegraph.position.x = wx(tg.x); telegraph.position.y = wy(tg.y);
+      var ts = (10 + 26 * Math.max(0, Math.min(1, tg.t / 1.5))) * (1 + 0.12 * Math.sin(t * 12));
+      telegraph.scale.set(ts, ts, 1);
+      telegraph.userData.mat.color.copy(hsl(w.hueBase + 0.5, 0.9, 0.7));
+    } else telegraph.visible = false;
+    // v0.5: 脱出扇（sim 座標で頂点を計算し wx/wy で変換）
+    if (tg && tg.sector != null) {
+      var sh0 = new THREE.Shape(), sHalf = tg.sectorHalf || 0, SEG = 10;
+      sh0.moveTo(wx(tg.x), wy(tg.y));
+      for (var sj = 0; sj <= SEG; sj++) {
+        var sa = tg.sector - sHalf + 2 * sHalf * sj / SEG;
+        sh0.lineTo(wx(tg.x + Math.cos(sa) * 130), wy(tg.y + Math.sin(sa) * 130));
+      }
+      sh0.lineTo(wx(tg.x), wy(tg.y));
+      var oldG = teleSector.geometry;
+      teleSector.geometry = new THREE.ShapeGeometry(sh0);
+      oldG.dispose();
+      teleSector.material.color.copy(spectralColor(w.hueBase + 0.5));
+      teleSector.visible = true;
+    } else teleSector.visible = false;
+
+    // 敵
+    var used = { radial: 0, spiral: 0, fan: 0 };
+    for (i = 0; i < st.enemies.length; i++) {
+      var e = st.enemies[i], pool = enemyPools[e.type];
+      if (!pool) continue;
+      var m = enemyMesh(e.type, used[e.type]++);
+      m.visible = true;
+      m.position.x = wx(e.x); m.position.y = wy(e.y);
+      m.rotation.set(t * 1.3, t * 0.9 * w.vortexDir, e.type === 'fan' ? Math.PI : 0);
+      var hpr = e.maxHp ? Math.max(0, e.hp / e.maxHp) : 1;
+      var hue = TYPE_HUE[e.type] + w.hueBase;
+      var hpw = hpr < 1 ? (1 - hpr) * (0.5 + 0.5 * Math.sin(t * 30)) * 0.7 : 0;
+      var parts = m.userData.parts;
+      for (var pi = 0; pi < parts.length; pi++) {
+        var col = hsl(hue, 0.85, Math.min(1, 0.55 + parts[pi].lOff));
+        if (hpw > 0) col.lerp(white, hpw); // HP ランプは全体の白寄せ（現行式）
+        parts[pi].mesh.material.color.copy(col);
+      }
+    }
+    for (var ty in enemyPools) for (i = used[ty]; i < enemyPools[ty].length; i++) enemyPools[ty][i].visible = false;
+
+    // ボス
+    var bo = st.boss;
+    if (bo && st.phase === 'boss') {
+      boss.visible = true;
+      boss.position.x = wx(bo.x); boss.position.y = wy(bo.y);
+      bossWire.rotation.z += frameDt * 0.6 * vdSoon;
+      bossWire.rotation.x += frameDt * 0.25;
+      bossCore.rotation.z -= frameDt * 0.8 * w.vortexDir;
+      var spi = Math.max(0, st.spellIndex) % SPELL_HUE.length;
+      var sh = SPELL_HUE[spi];
+      bossWire.material.color.copy(hsl(sh, 0.9, 0.62));
+      // v0.3 B1: リング（スペル別速度・スペル3の telegraph 中は脈動）
+      var rsp = [1.0, 1.7, 0.7][spi];
+      bossRing1.rotation.z += frameDt * 0.55 * rsp * vdSoon;
+      bossRing2.rotation.z += frameDt * 0.32 * rsp * vdSoon;
+      var rpl = (spi === 2 && st.telegraph) ? 1 + 0.13 * Math.sin(t * 6) : 1;
+      bossRing1.scale.setScalar(rpl); bossRing2.scale.setScalar(rpl);
+      bossRing1.material.color.copy(hsl(sh + 0.03, 0.9, 0.66));
+      bossRing2.material.color.copy(hsl(sh - 0.04, 0.9, 0.6));
+      // プリズム片 ×3（120° 間隔、広がり半径はスペル別へ滑らかに追従）
+      shardR += ([44, 56, 38][spi] - shardR) * Math.min(1, frameDt * 4);
+      shardAng += frameDt * 0.45 * vdSoon;
+      for (var k = 0; k < bossShards.length; k++) {
+        var sd = bossShards[k], th = shardAng + k * Math.PI * 2 / 3;
+        sd.position.set(Math.cos(th) * shardR, Math.sin(th) * shardR, 0);
+        sd.rotation.z = th - Math.PI / 2;
+        sd.rotation.y = t * 1.1 + k * 2.1;
+        sd.material.color.copy(hsl(sh + 0.06 * k, 0.85, 0.62));
+      }
+      var bhr = bo.maxHp ? Math.max(0, bo.hp / bo.maxHp) : 1;
+      bossCore.material.color.copy(hsl(sh + 0.08, 0.8, 0.6)).lerp(white, (1 - bhr) * 0.5);
+    } else boss.visible = false;
+
+    // 自機ショット
+    var shooting = (!!keys.KeyZ || autoShot || dragging) && mode === 'playing';
+    shotConv.visible = shotDiff.visible = muzzle.visible = shooting;
+    if (shooting) {
+      // v0.3 C3: 下端原点の平面を自機位置に置き、scale.y = 自機の y（上端まで）
+      var hgt = Math.max(1, p.y), cw = 5 + 10 * st.conv;
+      shotConv.position.set(wx(p.x), wy(p.y), 2);
+      shotConv.userData.core.scale.set(cw, hgt, 1);
+      shotConv.userData.outer.scale.set(cw * 3, hgt, 1);
+      shotDiff.position.set(wx(p.x), wy(p.y), 2);
+      for (var dk = 0; dk < shotDiff.children.length; dk++) shotDiff.children[dk].scale.set(3, hgt, 1);
+      muzzle.position.set(wx(p.x), wy(p.y - 16), 2);
+      muzzle.scale.setScalar(1 + 0.25 * Math.sin(t * 40));
+    }
+
+    // 敵弾
+    var bl = st.bullets, n = Math.min(bl.length, CAP);
+    var memOn = st.phase === 'boss';
+    haloMat.uniforms.uTime.value = t; membraneMat.uniforms.uTime.value = t;
+    haloMat.uniforms.uBloom.value = bloomVis; membraneMat.uniforms.uBloom.value = bloomVis;
+    for (i = 0; i < n; i++) {
+      var b = bl[i], bx = wx(b.x), by = wy(b.y), r = b.r || 3.5;
+      var bh = b.hue || 0, bp = b.phase || 0;
+      var so = r * 2.0, shh = r * 3.4 * (1 + 0.18 * Math.sin(t * 5 + bp * 6.283)), sc = r * 1.05;
+      tmpM.makeScale(so, so, 1); tmpM.setPosition(bx, by, 3); bOutline.setMatrixAt(i, tmpM);
+      tmpM.makeScale(shh, shh, 1); tmpM.setPosition(bx, by, 4); bHalo.setMatrixAt(i, tmpM);
+      tmpM.makeScale(sc, sc, 1); tmpM.setPosition(bx, by, 5); bCore.setMatrixAt(i, tmpM);
+      haloHue.array[i] = bh; haloPhase.array[i] = bp;
+      if (memOn) {
+        var sm = r * 4.4;
+        tmpM.makeScale(sm, sm, 1);
+        tmpM.setPosition(bx + Math.sin(t * 1.3 + bp * 6.2831) * 2.5, by + Math.cos(t * 1.1 + bp * 6.2831) * 2.5, 4.5);
+        bMembrane.setMatrixAt(i, tmpM);
+        memHue.array[i] = bh; memPhase.array[i] = bp;
+      }
+      hsl(bh, 1, 0.55);
+      tmpC.lerp(white, 0.75); bCore.setColorAt(i, tmpC);
+    }
+    bOutline.count = bHalo.count = bCore.count = n;
+    bMembrane.count = memOn ? n : 0;
+    if (n > 0) {
+      bOutline.instanceMatrix.needsUpdate = true;
+      bHalo.instanceMatrix.needsUpdate = true; haloHue.needsUpdate = true; haloPhase.needsUpdate = true;
+      bCore.instanceMatrix.needsUpdate = true; bCore.instanceColor.needsUpdate = true;
+      if (memOn) { bMembrane.instanceMatrix.needsUpdate = true; memHue.needsUpdate = true; memPhase.needsUpdate = true; }
+    }
+
+    // v0.3 A3: 弾密度テクスチャ（portrait は2フレームに1回）
+    denFrame++;
+    if (!isPortrait || (denFrame & 1) === 0) {
+      denData.fill(0);
+      for (i = 0; i < bl.length; i++) {
+        var gx = Math.floor(bl[i].x / W * GW), gyc = Math.floor(bl[i].y / H * GH);
+        if (gx < 0 || gx >= GW || gyc < 0 || gyc >= GH) continue;
+        var di = (GH - 1 - gyc) * GW + gx;
+        denData[di] = Math.min(255, denData[di] + 60);
+      }
+      denTex.needsUpdate = true;
+    }
+    denMat.uniforms.uTime.value = t; denMat.uniforms.uHue.value = w.hueBase; denMat.uniforms.uBloom.value = bloomVis;
+
+    // 自機
+    var px = wx(p.x), py = wy(p.y);
+    ship.position.x = px; ship.position.y = py;
+    ship.visible = !(p.invulnT > 0 && Math.floor(t * 15) % 2 === 0);
+    ship.material.color.copy(hsl(w.hueBase + 0.55, 0.7, 0.7));
+    // v0.3 B2: バンキング
+    if (prevPx === null || t < trailLastT) prevPx = p.x;
+    ship.rotation.z = Math.max(-0.4, Math.min(0.4, -(p.x - prevPx) * 0.02));
+    prevPx = p.x;
+    // v0.3 B2: 残光（16ms ごとに位置履歴を記録、最大 24 点。portrait は 5 個まで）
+    if (t < trailLastT) { trailHist.length = 0; trailAcc = 0; }
+    trailLastT = t;
+    trailAcc += frameDt;
+    var recN = 0;
+    while (trailAcc >= TRAIL_DT && recN < TRAIL_HIST) {
+      trailHist.unshift(p.x, p.y);
+      trailAcc -= TRAIL_DT; recN++;
+    }
+    if (recN >= TRAIL_HIST) trailAcc = 0;
+    if (trailHist.length > TRAIL_HIST * 2) trailHist.length = TRAIL_HIST * 2;
+    var trailUse = isPortrait ? 5 : TRAIL_N, stride = TRAIL_HIST / TRAIL_N;
+    for (i = 0; i < TRAIL_N; i++) {
+      var gm = shipTrail[i], hi = ((i + 1) * stride - 1) * 2;
+      if (i >= trailUse || hi + 1 >= trailHist.length || !ship.visible) { gm.visible = false; continue; }
+      var gx2 = trailHist[hi], gy2 = trailHist[hi + 1];
+      if (Math.abs(gx2 - p.x) + Math.abs(gy2 - p.y) < 0.5) { gm.visible = false; continue; } // 静止中は重ねない
+      gm.visible = true;
+      gm.position.x = wx(gx2); gm.position.y = wy(gy2);
+      gm.rotation.z = ship.rotation.z;
+      gm.material.color.copy(ship.material.color);
+    }
+    shipCoreBack.position.x = shipCore.position.x = slowRing.position.x = px;
+    shipCoreBack.position.y = shipCore.position.y = slowRing.position.y = py;
+    slowRing.visible = !!p.slow;
+    shipCore.scale.setScalar(p.slow ? 1.25 : 1);
+
+    // 波紋
+    for (i = 0; i < ripples.length; i++) updateRipple(ripples[i], frameDt, w.hueBase + (ripples[i].userData.hueOff || 0));
+    updateRipple(bigRing, frameDt, w.hueBase + 0.3);
+    updateRipple(bigRing2, frameDt, w.hueBase + 0.55); // v0.3 C1
+    updateFx(frameDt); // v0.3 C1: 粒子・閃光
+
+    renderer.render(scene, camera);
+  }
+
+  // ---------- HUD ----------
+  var hudCache = {};
+  function setText(id, v) { if (hudCache[id] !== v) { hudCache[id] = v; $(id).textContent = v; } }
+  function setWidth(id, pct) {
+    var v = Math.round(Math.max(0, Math.min(100, pct)) * 10) / 10;
+    if (hudCache[id] !== v) { hudCache[id] = v; $(id).style.width = v + '%'; }
+  }
+  function setShown(id, on, disp) { var k = id + ':vis'; if (hudCache[k] !== on) { hudCache[k] = on; $(id).style.display = on ? (disp || 'block') : 'none'; } }
+  function updateHud() {
+    var st = game.state;
+    setText('hScore', String(Math.floor(st.score)));
+    setText('hChain', String(st.chain));
+    setText('hMult', '×' + (st.mult || 1).toFixed(1));
+    setText('hLives', String(st.lives));
+    setText('hBombs', String(st.bombs));
+    setWidth('gaugeFill', st.gauge);
+    setShown('ready', st.gauge >= 100 && st.resonanceT <= 0, 'inline');
+    setWidth('convFill', st.conv * 100);
+    setWidth('diffFill', st.diff * 100);
+    var bossOn = !!st.boss && st.phase === 'boss';
+    setShown('bossRow', bossOn);
+    if (bossOn) { setText('hSpell', st.spellName || ''); setWidth('bossFill', st.boss.maxHp ? st.boss.hp / st.boss.maxHp * 100 : 0); }
+    var sec = Math.floor(st.time);
+    setText('hTime', Math.floor(sec / 60) + ':' + ('0' + (sec % 60)).slice(-2));
+    setText('hAuto', autoShot ? 'ON' : 'OFF');
+    // v0.2: コンパクト HUD（#hudTop）へのミラー
+    var resReady = st.gauge >= 100 && st.resonanceT <= 0;
+    setText('tScore', String(Math.floor(st.score)));
+    setText('tChain', String(st.chain));
+    setText('tMult', '×' + (st.mult || 1).toFixed(1));
+    setText('tLives', String(st.lives));
+    setText('tBombs', String(st.bombs));
+    setWidth('tGaugeFill', st.gauge);
+    setShown('tReady', resReady, 'inline');
+    setShown('tBossRow', bossOn);
+    if (bossOn) setWidth('tBossFill', st.boss.maxHp ? st.boss.hp / st.boss.maxHp * 100 : 0);
+    setText('tTime', Math.floor(sec / 60) + ':' + ('0' + (sec % 60)).slice(-2));
+    if (hudCache['btnReso:ready'] !== resReady) { hudCache['btnReso:ready'] = resReady; $('btnReso').classList.toggle('ready', resReady); }
+  }
+
+  // ---------- end screen ----------
+  // v0.5 のリザルト流し込み（作曲・ライブ共通。title / reach だけ呼び出し側で決める）
+  function fillEnd(title, reach) {
+    var est = game.state, ess = est.stats;
+    $('endTitle').textContent = title;
+    $('endScore').textContent = String(Math.floor(est.score));
+    $('endDiff').textContent = est.difficulty === 'hard' ? 'HARD' : 'NORMAL';
+    $('endReach').textContent = reach;
+    $('endCapture').textContent = '×' + String(Math.floor(ess.captures));
+    $('endTimeBonus').textContent = String(Math.floor(ess.timeBonusPts));
+    $('endGraze').textContent = String(Math.floor(ess.grazeCount)) + '回 / ' + String(Math.floor(ess.grazePts));
+    $('endKill').textContent = String(Math.floor(ess.killPts));
+    $('endBomb').textContent = String(Math.floor(ess.bombPts));
+    $('endClear').textContent = String(Math.floor(ess.clearPts || 0));
+    $('endChain').textContent = String(Math.floor(ess.maxChain));
+  }
+
+  // ---------- loop ----------
+  function frame(now) {
+    requestAnimationFrame(frame);
+    var frameDt = Math.min(0.1, Math.max(0, (now - lastT) / 1000));
+    lastT = now;
+    if (!game) return;
+    // v0.8: ライブの待機（遅延モニターが追いつくまで解析フレームだけを流し込む）
+    if (mode === 'waiting') {
+      if (live) {
+        pumpLive();
+        if (live.ctx.currentTime >= live.captureStart + LIVE_DELAY) {
+          mode = 'playing'; showOverlay(null); lastT = performance.now(); acc = 0; frameDt = 0;
+          live.stepsDone = 0; // v0.8 fix: 音声クロック錨付けの起点
+        }
+      } else cancelLive();
+    }
+    if (mode === 'playing') {
+      if (sessionLive) pumpLive(); // v0.8
+      var steps;
+      if (sessionLive && live) {
+        // v0.8 fix: ライブは sim 時刻を音声クロック（遅延モニターで聞こえている位置）に錨付けする。
+        // 目標ステップ数 = (ctx.currentTime - (captureStart + LIVE_DELAY)) / DT。巻き戻しはしない。
+        // タブがバックグラウンドで rAF が止まっていた場合は、復帰時に最大48ステップ/フレームで追いつく
+        // （遅れは数フレームかけて徐々に解消される）。ライブではポーズを使わない前提。
+        var songStartCtx = live.captureStart + LIVE_DELAY;
+        var target = Math.floor((live.ctx.currentTime - songStartCtx) / DT);
+        steps = target - live.stepsDone;
+        if (!(steps > 0)) steps = 0; else if (steps > 48) steps = 48;
+        live.stepsDone += steps;
+      } else {
+        acc += frameDt;
+        steps = Math.floor(acc / DT);
+        if (steps > MAX_STEPS) { steps = MAX_STEPS; acc = 0; } else acc -= steps * DT;
+      }
+      for (var i = 0; i < steps; i++) {
+        lastInp = readInput(); // v0.4: 戻り値を保持（shot SE 用）
+        TBH_SIM.step(game, lastInp);
+        var ph = game.state.phase;
+        if (ph === 'clear' || ph === 'gameover') {
+          mode = 'over';
+          if (!sessionLive) bgm.pause(); // v0.8: ライブは bgm に触らない
+          var est = game.state;
+          if (sessionLive) fillEnd('GAME OVER', liveReach(est)); // v0.8
+          else fillEnd(ph === 'clear' ? 'STAGE CLEAR' : 'GAME OVER', ph === 'clear' ? 'STAGE CLEAR' : (est.spellName || '道中'));
+          showOverlay('end');
+          if (sessionLive) teardownLive(); // v0.8
+          break;
+        }
+      }
+      if (mode === 'playing' && lastInp && lastInp.shot) se('shot'); // v0.4: 95ms スロットル
+    }
+    draw(mode === 'playing' ? frameDt : 0);
+    updateHud();
+  }
+
+  // ---------- boot ----------
+  if (!hasThree) {
+    $('ovStart').textContent = 'three.js を読み込めませんでした（ネットワーク接続を確認してください）';
+    return;
+  }
+  initScene();
+  $('ovStart').textContent = '読み込み中…';
+  loadAssets().then(function () {
+    $('ovStart').textContent = 'クリックまたは Enter で開始';
+    if (!sessionLive) newGame(); // v0.8: 読み込み完了前にライブが始まっていたら上書きしない
+    lastT = performance.now();
+    requestAnimationFrame(frame);
+  });
+})();
+</script>
+</body>
+</html>
