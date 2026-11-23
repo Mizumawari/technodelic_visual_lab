@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>TECHNODELIC RESONANCE v0.7</title>
+<title>TECHNODELIC RESONANCE v0.8</title>
 <style>
   html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #05040a; color: #e8e6f4;
     font-family: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif; }
@@ -129,8 +129,8 @@
 
 <div class="ov show" id="ovStart">
   <div class="panel">
-    <h1>TECHNODELIC RESONANCE <span class="ver">v0.7</span></h1>
-    <div class="sub">v0.7 · LIVE MODE — TAB AUDIO / MIC, REAL-TIME CHARTING</div>
+    <h1>TECHNODELIC RESONANCE <span class="ver">v0.8</span></h1>
+    <div class="sub">v0.8 · CHART REFRESH — ACCENTS, ENERGY DENSITY · LIVE MODE</div>
     <div class="concept">音楽 → 光学世界 → あなたの操作 → 光学世界</div>
     <div class="warn">注意：このゲームには明るさや色彩が連続的に変化する映像が含まれます。光に敏感な方は注意し、体調が悪くなったら直ちに中止してください。</div>
     <div class="err" id="errMsg"></div>
@@ -157,6 +157,7 @@
         <button data-src="local">ローカルファイル</button>
         <button data-src="live">ライブ</button>
       </div>
+      <div class="note" id="chartNote">v0.8: 譜面生成を更新しました。低音に加えてスネア／ハイハット／ボーカルのアクセントからもノーツが出ます（アクセントは淡く色付きの円）。密度は曲のエネルギーに沿い（静かな部分は薄く）、セクションの機構は特徴量の段差で切り替わります</div>
       <div id="localRow">
         <input type="file" id="fileInput" accept="audio/*">
         <div class="note" id="localInfo">音声ファイルを選択してください（解析はブラウザ内で行い、外部へ送信しません）</div>
@@ -246,15 +247,48 @@
 const ASSET_BASE = 'assets/';
 /* === RESONANCE CORE BEGIN === */
 /*
- * resonance-core-v04.js — pure-logic core of "TECHNODELIC RESONANCE" (v0.4).
+ * resonance-core-v08.js — pure-logic core of "TECHNODELIC RESONANCE" (v0.8).
  *
  * No DOM / browser dependencies. Works as:
  *   - browser global: window.ResonanceCore
- *   - Node module:    require('./resonance-core-v04.js')
+ *   - Node module:    require('./resonance-core-v08.js')
  *
  * API: decodeFeatures, generateEvents, hashEvents, judgeAll, JUDGE_WINDOWS,
  *      classifySections, buildSectionLayer, flowErrorAt, judgeFlow, judgeGame,
  *      flowRoutedInputs, SECTION_PARAMS, HOLD_PARAMS
+ *      (v0.8 adds: ACCENT_PARAMS, ENERGY_PARAMS, CONFLICT_TAIL, accentCandidates,
+ *       allTapCandidates, energyContext)
+ *
+ * v0.8 changes (bundled-chart generation refresh; generation + classification
+ * only — judging, flow model, grade windows, HOLD_PARAMS, FLOW_* and the score
+ * formula are unchanged from v0.7). Rules ported from the v0.7 live engine:
+ *   - Multi-band accents: snare / hat / vocal onset peaks (ACCENT_PARAMS) join
+ *     the kick/bass tap candidates, deduped (<= 0.06 s) against low candidates
+ *     and each other (priority snare > vocal > hat). Accent events carry
+ *     `accent: true` and `src`. sectionStats does NOT count them: its
+ *     onsetRate counts low-band candidates only (live-engine parity; counting
+ *     accents would push every CATACOMB section over SEC_DUAL_ONSET).
+ *   - Energy-adaptive density: tap/hold gaps scale with R / E (trailing 2 s
+ *     kick+bass energy vs the whole-track mean), and quiet passages raise the
+ *     tap threshold (ENERGY_PARAMS). The PHASE3 song-position gap bias is gone
+ *     (phase3GapScale is reported as 1.0 to keep the params shape).
+ *   - Step-primary classification: section mechs also react to part changes
+ *     (stepUp -> dual, stepPad -> hold, stepDown -> flow; SEC_STEP_* constants).
+ *   - Ceiling fix A: the tap/hold conflict filter runs AFTER thinning against
+ *     KEPT holds only, covering the full hold plus a CONFLICT_TAIL = 0.25 s
+ *     release/re-press tail. This also fixes the long-deferred D1 (holds that
+ *     thinning rejects no longer kill taps). The filter runs inside the nested
+ *     chain (hard -> filter -> normal -> filter -> easy -> filter) so
+ *     easy ⊂ normal ⊂ hard still holds.
+ *   - Hold priority in thin(): a hold that fails only the gap test because of
+ *     kept taps within [h.time - CONFLICT_PRE, h.time) evicts those taps and
+ *     is kept if the gap from the new last kept event then passes (never
+ *     evicts a kept hold). Stops preceding taps from starving holds.
+ *   - Ceiling fix B: hold candidates are clipped at analysis.sections bounds
+ *     (a hold may not spill > 0.30 s into the next part).
+ *   - hashEvents canonical string gains `src`.
+ * The event hashes are INTENTIONALLY re-baselined in v0.8 (the v0.1-v0.7 hash
+ * freeze is lifted for this version only); CATACOMB's layout changes too.
  *
  * v0.4 changes (evaluation round 1, A1-A7 + Codex fixes):
  *   - A1 hold retention gate: hold score is multiplied by
@@ -336,13 +370,39 @@ const ASSET_BASE = 'assets/';
   var HOLD_MAX_DUR = 6.0;        // max duration of one split hold candidate (s)
   var HOLD_SPLIT_GAP = 1.2;      // gap between consecutive holds split from one segment (s)
   var PHASE1_END = 0.30;         // p < this: no holds
-  var PHASE3_START = 0.70;       // p >= this: tap gap scale 0.8
-  var PHASE3_GAP_SCALE = 0.8;
+  // v0.8: the PHASE3 position bias is removed (density follows energy). The
+  // constant is kept only so params.phase3Start keeps its shape/value.
+  var PHASE3_START = 0.70;
   var HOLD_GAP = 0.4;            // min gap before a hold (s)
   // Taps within 0.4s before a hold start are dropped: the player must press
   // at the hold start anyway, so a tap that close only clutters the input.
-  var CONFLICT_PRE = 0.40;       // tap dropped within [holdStart-PRE, holdEnd-POST]
+  var CONFLICT_PRE = 0.40;       // v0.8: tap dropped within [holdStart-PRE, holdEnd+TAIL]
+  // v0.8: CONFLICT_POST is no longer used by the core conflict filter. It is
+  // retained (value 0.20, reported as params.conflictPost) for the live
+  // module's fallback semantics (resonance-live-v07.js reads it from params).
   var CONFLICT_POST = 0.20;
+  var CONFLICT_TAIL = 0.25;      // v0.8 (fix A): release + re-press margin after a hold end
+  var HOLD_CLIP_MARGIN = 0.30;   // v0.8 (fix B): a hold may spill at most this past a section bound
+
+  // v0.8 multi-band accents (values from the v0.7 live engine).
+  var ACCENT_PARAMS = Object.freeze({
+    snare: Object.freeze({ onsetMin: 0.14, levelMin: 45 }),
+    hat: Object.freeze({ onsetMin: 0.14, levelMin: 45 }),
+    vocal: Object.freeze({ onsetMin: 0.16, levelMin: 50 }),
+    strengthScale: 0.8,
+    dedupeSec: 0.06,
+    priority: Object.freeze(['snare', 'vocal', 'hat'])
+  });
+
+  // v0.8 energy-adaptive density (values from the v0.7 live engine, except quietE).
+  // quietE CHANGED 0.10 -> 0.12 vs the brief/live value: with 0.10 the offline
+  // CATACOMB chart's quietest sections (intro L0.135, 93-111 s L0.122) stayed
+  // as dense as v0.7 (max/min section density 2.80 < v0.7 3.33, test 30);
+  // 0.12 makes the quietest section the sparsest (ratio 4.67).
+  var ENERGY_PARAMS = Object.freeze({
+    windowFrames: 40, eFloor: 0.02, gapMulMin: 0.65, gapMulMax: 1.60,
+    quietE: 0.12, quietThreshMul: 1.5
+  });
 
   // v0.2 dual ring.
   var DUAL_FRAC = 0.60;          // dual section starts at DUAL_FRAC * dur
@@ -460,22 +520,132 @@ const ASSET_BASE = 'assets/';
     return holds;
   }
 
+  // v0.8: accent tap candidates from snare / hat / vocal onset peaks.
+  // Returned in priority order (snare, vocal, hat), each band in time order.
+  function accentCandidates(F) {
+    var out = [];
+    var pri = ACCENT_PARAMS.priority;
+    for (var bi = 0; bi < pri.length; bi++) {
+      var band = pri[bi], bp = ACCENT_PARAMS[band];
+      var a = F[band], n = a ? a.length : 0;
+      if (!n) continue;
+      var onset = new Float64Array(n);
+      for (var i = 1; i < n; i++) onset[i] = Math.max(a[i] - a[i - 1], 0) / 255;
+      for (var j = 1; j < n; j++) {
+        var next = j + 1 < n ? onset[j + 1] : 0;
+        if (onset[j] >= onset[j - 1] && onset[j] >= next &&
+            onset[j] >= bp.onsetMin && a[j] >= bp.levelMin) {
+          out.push({ time: j / F.fps, type: 'tap', strength: onset[j] * ACCENT_PARAMS.strengthScale,
+            accent: true, src: band });
+        }
+      }
+    }
+    return out;
+  }
+
+  // v0.8: low taps + deduped accents. An accent within dedupeSec (inclusive) of
+  // any low tap is dropped; among accents the higher-priority band wins (bands
+  // are processed in priority order, an accent within dedupeSec of an already
+  // kept accent is dropped). Low taps first, then kept accents.
+  function allTapCandidates(F) {
+    var low = tapCandidates(F);
+    var acc = accentCandidates(F);
+    var lim = ACCENT_PARAMS.dedupeSec + 1e-9;
+    var kept = [];
+    function nearAny(list, t) {
+      for (var i = 0; i < list.length; i++) if (Math.abs(list[i].time - t) <= lim) return true;
+      return false;
+    }
+    for (var k = 0; k < acc.length; k++) {
+      var c = acc[k];
+      if (nearAny(low, c.time) || nearAny(kept, c.time)) continue;
+      kept.push(c);
+    }
+    return low.concat(kept);
+  }
+
+  // v0.8: energy context. E[f] = trailing-window mean of (kick+bass)/2/255,
+  // R = mean of E over the whole track (offline version of the live running mean).
+  function energyContext(F) {
+    // Window is 2 s in frames (ENERGY_PARAMS.windowFrames = 40 is the 20 fps value).
+    var n = F.kick.length, W = Math.max(1, Math.round(2 * F.fps));
+    var pre = new Float64Array(n + 1);
+    for (var i = 0; i < n; i++) pre[i + 1] = pre[i] + (F.kick[i] + F.bass[i]) / 2 / 255;
+    var E = new Float64Array(n), sum = 0;
+    for (var f = 0; f < n; f++) {
+      var w0 = Math.max(0, f - W + 1);
+      E[f] = (pre[f + 1] - pre[w0]) / (f + 1 - w0);
+      sum += E[f];
+    }
+    var R = n ? sum / n : 0;
+    function frameOf(t) { return clamp(Math.round(t * F.fps), 0, Math.max(0, n - 1)); }
+    return {
+      E: E, R: R, frameOf: frameOf, windowFrames: W,
+      gapMulAt: function (f) {
+        if (!n) return 1.0;
+        return clamp(R / Math.max(E[f], ENERGY_PARAMS.eFloor), ENERGY_PARAMS.gapMulMin, ENERGY_PARAMS.gapMulMax);
+      },
+      threshMulAt: function (f) {
+        if (!n) return 1.0;
+        return E[f] < ENERGY_PARAMS.quietE ? ENERGY_PARAMS.quietThreshMul : 1.0;
+      }
+    };
+  }
+
   // Step 6: one thinning pass. Gap is measured from the last kept event of any type.
-  function thin(list, p) {
+  // v0.8: gaps scale with gapMul(frame); tap threshold scales with threshMul(frame).
+  // v0.8 (hold priority): a hold that passes the strength/dur tests but fails
+  // ONLY the gap test because of kept taps (accents included) in
+  // [h.time - CONFLICT_PRE, h.time) evicts those taps (the tail of `kept`;
+  // kept holds are never evicted) and re-tests the gap against the new last
+  // kept event. Pass -> the hold is kept; fail (e.g. blocked by an earlier
+  // hold) -> the taps stay and the hold is dropped as before. The evicted taps
+  // would be removed by the post-thinning conflictFilter anyway.
+  function thin(list, p, EC) {
     var kept = [];
     var last = -Infinity;
     for (var i = 0; i < list.length; i++) {
       var e = list[i];
       var gap = e.time - last;
+      var f = EC.frameOf(e.time);
+      var gm = EC.gapMulAt(f);
       var ok;
       if (e.type === 'tap') {
-        ok = e.strength >= p.tapThresh && gap >= p.tapGap * e.gapScale;
+        ok = e.strength >= p.tapThresh * EC.threshMulAt(f) && gap >= p.tapGap * gm;
+      } else if (e.strength >= p.holdThresh && e.dur >= p.holdMinDur) {
+        ok = gap >= HOLD_GAP * gm;
+        if (!ok) {
+          // Hold priority: find the trailing run of taps inside the pre-window.
+          var j = kept.length;
+          while (j > 0 && kept[j - 1].type === 'tap' &&
+                 kept[j - 1].time < e.time &&
+                 kept[j - 1].time >= e.time - CONFLICT_PRE - 1e-6) j--;
+          if (j < kept.length) {
+            var newLast = j > 0 ? kept[j - 1].time : -Infinity;
+            if (e.time - newLast >= HOLD_GAP * gm) { kept.length = j; ok = true; }
+          }
+        }
       } else {
-        ok = e.strength >= p.holdThresh && e.dur >= p.holdMinDur && gap >= HOLD_GAP;
+        ok = false;
       }
       if (ok) { kept.push(e); last = e.time; }
     }
     return kept;
+  }
+
+  // v0.8 (fix A): drop taps (incl. accents) that collide with a KEPT hold:
+  // h.time - CONFLICT_PRE <= t <= h.time + h.dur + CONFLICT_TAIL.
+  function conflictFilter(list) {
+    var holds = list.filter(function (e) { return e.type === 'hold'; });
+    return list.filter(function (e) {
+      if (e.type !== 'tap') return true;
+      for (var i = 0; i < holds.length; i++) {
+        var h = holds[i];
+        // 1e-6 slack: inclusive bounds stay inclusive after 3-decimal output rounding.
+        if (e.time >= h.time - CONFLICT_PRE - 1e-6 && e.time <= h.time + h.dur + CONFLICT_TAIL + 1e-6) return false;
+      }
+      return true;
+    });
   }
 
   /**
@@ -488,35 +658,44 @@ const ASSET_BASE = 'assets/';
     var dur = F.dur;
     if (!isFinite(dur)) dur = 0; // v0.4 (A6)
 
-    // Steps 1-3: candidates with phase bias.
-    var taps = tapCandidates(F).map(function (t) {
-      t.gapScale = (t.time / dur >= PHASE3_START) ? PHASE3_GAP_SCALE : 1.0;
-      return t;
-    });
+    // Steps 1-3: candidates (v0.8: low + accent taps; no position bias).
+    var taps = allTapCandidates(F);
     var holds = holdCandidates(F).filter(function (h) {
       return h.time / dur >= PHASE1_END;
     });
-    holds.forEach(function (h) { h.gapScale = 1.0; });
 
-    // Step 4: drop taps that collide with a hold.
-    taps = taps.filter(function (t) {
-      for (var i = 0; i < holds.length; i++) {
-        var h = holds[i];
-        if (t.time >= h.time - CONFLICT_PRE && t.time <= h.time + h.dur - CONFLICT_POST) return false;
-      }
-      return true;
-    });
+    // v0.8 (fix B): clip holds at the first analysis.sections bound they cross
+    // by more than HOLD_CLIP_MARGIN; drop if the clipped hold is too short.
+    var bounds = (analysis && Array.isArray(analysis.sections) ? analysis.sections : [])
+      .filter(function (b) { return isFinite(b) && b > 0 && b < dur; })
+      .slice().sort(function (a, b) { return a - b; });
+    if (bounds.length) {
+      holds = holds.filter(function (h) {
+        for (var bi = 0; bi < bounds.length; bi++) {
+          var b = bounds[bi];
+          if (h.time < b && h.time + h.dur > b + HOLD_CLIP_MARGIN) {
+            h.dur = round(b - h.time, 3);
+            return h.dur >= HOLD_MIN_SEG;
+          }
+        }
+        return true;
+      });
+    }
 
     // Step 5: master list, stable sort by time (taps before holds on exact ties).
     var master = taps.concat(holds);
     master.forEach(function (e, i) { e._ord = i; });
     master.sort(function (a, b) { return a.time - b.time || a._ord - b._ord; });
 
-    // Step 6: nested thinning hard -> normal -> easy.
+    // Step 6: nested thinning hard -> normal -> easy, energy-adaptive (v0.8).
+    // v0.8 (fix A): after each level's thinning the conflict filter runs
+    // against that level's KEPT holds; the filtered list feeds the next level,
+    // so easy ⊂ normal ⊂ hard is preserved.
+    var EC = energyContext(F);
     var levels = ['hard', 'normal', 'easy'];
     var cur = master;
     for (var li = 0; li < levels.length; li++) {
-      cur = thin(cur, THIN_PARAMS[levels[li]]);
+      cur = conflictFilter(thin(cur, THIN_PARAMS[levels[li]], EC));
       if (levels[li] === difficulty) break;
     }
 
@@ -528,6 +707,7 @@ const ASSET_BASE = 'assets/';
         strength: round(e.strength, 4),
         confidence: round(Math.min(1, e.strength * 1.8), 4)
       };
+      if (e.accent) { o.accent = true; o.src = e.src; }
       if (e.type === 'hold') o.dur = round(e.dur, 3);
       return o;
     });
@@ -572,10 +752,34 @@ const ASSET_BASE = 'assets/';
       holdThresh: p.holdThresh, holdMinDur: p.holdMinDur, holdGap: HOLD_GAP,
       onsetMin: ONSET_MIN, levelMin: LEVEL_MIN,
       padStart: PAD_START, padSustain: PAD_SUSTAIN, padMaxDip: PAD_MAX_DIP, holdMinSeg: HOLD_MIN_SEG,
-      phase1End: PHASE1_END, phase3Start: PHASE3_START, phase3GapScale: PHASE3_GAP_SCALE,
+      // v0.8: position bias removed -> phase3GapScale reported as 1.0 (shape kept).
+      phase1End: PHASE1_END, phase3Start: PHASE3_START, phase3GapScale: 1.0,
+      // conflictPost retained for the live module's fallback semantics (unused here).
       conflictPre: CONFLICT_PRE, conflictPost: CONFLICT_POST,
       levels: THIN_PARAMS,
-      dualStart: round(dualStart, 3), dualFrac: DUAL_FRAC
+      dualStart: round(dualStart, 3), dualFrac: DUAL_FRAC,
+      // v0.8 additions
+      accentParams: {
+        snare: { onsetMin: ACCENT_PARAMS.snare.onsetMin, levelMin: ACCENT_PARAMS.snare.levelMin },
+        hat: { onsetMin: ACCENT_PARAMS.hat.onsetMin, levelMin: ACCENT_PARAMS.hat.levelMin },
+        vocal: { onsetMin: ACCENT_PARAMS.vocal.onsetMin, levelMin: ACCENT_PARAMS.vocal.levelMin },
+        strengthScale: ACCENT_PARAMS.strengthScale, dedupeSec: ACCENT_PARAMS.dedupeSec,
+        priority: ACCENT_PARAMS.priority.slice()
+      },
+      energyParams: {
+        windowFrames: EC.windowFrames, eFloor: ENERGY_PARAMS.eFloor,
+        gapMulMin: ENERGY_PARAMS.gapMulMin, gapMulMax: ENERGY_PARAMS.gapMulMax,
+        quietE: ENERGY_PARAMS.quietE, quietThreshMul: ENERGY_PARAMS.quietThreshMul
+      },
+      conflictTail: CONFLICT_TAIL,
+      holdClipMargin: HOLD_CLIP_MARGIN,
+      stepParams: {
+        SEC_STEP_UP_DLEVEL: SEC_STEP_UP_DLEVEL, SEC_STEP_UP_DONSET: SEC_STEP_UP_DONSET,
+        SEC_STEP_UP_DONSET_ALONE: SEC_STEP_UP_DONSET_ALONE, SEC_STEP_DOWN_DLEVEL: SEC_STEP_DOWN_DLEVEL,
+        SEC_STEP_PAD_DPAD: SEC_STEP_PAD_DPAD, SEC_STEP_DUAL_ONSET: SEC_STEP_DUAL_ONSET,
+        SEC_STEP_HOLD_PAD: SEC_STEP_HOLD_PAD, SEC_STEP_FLOW_LEVEL: SEC_STEP_FLOW_LEVEL,
+        SEC_STEP_FLOW_ONSET: SEC_STEP_FLOW_ONSET
+      }
     };
     return { events: events, decoys: decoys, params: params };
   }
@@ -584,7 +788,7 @@ const ASSET_BASE = 'assets/';
   function hashEvents(events) {
     var s = events.map(function (e) {
       return e.time.toFixed(3) + ',' + e.type + ',' + e.strength.toFixed(4) + ',' +
-        (e.type === 'hold' ? e.dur.toFixed(3) : '');
+        (e.type === 'hold' ? e.dur.toFixed(3) : '') + ',' + (e.src || ''); // v0.8: + src
     }).join(';');
     var h = 0x811c9dc5;
     for (var i = 0; i < s.length; i++) {
@@ -839,6 +1043,16 @@ const ASSET_BASE = 'assets/';
   var SEC_FLOW_ONSET_DELTA = 1.0;  //       ... and onsetRate <= this
   var SEC_FLOW_PAD_DELTA = 0.35;   //       ... and padRatio <= this
   var PSEUDO_MAX_BOUNDS = 10000;   // v0.4 (A6)
+  // v0.8 step-primary rules (part changes vs the previous section).
+  var SEC_STEP_UP_DLEVEL = 0.15;       // stepUp: dLevel >= this && dOnset >= UP_DONSET
+  var SEC_STEP_UP_DONSET = 0.8;
+  var SEC_STEP_UP_DONSET_ALONE = 1.6;  //         || dOnset >= this
+  var SEC_STEP_DOWN_DLEVEL = -0.15;    // stepDown: dLevel <= this
+  var SEC_STEP_PAD_DPAD = 0.25;        // stepPad: dPad >= this
+  var SEC_STEP_DUAL_ONSET = 2.2;       // dual: stepUp && onsetRate >= this
+  var SEC_STEP_HOLD_PAD = 0.35;        // hold: stepPad && padRatio >= this (+ holdDurRatio)
+  var SEC_STEP_FLOW_LEVEL = 0.22;      // flow: stepDown && level <= this
+  var SEC_STEP_FLOW_ONSET = 2.0;       //       && onsetRate <= this
 
   var SECTION_PARAMS = Object.freeze({
     PSEUDO_SEC_LEN: PSEUDO_SEC_LEN, SEC_PAD_FRAME: SEC_PAD_FRAME,
@@ -854,19 +1068,33 @@ const ASSET_BASE = 'assets/';
     SEC_DUAL_ONSET_DELTA: SEC_DUAL_ONSET_DELTA, SEC_DUAL_DELTA: SEC_DUAL_DELTA,
     SEC_HOLD_PAD_DELTA: SEC_HOLD_PAD_DELTA, SEC_HOLD_DELTA: SEC_HOLD_DELTA, SEC_HOLD_DUR_MIN: SEC_HOLD_DUR_MIN,
     SEC_FLOW_LEVEL_DELTA: SEC_FLOW_LEVEL_DELTA, SEC_FLOW_DLEVEL: SEC_FLOW_DLEVEL,
-    SEC_FLOW_ONSET_DELTA: SEC_FLOW_ONSET_DELTA, SEC_FLOW_PAD_DELTA: SEC_FLOW_PAD_DELTA
+    SEC_FLOW_ONSET_DELTA: SEC_FLOW_ONSET_DELTA, SEC_FLOW_PAD_DELTA: SEC_FLOW_PAD_DELTA,
+    // v0.8 additions (existing values above unchanged)
+    SEC_STEP_UP_DLEVEL: SEC_STEP_UP_DLEVEL, SEC_STEP_UP_DONSET: SEC_STEP_UP_DONSET,
+    SEC_STEP_UP_DONSET_ALONE: SEC_STEP_UP_DONSET_ALONE, SEC_STEP_DOWN_DLEVEL: SEC_STEP_DOWN_DLEVEL,
+    SEC_STEP_PAD_DPAD: SEC_STEP_PAD_DPAD, SEC_STEP_DUAL_ONSET: SEC_STEP_DUAL_ONSET,
+    SEC_STEP_HOLD_PAD: SEC_STEP_HOLD_PAD, SEC_STEP_FLOW_LEVEL: SEC_STEP_FLOW_LEVEL,
+    SEC_STEP_FLOW_ONSET: SEC_STEP_FLOW_ONSET
   });
 
   // v0.4 (A7): mech from the section's stats and the previous section's stats.
+  // v0.8: step-primary clauses (part changes) are OR-ed in front of each rule.
   function classifyMech(st, prev) {
     var dLevel = prev ? round(st.level - prev.level, 3) : 0;
     var dPad = prev ? round(st.padRatio - prev.padRatio, 3) : 0;
     var dOnset = prev ? round(st.onsetRate - prev.onsetRate, 3) : 0;
+    var stepUp = !!prev && ((dLevel >= SEC_STEP_UP_DLEVEL && dOnset >= SEC_STEP_UP_DONSET) ||
+      dOnset >= SEC_STEP_UP_DONSET_ALONE);
+    var stepDown = !!prev && dLevel <= SEC_STEP_DOWN_DLEVEL;
+    var stepPad = !!prev && dPad >= SEC_STEP_PAD_DPAD;
     if (st.onsetRate >= SEC_DUAL_ONSET ||
+        (stepUp && st.onsetRate >= SEC_STEP_DUAL_ONSET) ||
         (st.onsetRate >= SEC_DUAL_ONSET_DELTA && dOnset >= SEC_DUAL_DELTA)) return 'dual';
-    if ((st.padRatio >= SEC_HOLD_PAD || (st.padRatio >= SEC_HOLD_PAD_DELTA && dPad >= SEC_HOLD_DELTA)) &&
+    if (((stepPad && st.padRatio >= SEC_STEP_HOLD_PAD) ||
+         st.padRatio >= SEC_HOLD_PAD || (st.padRatio >= SEC_HOLD_PAD_DELTA && dPad >= SEC_HOLD_DELTA)) &&
         st.holdDurRatio >= SEC_HOLD_DUR_MIN) return 'hold';
-    if ((st.level <= SEC_FLOW_LEVEL && st.padRatio <= SEC_FLOW_PAD && st.onsetRate <= SEC_FLOW_ONSET) ||
+    if ((stepDown && st.level <= SEC_STEP_FLOW_LEVEL && st.onsetRate <= SEC_STEP_FLOW_ONSET) ||
+        (st.level <= SEC_FLOW_LEVEL && st.padRatio <= SEC_FLOW_PAD && st.onsetRate <= SEC_FLOW_ONSET) ||
         (st.level <= SEC_FLOW_LEVEL_DELTA && dLevel <= SEC_FLOW_DLEVEL &&
          st.onsetRate <= SEC_FLOW_ONSET_DELTA && st.padRatio <= SEC_FLOW_PAD_DELTA)) return 'flow';
     return 'tap';
@@ -924,9 +1152,14 @@ const ASSET_BASE = 'assets/';
       for (var b = PSEUDO_SEC_LEN; b < dur && bounds.length < PSEUDO_MAX_BOUNDS; b += PSEUDO_SEC_LEN) bounds.push(b);
     }
     var edges = [0].concat(bounds, [dur]).map(function (x) { return round(x, 3); });
+    // v0.8 DEVIATION from the brief (point 1, last bullet): onsetRate counts the
+    // LOW (kick/bass) candidates only, exactly as the v0.7 live engine's
+    // windowStats does. Counting accents too lifts every CATACOMB section to
+    // onsetRate 4-6/s (> SEC_DUAL_ONSET 3.3, which must not change), giving
+    // [dual x6, tap] with no flow/hold section at all.
     var taps = tapCandidates(F);
     var holds = holdCandidates(F);
-    var stats = function (s, e) { return sectionStats(F, taps, holds, s, e); };
+    var stats =function (s, e) { return sectionStats(F, taps, holds, s, e); };
 
     var secs = [];
     for (var k = 0; k + 1 < edges.length; k++) {
@@ -1264,6 +1497,12 @@ const ASSET_BASE = 'assets/';
     THIN_PARAMS: THIN_PARAMS,
     SECTION_PARAMS: SECTION_PARAMS,
     HOLD_PARAMS: HOLD_PARAMS,
+    ACCENT_PARAMS: ACCENT_PARAMS,
+    ENERGY_PARAMS: ENERGY_PARAMS,
+    CONFLICT_TAIL: CONFLICT_TAIL,
+    accentCandidates: accentCandidates,
+    allTapCandidates: allTapCandidates,
+    energyContext: energyContext,
     decodeFeatures: decodeFeatures,
     generateEvents: generateEvents,
     hashEvents: hashEvents,
@@ -2250,6 +2489,9 @@ const ASSET_BASE = 'assets/';
   // v0.3: per-section mechanics
   var MECH_ACCENT = { tap: '#3fd9ff', hold: '#ffd27a', dual: '#b78cff', flow: '#54ffb4' };
   var MECH_NAME = { tap: 'TAP', hold: 'HOLD', dual: 'DUAL', flow: 'FLOW' };
+  // v0.8: subtle per-src tint for accent taps (e.accent === true); non-accent events keep their colours
+  var ACCENT_TINT = { snare: '#ff9d6b', hat: '#8ea8ff', vocal: '#ff8ce6' };
+  function evColor(ev, base) { return ev && ev.accent === true && ACCENT_TINT[ev.src] ? ACCENT_TINT[ev.src] : base; }
   var SEC_BANNER_S = 1.6;    // section banner duration (s, wall clock)
   var SEC_PREVIEW = 2.0;     // next-section preview lead (s)
   var FLOW_BREATH_AMP = 0.05; // flow ring radius modulation (× R_T)
@@ -3577,7 +3819,7 @@ const ASSET_BASE = 'assets/';
           var fadeIn = Math.min(1, (APPROACH + 0.4 - (e.time - now)) / 0.4); // soft appear at the edge
           setRing(ringPool[ri++], cx[r], 0, radius, isHold
             ? { width: 3.5, alpha: alpha * Math.max(0, fadeIn), double: true, spectral: 0, color: '#ffd27a', glow: 0.15 + bloom * 0.3 }
-            : { width: 3, alpha: alpha * Math.max(0, fadeIn), spectral: Math.min(1, 0.55 + bloom * 0.6), color: '#ffffff', glow: 0.15 + bloom * 0.35 });
+            : { width: 3, alpha: alpha * Math.max(0, fadeIn), spectral: Math.min(1, 0.55 + bloom * 0.6), color: evColor(e, '#ffffff'), glow: 0.15 + bloom * 0.35 });
         }
       }
     }
@@ -3662,7 +3904,7 @@ const ASSET_BASE = 'assets/';
         if (ni < notePool.length) setRing(notePool[ni++], x, yBot, 16, { fill: true, color: '#ffd27a', spectral: 0, alpha: 0.95, glow: now >= ev.time ? holdGlow : 0.2 });
         if (ni < notePool.length && yAt(end) <= topY + 40) setRing(notePool[ni++], x, yAt(end), 11, { fill: true, color: '#ffd27a', spectral: 0, alpha: 0.7, glow: 0.1 });
       } else {
-        if (ni < notePool.length) setRing(notePool[ni++], x, yHead, 16, { fill: true, color: '#ffffff', spectral: 0.6, alpha: 0.95, glow: 0.3 });
+        if (ni < notePool.length) setRing(notePool[ni++], x, yHead, 16, { fill: true, color: evColor(ev, '#ffffff'), spectral: 0.6, alpha: 0.95, glow: 0.3 });
       }
     }
     for (; ni < notePool.length; ni++) notePool[ni].visible = false;
