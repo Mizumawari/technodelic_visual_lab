@@ -1,0 +1,3821 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>TECHNODELIC RESONANCE v0.7</title>
+<style>
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #05040a; color: #e8e6f4;
+    font-family: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif; }
+  #stage { position: fixed; inset: 0; touch-action: none; user-select: none; -webkit-user-select: none; }
+  #stage canvas { display: block; width: 100%; height: 100%; }
+  .ov { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 20;
+    background: rgba(4, 3, 10, 0.72); }
+  .ov.show { display: flex; }
+  .panel { width: min(560px, 92vw); max-height: 92vh; overflow-y: auto; box-sizing: border-box; padding: 22px 24px;
+    background: rgba(14, 12, 26, 0.88); border: 1px solid rgba(190, 170, 255, 0.22); border-radius: 14px;
+    box-shadow: 0 0 40px rgba(120, 90, 255, 0.15); }
+  h1 { margin: 0 0 4px; font-size: 26px; letter-spacing: 0.14em; font-weight: 700;
+    background: linear-gradient(90deg, #ff7d9c, #ffe27a, #7dffce, #7dc8ff, #c89cff); -webkit-background-clip: text;
+    background-clip: text; color: transparent; }
+  h2 { margin: 0 0 12px; font-size: 20px; letter-spacing: 0.1em; }
+  .sub { font-size: 12px; opacity: 0.6; letter-spacing: 0.2em; margin-bottom: 10px; }
+  .concept { font-size: 15px; margin: 6px 0 12px; opacity: 0.9; }
+  .warn { font-size: 12px; line-height: 1.6; padding: 8px 10px; border-left: 3px solid #ffe27a; background: rgba(255, 226, 122, 0.07);
+    margin-bottom: 12px; }
+  .err { font-size: 13px; color: #ff7d9c; margin: 8px 0; display: none; }
+  .row { margin: 10px 0; }
+  .label { font-size: 11px; opacity: 0.6; letter-spacing: 0.15em; margin-bottom: 5px; }
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; }
+  button { font: inherit; color: #e8e6f4; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 8px; padding: 7px 12px; cursor: pointer; font-size: 13px; }
+  button:hover { background: rgba(255, 255, 255, 0.12); }
+  button.on { border-color: #7dffce; background: rgba(125, 255, 206, 0.14); color: #fff; }
+  button.big { width: 100%; padding: 12px; font-size: 16px; letter-spacing: 0.2em; margin-top: 8px;
+    border-color: rgba(200, 156, 255, 0.6); background: rgba(160, 120, 255, 0.18); }
+  button.dis { opacity: 0.45; cursor: default; }
+  .lat { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+  .lat input { flex: 1; }
+  .note { font-size: 11px; opacity: 0.6; margin-top: 4px; }
+  .track { font-size: 13px; letter-spacing: 0.06em; }
+  h1 .ver { font-size: 14px; letter-spacing: 0.1em; }
+  #localRow { display: none; margin-top: 8px; }
+  #localRow.show { display: block; }
+  /* v0.7: live mode */
+  #liveRow { display: none; margin-top: 8px; }
+  #liveRow.show { display: block; }
+  #liveInfo { white-space: pre-line; }
+  #liveInfo:empty { display: none; }
+  #btnStop { pointer-events: auto; padding: 4px 10px; font-size: 14px; display: none; }
+  #fileInput { font: inherit; font-size: 12px; color: #e8e6f4; max-width: 100%; }
+  #hud { position: fixed; top: 0; left: 0; right: 0; z-index: 10; display: none; pointer-events: none;
+    padding: 8px 14px 0; box-sizing: border-box; font-size: 13px; text-shadow: 0 0 6px rgba(0, 0, 0, 0.8); }
+  #hud.show { display: block; }
+  #hud .bar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  #hud .k { opacity: 0.55; font-size: 10px; letter-spacing: 0.15em; margin-right: 4px; }
+  #hud .v { font-variant-numeric: tabular-nums; font-weight: 600; }
+  #hudScore { font-size: 18px; }
+  #hud .sp { flex: 1; }
+  #btnPause { pointer-events: auto; padding: 4px 10px; font-size: 14px; }
+  #prog { height: 3px; margin-top: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 2px; overflow: hidden; }
+  #progFill { height: 100%; width: 0; background: linear-gradient(90deg, #ff7d9c, #ffe27a, #7dffce, #7dc8ff, #c89cff); }
+  .cP { color: #7dffce; } .cG { color: #ffe27a; } .cM { color: #ff7d9c; }
+  #popup { position: fixed; z-index: 11; pointer-events: none; transform: translate(-50%, -50%); text-align: center;
+    font-weight: 700; letter-spacing: 0.12em; font-size: 18px; opacity: 0; white-space: nowrap; }
+  #popup .ms { display: block; font-size: 11px; font-weight: 500; letter-spacing: 0.05em; opacity: 0.85; }
+  #popup.anim { animation: pop 0.6s ease-out forwards; }
+  @keyframes pop { 0% { opacity: 0; transform: translate(-50%, -40%) scale(0.92); } 18% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -62%) scale(1); } }
+  #combo { position: fixed; z-index: 11; pointer-events: none; transform: translate(-50%, -50%); font-size: 13px;
+    letter-spacing: 0.2em; opacity: 0.85; display: none; font-variant-numeric: tabular-nums; }
+  .big-total { font-size: 54px; font-weight: 700; text-align: center; margin: 4px 0 10px; font-variant-numeric: tabular-nums; }
+  .rbar { display: flex; align-items: center; gap: 10px; margin: 6px 0; font-size: 13px; }
+  .rbar .n { width: 86px; opacity: 0.75; }
+  .rbar .t { flex: 1; height: 8px; background: rgba(255, 255, 255, 0.08); border-radius: 4px; overflow: hidden; }
+  .rbar .f { height: 100%; background: linear-gradient(90deg, #7dc8ff, #7dffce); }
+  .rbar .val { width: 44px; text-align: right; font-variant-numeric: tabular-nums; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 10px 0; font-size: 13px; text-align: center; }
+  .stats div b { display: block; font-size: 18px; }
+  .btns { display: flex; gap: 8px; margin-top: 12px; }
+  .btns button { flex: 1; padding: 10px; }
+  .col { display: flex; flex-direction: column; gap: 8px; }
+  .col button { padding: 11px; font-size: 15px; }
+  /* v0.3: section mechanics */
+  #secBanner { position: fixed; z-index: 12; left: 50%; top: 17%; transform: translate(-50%, -50%); pointer-events: none;
+    font-size: 46px; font-weight: 700; letter-spacing: 0.32em; opacity: 0; white-space: nowrap;
+    text-shadow: 0 0 18px currentColor, 0 0 4px rgba(0, 0, 0, 0.8); }
+  #secNext { position: fixed; z-index: 12; left: 50%; top: calc(17% + 40px); transform: translateX(-50%); pointer-events: none;
+    font-size: 12px; font-weight: 600; letter-spacing: 0.28em; opacity: 0; white-space: nowrap; text-shadow: 0 0 6px rgba(0, 0, 0, 0.8); }
+  #hudSection { letter-spacing: 0.14em; }
+  #secMap { display: flex; gap: 1px; height: 22px; border-radius: 4px; overflow: hidden; background: rgba(255, 255, 255, 0.04); }
+  #secMap .sg { flex-basis: 0; min-width: 0; display: flex; align-items: center; justify-content: center; overflow: hidden;
+    white-space: nowrap; font-size: 9px; font-weight: 600; letter-spacing: 0.08em; }
+  #secNote { display: none; }
+  #resMech { text-align: center; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
+  #resFlowBar { background: linear-gradient(90deg, #2fae7c, #54ffb4); }
+  /* v0.4: how-to block + per-mechanic result grid */
+  .howto { font-size: 12px; line-height: 1.55; }
+  .howto div { display: flex; gap: 8px; }
+  .howto .m { flex: 0 0 44px; font-weight: 700; letter-spacing: 0.08em; }
+  .howto .m::before { content: "\25CF"; margin-right: 4px; font-size: 9px; vertical-align: 1px; }
+  .mechgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 8px 0 2px; font-size: 11px;
+    text-align: center; font-variant-numeric: tabular-nums; }
+  .mechgrid div b { display: block; font-size: 11px; letter-spacing: 0.1em; margin-bottom: 2px; }
+  #resFlowNote { display: none; margin: -2px 0 6px; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+
+<div id="hud">
+  <div class="bar">
+    <span><span class="k">SCORE</span><span class="v" id="hudScore">0</span></span>
+    <span><span class="k">COMBO</span><span class="v" id="hudCombo">0</span></span>
+    <span><span class="k cP">PERFECT</span><span class="v" id="hudP">0</span></span>
+    <span><span class="k cG">GOOD</span><span class="v" id="hudG">0</span></span>
+    <span><span class="k cM">MISS</span><span class="v" id="hudM">0</span></span>
+    <span><span class="k">SECTION</span><span class="v" id="hudSection">—</span></span>
+    <span class="sp"></span>
+    <span class="v" id="hudMode" style="opacity:.7;font-weight:500"></span>
+    <button id="btnPause" title="Pause (Esc / P)">⏸</button>
+    <button id="btnStop" title="Stop live (ライブ終了)">■</button>
+  </div>
+  <div id="prog"><div id="progFill"></div></div>
+</div>
+<div id="popup"></div>
+<div id="combo"></div>
+<div id="secBanner"></div>
+<div id="secNext"></div>
+
+<div class="ov show" id="ovStart">
+  <div class="panel">
+    <h1>TECHNODELIC RESONANCE <span class="ver">v0.7</span></h1>
+    <div class="sub">v0.7 · LIVE MODE — TAB AUDIO / MIC, REAL-TIME CHARTING</div>
+    <div class="concept">音楽 → 光学世界 → あなたの操作 → 光学世界</div>
+    <div class="warn">注意：このゲームには明るさや色彩が連続的に変化する映像が含まれます。光に敏感な方は注意し、体調が悪くなったら直ちに中止してください。</div>
+    <div class="err" id="errMsg"></div>
+    <div class="row track" id="trackLine">CATACOMB / BPM — / —</div>
+    <div class="row" id="howto">
+      <div class="label">HOW TO PLAY / 遊び方</div>
+      <div class="howto">
+        <div><span class="m" style="color:#3fd9ff">TAP</span><span>円が閉じる瞬間にタップ</span></div>
+        <div><span class="m" style="color:#ffd27a">HOLD</span><span>押し続けて、終わりの瞬間に離す（途中で離すと大きく減点）</span></div>
+        <div><span class="m" style="color:#b78cff">DUAL</span><span>2つの円のうち、光っている方だけをタップ（もう一方はダミー）</span></div>
+        <div><span class="m" style="color:#54ffb4">FLOW</span><span>基本は押さない。円のズレが大きい時だけタップして位相を戻す</span></div>
+      </div>
+      <div class="note">無駄なタップは Economy を下げます。必要な時だけ操作するのが高得点のコツです。</div>
+    </div>
+    <div class="row">
+      <div class="label">SECTIONS / 節マップ</div>
+      <div id="secMap"></div>
+      <div class="note" id="secNote">※ ローカル曲は擬似節（等間隔）で機構を割り当てています</div>
+    </div>
+    <div class="row">
+      <div class="label">TRACK</div>
+      <div class="seg" id="srcSeg">
+        <button data-src="bundled" class="on">同梱曲 CATACOMB</button>
+        <button data-src="local">ローカルファイル</button>
+        <button data-src="live">ライブ</button>
+      </div>
+      <div id="localRow">
+        <input type="file" id="fileInput" accept="audio/*">
+        <div class="note" id="localInfo">音声ファイルを選択してください（解析はブラウザ内で行い、外部へ送信しません）</div>
+      </div>
+      <div id="liveRow">
+        <div class="seg" id="liveKindSeg">
+          <button data-kind="tab" class="on">タブ音声</button>
+          <button data-kind="mic">マイク</button>
+        </div>
+        <div class="note" id="liveInfo" style="color:#ff7d9c"></div>
+        <div class="note" id="liveNoteTab">タブ音声: PC の Chrome で単独ページとして開いた場合のみ使えます。共有元のタブはミュートしてください（音はこのページから 5 秒遅れて流れます）</div>
+        <div class="note" id="liveNoteMic">マイク: ヘッドホン推奨（スピーカーだとハウリングします）。音は 5 秒遅れてモニターされます</div>
+        <div class="note" id="liveNoteCommon">ライブモードはその場で解析して譜面を生成します。リプレイの再現性（決定論）はなく、解析・分類は概算です。セクションの機構は直近 12 秒の特徴から決まるため、切り替わりが音楽の変化より遅れることがあります</div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="label">MODE</div>
+      <div class="seg" id="modeSeg">
+        <button data-mode="resonance" class="on">Resonance（円環）</button>
+        <button data-mode="classic">Classic Tap（比較用）</button>
+      </div>
+    </div>
+    <div class="row">
+      <div class="label">DIFFICULTY</div>
+      <div class="seg" id="diffSeg">
+        <button data-diff="easy">Easy</button>
+        <button data-diff="normal" class="on">Normal</button>
+        <button data-diff="hard">Hard</button>
+      </div>
+    </div>
+    <div class="row">
+      <div class="label">LATENCY / 遅延補正</div>
+      <div class="lat">
+        <input type="range" id="offSlider" min="-200" max="200" step="5" value="0">
+        <span id="offVal" style="width:64px;text-align:right">0 ms</span>
+      </div>
+      <div class="note" id="latInfo">outputLatency: —（クリック／キー操作で音声を初期化）</div>
+      <div class="note">タイミングが合わない場合は調整してください</div>
+    </div>
+    <button class="big dis" id="btnStart">LOADING…</button>
+    <div class="note" style="margin-top:10px">操作：Space / Z / マウス / タッチ（押して離す）　·　一時停止：Esc / P</div>
+  </div>
+</div>
+
+<div class="ov" id="ovPause">
+  <div class="panel" style="width:min(320px,90vw)">
+    <h2>PAUSE</h2>
+    <div class="col">
+      <button id="btnResume">Resume（再開）</button>
+      <button id="btnRestart">Restart（最初から）</button>
+      <button id="btnQuit">Quit to title（タイトルへ）</button>
+    </div>
+  </div>
+</div>
+
+<div class="ov" id="ovResult">
+  <div class="panel">
+    <h2>RESULT</h2>
+    <div class="sub" id="resLabel"></div>
+    <div class="big-total" id="resTotal">0.0</div>
+    <div class="rbar"><span class="n">Timing</span><span class="t"><span class="f" id="resTimingBar" style="display:block"></span></span><span class="val" id="resTiming">0</span></div>
+    <div class="rbar"><span class="n">Stability</span><span class="t"><span class="f" id="resStabBar" style="display:block"></span></span><span class="val" id="resStab">0</span></div>
+    <div class="rbar"><span class="n">Economy</span><span class="t"><span class="f" id="resEconBar" style="display:block"></span></span><span class="val" id="resEcon">0</span></div>
+    <div class="rbar"><span class="n">Adaptation</span><span class="t"><span class="f" id="resAdaptBar" style="display:block"></span></span><span class="val" id="resAdapt">0</span></div>
+    <div class="rbar" id="resFlowRow" style="display:none"><span class="n">Flow</span><span class="t"><span class="f" id="resFlowBar" style="display:block"></span></span><span class="val" id="resFlow">0</span></div>
+    <div class="note" id="resFlowNote"></div>
+    <div class="stats">
+      <div><span class="cP">PERFECT</span><b id="resP">0</b></div>
+      <div><span class="cG">GOOD</span><b id="resG">0</b></div>
+      <div><span class="cM">MISS</span><b id="resM">0</b></div>
+      <div>Coverage<b id="resCov">0%</b></div>
+      <div>Max Combo<b id="resCombo">0</b></div>
+      <div>Stray<b id="resStray">0</b></div>
+    </div>
+    <div class="mechgrid" id="resMechGrid"></div>
+    <div class="note" id="resMech"></div>
+    <div class="note">判定窓：Perfect ±60ms / Good ±130ms（マッチ ±160ms）</div>
+    <div class="btns">
+      <button id="btnRetry">Retry</button>
+      <button id="btnTitle">Title</button>
+    </div>
+  </div>
+</div>
+
+<script src="assets/three.min.js"></script>
+<script>
+const ASSET_BASE = 'assets/';
+/* === RESONANCE CORE BEGIN === */
+/*
+ * resonance-core-v04.js — pure-logic core of "TECHNODELIC RESONANCE" (v0.4).
+ *
+ * No DOM / browser dependencies. Works as:
+ *   - browser global: window.ResonanceCore
+ *   - Node module:    require('./resonance-core-v04.js')
+ *
+ * API: decodeFeatures, generateEvents, hashEvents, judgeAll, JUDGE_WINDOWS,
+ *      classifySections, buildSectionLayer, flowErrorAt, judgeFlow, judgeGame,
+ *      flowRoutedInputs, SECTION_PARAMS, HOLD_PARAMS
+ *
+ * v0.4 changes (evaluation round 1, A1-A7 + Codex fixes):
+ *   - A1 hold retention gate: hold score is multiplied by
+ *     retGate = clamp(heldRatio / HOLD_RET_FULL, 0, 1); a hold only counts toward
+ *     coverage when heldRatio >= HOLD_COV_MIN. Release pairing fix: the release
+ *     is the first unused up at/after the matched down (not the event time).
+ *   - A2 flow recalibration: only corrections (|eff| >= FLOW_BAND) move C, with a
+ *     derivative lead term; unnecessary taps leave C alone and cost a diminishing
+ *     penalty FLOW_PEN0 * FLOW_PEN_DECAY^k (capped at 25).
+ *   - A3 flow enters Total: total = (1-flowShare)*baseTotal + flowShare*flowTerm.
+ *   - A4 subdivision: sections longer than SEC_SPLIT_LEN are split at the point
+ *     of maximum stats contrast (min piece SEC_SPLIT_MIN, max SEC_MAX_SECTIONS).
+ *   - A6 guards: fps <= 0 / non-finite durations no longer hang or yield NaN.
+ *   - A7 delta classification: mech rules also look at the change vs the
+ *     previous section; hold also needs holdDurRatio >= SEC_HOLD_DUR_MIN.
+ *   - flowRoutedInputs(): the single implementation of judgeGame's flow routing.
+ *   - Tap grades use the rounded error (60.0 ms is 'perfect').
+ *   - Robustness (Codex re-check): hold split / subdivision search terminate at degenerate fps; heldRatio and section deltas are rounded before threshold compares.
+ * Event generation is UNCHANGED -> the hashes (easy d68f647c / normal 67e6d1a2 /
+ * hard 65134ddc) still hold. Section classification CHANGED (A4/A7) -> the
+ * CATACOMB section layout differs from v0.3 by design.
+ *
+ * v0.3 = v0.2 + a "section layer" on top. decodeFeatures / generateEvents /
+ * hashEvents / judgeAll and all v0.2 constants are byte-for-byte unchanged, so
+ * the event hashes (easy d68f647c / normal 67e6d1a2 / hard 65134ddc) still hold.
+ *   - classifySections(analysis): splits the song at analysis.sections (or into
+ *     PSEUDO_SEC_LEN=48s pseudo sections) and tags each section with a mechanic
+ *     (dual / hold / flow / tap, in that priority) from per-section stats
+ *     (level, padRatio, onsetRate, meanOnset).
+ *   - buildSectionLayer(analysis, events): copies the events and tags each with
+ *     the mech of the section its START time falls in (a hold crossing a
+ *     boundary keeps the starting section's mech). Dual sections get per-section
+ *     alternating `mring` and opposite-side decoys (v0.2 offset rule, clipped to
+ *     the section); Flow sections get phase-drift model parameters.
+ *   - flowErrorAt / judgeFlow: Flow phase-error model. Raw drift
+ *     driftAmp*sin(2π(t-start)/driftPeriod + driftPhase); each 'down' inside the
+ *     section corrects FLOW_CORRECT of the current effective error.
+ *   - judgeGame(events, inputs, layer): judges non-flow events with judgeAll,
+ *     routes stray downs inside Flow sections to judgeFlow, merges economy and
+ *     recomputes total. With no layer / no Flow section it equals judgeAll.
+ *
+ * v0.2 changes (v0.1 generation/judging/hash unchanged otherwise):
+ *   - Dual ring: events get `ring` (0/1, alternating from dualStart = DUAL_FRAC*dur);
+ *     generateEvents also returns visual-only `decoys` on the opposite ring.
+ *     judgeAll ignores any event with `decoy: true`.
+ *   - Adaptation metric (4th §14 metric) added to judgeAll.
+ *   - Total weights re-balanced 0.45/0.25/0.30 -> 0.40/0.20/0.25/0.15 so adaptation
+ *     gets 15% while timing stays dominant and the weights still sum to 1.
+ */
+(function (root, factory) {
+  'use strict';
+  var api = factory();
+  if (typeof module === 'object' && module.exports) {
+    module.exports = api;
+  } else {
+    root.ResonanceCore = api;
+  }
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  var FEATURE_KEYS = ['kick', 'bass', 'snare', 'hat', 'pad', 'vocal'];
+
+  var JUDGE_WINDOWS = Object.freeze({ PERFECT_MS: 60, GOOD_MS: 130, MATCH_MS: 160 });
+
+  // Difficulty parameters for nested thinning (hard -> normal -> easy).
+  var THIN_PARAMS = {
+    hard: { tapThresh: 0.10, tapGap: 0.55, holdThresh: 0.30, holdMinDur: 1.6 },
+    normal: { tapThresh: 0.20, tapGap: 0.90, holdThresh: 0.38, holdMinDur: 2.0 },
+    easy: { tapThresh: 0.30, tapGap: 1.30, holdThresh: 0.46, holdMinDur: 2.5 }
+  };
+
+  // Candidate-extraction constants.
+  var ONSET_MIN = 0.10;          // min onset strength for a tap peak
+  var LEVEL_MIN = 35;            // min (kick+bass)/2 at the peak frame
+  var PAD_START = 100;           // pad level that opens a hold segment
+  var PAD_SUSTAIN = 80;          // pad level that keeps it open
+  var PAD_MAX_DIP = 5;           // max consecutive frames below PAD_SUSTAIN
+  var HOLD_MIN_SEG = 1.2;        // min segment duration (s)
+  var HOLD_MAX_DUR = 6.0;        // max duration of one split hold candidate (s)
+  var HOLD_SPLIT_GAP = 1.2;      // gap between consecutive holds split from one segment (s)
+  var PHASE1_END = 0.30;         // p < this: no holds
+  var PHASE3_START = 0.70;       // p >= this: tap gap scale 0.8
+  var PHASE3_GAP_SCALE = 0.8;
+  var HOLD_GAP = 0.4;            // min gap before a hold (s)
+  // Taps within 0.4s before a hold start are dropped: the player must press
+  // at the hold start anyway, so a tap that close only clutters the input.
+  var CONFLICT_PRE = 0.40;       // tap dropped within [holdStart-PRE, holdEnd-POST]
+  var CONFLICT_POST = 0.20;
+
+  // v0.2 dual ring.
+  var DUAL_FRAC = 0.60;          // dual section starts at DUAL_FRAC * dur
+  var DECOY_BASE = 0.40;         // decoy offset (s) = BASE + SCALE * strength
+  var DECOY_SCALE = 0.45;
+  var DECOY_MIN_SEP = 0.30;      // min |decoy.time - any judged event time| (s)
+
+  function round(x, d) {
+    var m = Math.pow(10, d);
+    return Math.round(x * m) / m;
+  }
+
+  function clamp(x, lo, hi) {
+    return x < lo ? lo : x > hi ? hi : x;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Base64 -> Uint8Array (Node Buffer or browser atob)
+  // ---------------------------------------------------------------------------
+  function b64ToBytes(b64) {
+    if (typeof Buffer !== 'undefined' && typeof Buffer.from === 'function') {
+      var buf = Buffer.from(b64, 'base64');
+      return new Uint8Array(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.length));
+    }
+    var bin = atob(b64);
+    var out = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+
+  /**
+   * decodeFeatures(analysis) -> {fps, dur, kick, bass, snare, hat, pad, vocal}
+   * dur = frameCount / fps (frame count = longest decoded feature).
+   */
+  function decodeFeatures(analysis) {
+    // v0.4 (A6): sanitize fps.
+    var fps = (analysis && isFinite(analysis.fps) && analysis.fps > 0) ? analysis.fps : 20;
+    var out = { fps: fps, dur: 0 };
+    var n = 0;
+    FEATURE_KEYS.forEach(function (k) {
+      var src = analysis && analysis.f && analysis.f[k];
+      out[k] = src ? b64ToBytes(src) : new Uint8Array(0);
+      if (out[k].length > n) n = out[k].length;
+    });
+    // Pad shorter/missing features with zeros so all arrays have equal length.
+    FEATURE_KEYS.forEach(function (k) {
+      if (out[k].length < n) {
+        var a = new Uint8Array(n);
+        a.set(out[k]);
+        out[k] = a;
+      }
+    });
+    out.dur = n === 0 ? 0 : (isFinite(n / fps) ? n / fps : 0);
+    return out;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Candidate extraction
+  // ---------------------------------------------------------------------------
+
+  // Step 1: tap candidates from kick/bass onset peaks.
+  function tapCandidates(F) {
+    var kick = F.kick, bass = F.bass, n = kick.length;
+    var onset = new Float64Array(n);
+    for (var i = 1; i < n; i++) {
+      onset[i] = Math.max(kick[i] - kick[i - 1], bass[i] - bass[i - 1], 0) / 255;
+    }
+    var taps = [];
+    for (var j = 1; j < n; j++) {
+      var prev = onset[j - 1];
+      var next = j + 1 < n ? onset[j + 1] : 0;
+      if (onset[j] >= prev && onset[j] >= next && onset[j] >= ONSET_MIN &&
+          (kick[j] + bass[j]) / 2 >= LEVEL_MIN) {
+        taps.push({ time: j / F.fps, type: 'tap', strength: onset[j] });
+      }
+    }
+    return taps;
+  }
+
+  // Step 2: hold candidates from sustained pad segments.
+  // A segment opens on the first frame with pad>=PAD_START (after being outside a
+  // segment), continues while pad>=PAD_SUSTAIN allowing dips of <=PAD_MAX_DIP frames,
+  // and ends at the last frame >=PAD_SUSTAIN. Duration = (end-start+1)/fps.
+  function holdCandidates(F) {
+    var pad = F.pad, n = pad.length, fps = F.fps;
+    var holds = [];
+    var i = 0;
+    while (i < n) {
+      if (pad[i] < PAD_START) { i++; continue; }
+      var start = i, lastHigh = i, dip = 0, j = i + 1;
+      while (j < n) {
+        if (pad[j] >= PAD_SUSTAIN) { lastHigh = j; dip = 0; }
+        else if (++dip > PAD_MAX_DIP) break;
+        j++;
+      }
+      var end = lastHigh;
+      var dur = (end - start + 1) / fps;
+      if (dur >= HOLD_MIN_SEG) {
+        // Split long segments into holds of <= HOLD_MAX_DUR with a breathing gap.
+        var cursor = start;
+        while ((end - cursor + 1) / fps >= HOLD_MIN_SEG) {
+          var candDur = Math.min(HOLD_MAX_DUR, (end - cursor + 1) / fps);
+          var frames = Math.round(candDur * fps);
+          if (frames < 1) break;
+          var last = cursor + frames - 1;
+          var sum = 0;
+          for (var k = cursor; k <= last; k++) sum += pad[k];
+          holds.push({ time: cursor / fps, type: 'hold', dur: candDur,
+            strength: sum / (last - cursor + 1) / 255 });
+          cursor += Math.max(1, Math.round((candDur + HOLD_SPLIT_GAP) * fps));
+        }
+      }
+      i = end + 1; // resume scanning after the segment
+    }
+    return holds;
+  }
+
+  // Step 6: one thinning pass. Gap is measured from the last kept event of any type.
+  function thin(list, p) {
+    var kept = [];
+    var last = -Infinity;
+    for (var i = 0; i < list.length; i++) {
+      var e = list[i];
+      var gap = e.time - last;
+      var ok;
+      if (e.type === 'tap') {
+        ok = e.strength >= p.tapThresh && gap >= p.tapGap * e.gapScale;
+      } else {
+        ok = e.strength >= p.holdThresh && e.dur >= p.holdMinDur && gap >= HOLD_GAP;
+      }
+      if (ok) { kept.push(e); last = e.time; }
+    }
+    return kept;
+  }
+
+  /**
+   * generateEvents(analysis, difficulty) -> {events, params}
+   * Deterministic: depends only on the analysis data.
+   */
+  function generateEvents(analysis, difficulty) {
+    if (!THIN_PARAMS[difficulty]) throw new Error('unknown difficulty: ' + difficulty);
+    var F = decodeFeatures(analysis);
+    var dur = F.dur;
+    if (!isFinite(dur)) dur = 0; // v0.4 (A6)
+
+    // Steps 1-3: candidates with phase bias.
+    var taps = tapCandidates(F).map(function (t) {
+      t.gapScale = (t.time / dur >= PHASE3_START) ? PHASE3_GAP_SCALE : 1.0;
+      return t;
+    });
+    var holds = holdCandidates(F).filter(function (h) {
+      return h.time / dur >= PHASE1_END;
+    });
+    holds.forEach(function (h) { h.gapScale = 1.0; });
+
+    // Step 4: drop taps that collide with a hold.
+    taps = taps.filter(function (t) {
+      for (var i = 0; i < holds.length; i++) {
+        var h = holds[i];
+        if (t.time >= h.time - CONFLICT_PRE && t.time <= h.time + h.dur - CONFLICT_POST) return false;
+      }
+      return true;
+    });
+
+    // Step 5: master list, stable sort by time (taps before holds on exact ties).
+    var master = taps.concat(holds);
+    master.forEach(function (e, i) { e._ord = i; });
+    master.sort(function (a, b) { return a.time - b.time || a._ord - b._ord; });
+
+    // Step 6: nested thinning hard -> normal -> easy.
+    var levels = ['hard', 'normal', 'easy'];
+    var cur = master;
+    for (var li = 0; li < levels.length; li++) {
+      cur = thin(cur, THIN_PARAMS[levels[li]]);
+      if (levels[li] === difficulty) break;
+    }
+
+    // Step 7: output formatting.
+    var events = cur.map(function (e) {
+      var o = {
+        time: round(e.time, 3),
+        type: e.type,
+        strength: round(e.strength, 4),
+        confidence: round(Math.min(1, e.strength * 1.8), 4)
+      };
+      if (e.type === 'hold') o.dur = round(e.dur, 3);
+      return o;
+    });
+
+    // v0.2: ring assignment. Before dualStart everything is ring 0; inside the
+    // dual section the k-th event (time order, tap/hold alike) gets ring k%2.
+    var dualStart = DUAL_FRAC * dur;
+    var dualEvents = [];
+    events.forEach(function (o) {
+      if (o.time < dualStart) { o.ring = 0; }
+      else { o.ring = dualEvents.length % 2; dualEvents.push(o); }
+    });
+
+    // v0.2: visual-only decoys on the opposite ring.
+    var decoys = [];
+    function decoyOk(t) {
+      if (t < dualStart || t > dur) return false;
+      for (var i = 0; i < events.length; i++) {
+        if (Math.abs(events[i].time - t) < DECOY_MIN_SEP) return false;
+      }
+      return true;
+    }
+    dualEvents.forEach(function (ev, k) {
+      var mag = DECOY_BASE + DECOY_SCALE * ev.strength;
+      var sign = k % 2 === 0 ? 1 : -1;
+      var t = round(ev.time + sign * mag, 3);
+      if (!decoyOk(t)) {
+        t = round(ev.time - sign * mag, 3);
+        if (!decoyOk(t)) return;
+      }
+      decoys.push({ time: t, type: 'tap', ring: 1 - ev.ring, strength: ev.strength, decoy: true });
+    });
+    decoys.forEach(function (d, i) { d._ord = i; });
+    decoys.sort(function (a, b) { return a.time - b.time || a._ord - b._ord; });
+    decoys.forEach(function (d) { delete d._ord; });
+
+    var p = THIN_PARAMS[difficulty];
+    var params = {
+      difficulty: difficulty,
+      dur: dur,
+      tapThresh: p.tapThresh, tapGap: p.tapGap,
+      holdThresh: p.holdThresh, holdMinDur: p.holdMinDur, holdGap: HOLD_GAP,
+      onsetMin: ONSET_MIN, levelMin: LEVEL_MIN,
+      padStart: PAD_START, padSustain: PAD_SUSTAIN, padMaxDip: PAD_MAX_DIP, holdMinSeg: HOLD_MIN_SEG,
+      phase1End: PHASE1_END, phase3Start: PHASE3_START, phase3GapScale: PHASE3_GAP_SCALE,
+      conflictPre: CONFLICT_PRE, conflictPost: CONFLICT_POST,
+      levels: THIN_PARAMS,
+      dualStart: round(dualStart, 3), dualFrac: DUAL_FRAC
+    };
+    return { events: events, decoys: decoys, params: params };
+  }
+
+  /** hashEvents(events) -> 8-hex-digit FNV-1a 32-bit hash of a canonical string. */
+  function hashEvents(events) {
+    var s = events.map(function (e) {
+      return e.time.toFixed(3) + ',' + e.type + ',' + e.strength.toFixed(4) + ',' +
+        (e.type === 'hold' ? e.dur.toFixed(3) : '');
+    }).join(';');
+    var h = 0x811c9dc5;
+    for (var i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    return ('0000000' + h.toString(16)).slice(-8);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Judging
+  // ---------------------------------------------------------------------------
+
+  var NO_RELEASE_ERR_MS = 400;   // errEnd value used when no release was found
+  var EARLY_RELEASE_S = 0.200;   // release earlier than end-this => earlyRelease
+  var TAP_ERR_SCALE = 220;
+  var HOLD_END_ERR_SCALE = 320;
+  var HOLD_RET_FULL = 0.75;      // v0.4 (A1): heldRatio at which the retention gate is fully open
+  var HOLD_COV_MIN = 0.4;        // v0.4 (A1): min heldRatio for a hold to count toward coverage
+
+  var HOLD_PARAMS = Object.freeze({
+    HOLD_RET_FULL: HOLD_RET_FULL, HOLD_COV_MIN: HOLD_COV_MIN,
+    NO_RELEASE_ERR_MS: NO_RELEASE_ERR_MS, EARLY_RELEASE_S: EARLY_RELEASE_S
+  });
+
+  // Find nearest unused down within ±MATCH_MS of t. `ptr` = first index that may
+  // still be within the window (downs are sorted, events processed in time order).
+  function findDown(downs, used, state, t) {
+    var win = JUDGE_WINDOWS.MATCH_MS / 1000;
+    while (state.ptr < downs.length && downs[state.ptr] < t - win) state.ptr++;
+    var best = -1, bestD = Infinity;
+    for (var i = state.ptr; i < downs.length && downs[i] <= t + win; i++) {
+      if (used[i]) continue;
+      var d = Math.abs(downs[i] - t);
+      if (d < bestD) { bestD = d; best = i; }
+    }
+    return best;
+  }
+
+  function gradeTap(errMs) {
+    var a = Math.abs(errMs);
+    if (a <= JUDGE_WINDOWS.PERFECT_MS) return 'perfect';
+    return 'good'; // 60..160 (130..160 treated as good)
+  }
+
+  /**
+   * judgeAll(events, inputs) -> result
+   * inputs: [{t, kind:'down'|'up'}] sorted by t (song time, latency-adjusted).
+   */
+  function judgeAll(events, inputs) {
+    inputs = inputs || [];
+    // v0.2: decoys are visual only; perEvent indices refer to the filtered list
+    // (identical to the original indices when decoys are appended after events).
+    events = (events || []).filter(function (e) { return !e.decoy; });
+    var downs = [], ups = [];
+    for (var i = 0; i < inputs.length; i++) {
+      if (inputs[i].kind === 'down') downs.push(inputs[i].t);
+      else if (inputs[i].kind === 'up') ups.push(inputs[i].t);
+    }
+    var usedDown = new Uint8Array(downs.length);
+    var usedUp = new Uint8Array(ups.length);
+    var state = { ptr: 0 };
+
+    // Events in time order, remembering original indices.
+    var order = events.map(function (e, i) { return i; });
+    order.sort(function (a, b) { return events[a].time - events[b].time || a - b; });
+
+    var perEvent = new Array(events.length);
+    var counts = { perfect: 0, good: 0, miss: 0 };
+    var errs = [], holdScores = [];
+    var matched = 0, usedPresses = 0;
+    var wSum = 0, wScore = 0;
+
+    for (var oi = 0; oi < order.length; oi++) {
+      var idx = order[oi], e = events[idx];
+      var r = { index: idx, type: e.type, grade: 'miss', score: 0 };
+      var di = findDown(downs, usedDown, state, e.time);
+
+      if (e.type === 'tap') {
+        r.errMs = null;
+        if (di >= 0) {
+          usedDown[di] = 1; usedPresses++; matched++;
+          var err = (downs[di] - e.time) * 1000;
+          r.errMs = round(err, 1);
+          r.grade = gradeTap(r.errMs); // v0.4: grade on the rounded error
+          r.score = Math.max(0, 1 - Math.abs(err) / TAP_ERR_SCALE);
+          errs.push(err);
+        }
+      } else {
+        r.errStartMs = null; r.errEndMs = null;
+        r.earlyRelease = false; r.noRelease = false;
+        r.heldRatio = 0;
+        r.matched = false;
+        if (di >= 0) {
+          usedDown[di] = 1; usedPresses++;
+          var errStart = (downs[di] - e.time) * 1000;
+          var end = e.time + e.dur;
+          // v0.4 (A1): first unused up at t >= the matched down's own time.
+          var ui = -1;
+          for (var u = 0; u < ups.length; u++) {
+            if (!usedUp[u] && ups[u] >= downs[di]) { ui = u; break; }
+          }
+          // Round first (3 decimals), then clamp: avoids float misses at the inclusive gates.
+          var heldRatio = ui >= 0 ? clamp(round((ups[ui] - downs[di]) / e.dur, 3), 0, 1) : 0;
+          var retGate = clamp(heldRatio / HOLD_RET_FULL, 0, 1);
+          var errEnd, endComp;
+          if (ui < 0) {
+            r.noRelease = true;
+            errEnd = NO_RELEASE_ERR_MS;
+            endComp = 0;
+          } else {
+            usedUp[ui] = 1;
+            errEnd = (ups[ui] - end) * 1000;
+            endComp = Math.max(0, 1 - Math.abs(errEnd) / HOLD_END_ERR_SCALE);
+            if (ups[ui] < end - EARLY_RELEASE_S) { r.earlyRelease = true; endComp *= 0.5; }
+          }
+          var startComp = Math.max(0, 1 - Math.abs(errStart) / TAP_ERR_SCALE);
+          var hs = (0.4 * startComp + 0.6 * endComp) * retGate;
+          r.errStartMs = round(errStart, 1);
+          r.errEndMs = round(errEnd, 1);
+          r.heldRatio = heldRatio;
+          r.score = hs;
+          r.grade = hs >= 0.85 ? 'perfect' : hs >= 0.5 ? 'good' : 'miss';
+          r.matched = heldRatio >= HOLD_COV_MIN;
+          if (r.matched) matched++;
+          errs.push(errEnd);
+          holdScores.push(hs);
+        }
+      }
+      if (e.type === 'tap') r.matched = di >= 0;
+      counts[r.grade]++;
+      var w = 0.7 + 0.3 * e.strength;
+      wSum += w; wScore += w * r.score;
+      r.score = round(r.score, 4);
+      perEvent[idx] = r;
+    }
+
+    // Max combo: longest run of non-miss grades in time order.
+    var combo = 0, maxCombo = 0;
+    for (var ci = 0; ci < order.length; ci++) {
+      if (perEvent[order[ci]].grade !== 'miss') { combo++; if (combo > maxCombo) maxCombo = combo; }
+      else combo = 0;
+    }
+
+    var timing = events.length ? 100 * wScore / wSum : 0;
+
+    var stability = 0;
+    if (errs.length) {
+      var sd = 0;
+      if (errs.length > 1) {
+        var mean = errs.reduce(function (a, b) { return a + b; }, 0) / errs.length;
+        var v = errs.reduce(function (a, b) { return a + (b - mean) * (b - mean); }, 0) / errs.length;
+        sd = Math.sqrt(v);
+      }
+      var errStab = clamp(100 - sd * 1.1, 0, 100);
+      if (holdScores.length) {
+        var hm = holdScores.reduce(function (a, b) { return a + b; }, 0) / holdScores.length;
+        stability = 0.6 * errStab + 0.4 * (100 * hm);
+      } else {
+        stability = errStab;
+      }
+    }
+
+    var coverage = events.length ? matched / events.length : 0;
+    var economy = downs.length ? 100 * usedPresses / downs.length : 0;
+    // v0.2 Adaptation: how little the timing error worsens right after a
+    // section change (boundaries at 0.30 / 0.60 / 0.70 of the event span).
+    var adaptation = 0;
+    if (events.length) {
+      var span = 0;
+      for (var si = 0; si < events.length; si++) {
+        span = Math.max(span, events[si].time + (events[si].dur || 0));
+      }
+      var mErr = []; // matched events in time order: {t, err}
+      for (var mi = 0; mi < order.length; mi++) {
+        var pe = perEvent[order[mi]];
+        if (!pe.matched) continue;
+        var ee = pe.type === 'tap' ? pe.errMs : pe.errEndMs;
+        mErr.push({ t: events[order[mi]].time, err: Math.abs(ee) });
+      }
+      var penalties = [];
+      [0.30, 0.60, 0.70].forEach(function (f) {
+        var b = f * span;
+        var pre = mErr.filter(function (x) { return x.t < b; }).slice(-5);
+        var post = mErr.filter(function (x) { return x.t >= b; }).slice(0, 5);
+        if (!pre.length || !post.length) return;
+        var avg = function (l) { return l.reduce(function (a, x) { return a + x.err; }, 0) / l.length; };
+        penalties.push(clamp(avg(post) - avg(pre), 0, 120) / 120 * 100);
+      });
+      if (penalties.length) {
+        adaptation = 100 - penalties.reduce(function (a, b) { return a + b; }, 0) / penalties.length;
+      } else {
+        adaptation = mErr.length ? timing : 0;
+      }
+    }
+
+    var total = (0.40 * timing + 0.20 * stability + 0.25 * economy + 0.15 * adaptation) *
+      (0.30 + 0.70 * coverage);
+
+    return {
+      perEvent: perEvent,
+      counts: counts,
+      maxCombo: maxCombo,
+      timing: round(timing, 1),
+      stability: round(stability, 1),
+      economy: round(economy, 1),
+      adaptation: round(adaptation, 1),
+      coverage: coverage,
+      total: round(total, 1),
+      strayPresses: downs.length - usedPresses
+    };
+  }
+
+  // ===========================================================================
+  // v0.3 section layer (v0.4: judgeAll above changed for A1/grade rounding;
+  // decodeFeatures got A6 guards; event generation is unchanged)
+  // ===========================================================================
+
+  var PSEUDO_SEC_LEN = 48;       // pseudo-section length (s) when analysis.sections is absent
+  var SEC_PAD_FRAME = 80;        // pad >= this counts toward padRatio
+  var SEC_DUAL_ONSET = 3.3;      // onsetRate >= this -> dual
+  var SEC_HOLD_PAD = 0.60;       // padRatio >= this -> hold
+  var SEC_FLOW_LEVEL = 0.18;     // flow: level <= this
+  var SEC_FLOW_PAD = 0.30;       //       and padRatio <= this
+  var SEC_FLOW_ONSET = 1.6;      //       and onsetRate <= this
+  var FLOW_BREATH_DEFAULT = 4.0; // breathPeriod (s) when bars are unavailable
+  var FLOW_DRIFT_AMP = 0.85;     // rad
+  var FLOW_DRIFT_PERIOD = 23;    // s
+  var FLOW_PHASE_STEP = 1.7;     // driftPhase = section index * this
+  var FLOW_CORRECT = 1.0;        // v0.4 (A2): fraction of effective error removed per correction
+  var FLOW_LEAD = 1.2;           // v0.4 (A2): derivative lead (s) added per correction
+  var FLOW_BAND = 0.30;          // |effErr| >= this at a tap => correction (else unnecessary)
+  var FLOW_ERR_REF = 0.85;       // v0.4 (A2): meanAbsErr that maps to score 0
+  var FLOW_PEN0 = 3;             // v0.4 (A2): penalty of the first unnecessary tap
+  var FLOW_PEN_DECAY = 0.88;     // v0.4 (A2): k-th unnecessary tap costs PEN0 * DECAY^k
+  var FLOW_PEN_CAP = 25;         // v0.4 (A2): total unnecessary-tap penalty cap
+  var FLOW_SAMPLE_HZ = 20;
+
+  // v0.4 (A4) subdivision.
+  var SEC_SPLIT_LEN = 45;        // sections longer than this (s) are split candidates
+  var SEC_SPLIT_MIN = 15;        // min piece length (s)
+  var SEC_MAX_SECTIONS = 16;
+  var SEC_SPLIT_MIN_GAIN = 0.05; // min contrast gain to split
+  // v0.4 (A7) delta rules.
+  var SEC_DUAL_ONSET_DELTA = 2.6;  // dual: onsetRate >= this ...
+  var SEC_DUAL_DELTA = 1.0;        //       ... and dOnset >= this
+  var SEC_HOLD_PAD_DELTA = 0.45;   // hold: padRatio >= this ...
+  var SEC_HOLD_DELTA = 0.20;       //       ... and dPad >= this
+  var SEC_HOLD_DUR_MIN = 0.20;     // hold: holdDurRatio >= this (always required)
+  var SEC_FLOW_LEVEL_DELTA = 0.20; // flow: level <= this ...
+  var SEC_FLOW_DLEVEL = -0.08;     //       ... and dLevel <= this
+  var SEC_FLOW_ONSET_DELTA = 1.0;  //       ... and onsetRate <= this
+  var SEC_FLOW_PAD_DELTA = 0.35;   //       ... and padRatio <= this
+  var PSEUDO_MAX_BOUNDS = 10000;   // v0.4 (A6)
+
+  var SECTION_PARAMS = Object.freeze({
+    PSEUDO_SEC_LEN: PSEUDO_SEC_LEN, SEC_PAD_FRAME: SEC_PAD_FRAME,
+    SEC_DUAL_ONSET: SEC_DUAL_ONSET, SEC_HOLD_PAD: SEC_HOLD_PAD,
+    SEC_FLOW_LEVEL: SEC_FLOW_LEVEL, SEC_FLOW_PAD: SEC_FLOW_PAD, SEC_FLOW_ONSET: SEC_FLOW_ONSET,
+    FLOW_BREATH_DEFAULT: FLOW_BREATH_DEFAULT, FLOW_DRIFT_AMP: FLOW_DRIFT_AMP,
+    FLOW_DRIFT_PERIOD: FLOW_DRIFT_PERIOD, FLOW_PHASE_STEP: FLOW_PHASE_STEP,
+    FLOW_CORRECT: FLOW_CORRECT, FLOW_LEAD: FLOW_LEAD, FLOW_BAND: FLOW_BAND, FLOW_ERR_REF: FLOW_ERR_REF,
+    FLOW_PEN0: FLOW_PEN0, FLOW_PEN_DECAY: FLOW_PEN_DECAY, FLOW_PEN_CAP: FLOW_PEN_CAP,
+    FLOW_SAMPLE_HZ: FLOW_SAMPLE_HZ,
+    SEC_SPLIT_LEN: SEC_SPLIT_LEN, SEC_SPLIT_MIN: SEC_SPLIT_MIN, SEC_MAX_SECTIONS: SEC_MAX_SECTIONS,
+    SEC_SPLIT_MIN_GAIN: SEC_SPLIT_MIN_GAIN,
+    SEC_DUAL_ONSET_DELTA: SEC_DUAL_ONSET_DELTA, SEC_DUAL_DELTA: SEC_DUAL_DELTA,
+    SEC_HOLD_PAD_DELTA: SEC_HOLD_PAD_DELTA, SEC_HOLD_DELTA: SEC_HOLD_DELTA, SEC_HOLD_DUR_MIN: SEC_HOLD_DUR_MIN,
+    SEC_FLOW_LEVEL_DELTA: SEC_FLOW_LEVEL_DELTA, SEC_FLOW_DLEVEL: SEC_FLOW_DLEVEL,
+    SEC_FLOW_ONSET_DELTA: SEC_FLOW_ONSET_DELTA, SEC_FLOW_PAD_DELTA: SEC_FLOW_PAD_DELTA
+  });
+
+  // v0.4 (A7): mech from the section's stats and the previous section's stats.
+  function classifyMech(st, prev) {
+    var dLevel = prev ? round(st.level - prev.level, 3) : 0;
+    var dPad = prev ? round(st.padRatio - prev.padRatio, 3) : 0;
+    var dOnset = prev ? round(st.onsetRate - prev.onsetRate, 3) : 0;
+    if (st.onsetRate >= SEC_DUAL_ONSET ||
+        (st.onsetRate >= SEC_DUAL_ONSET_DELTA && dOnset >= SEC_DUAL_DELTA)) return 'dual';
+    if ((st.padRatio >= SEC_HOLD_PAD || (st.padRatio >= SEC_HOLD_PAD_DELTA && dPad >= SEC_HOLD_DELTA)) &&
+        st.holdDurRatio >= SEC_HOLD_DUR_MIN) return 'hold';
+    if ((st.level <= SEC_FLOW_LEVEL && st.padRatio <= SEC_FLOW_PAD && st.onsetRate <= SEC_FLOW_ONSET) ||
+        (st.level <= SEC_FLOW_LEVEL_DELTA && dLevel <= SEC_FLOW_DLEVEL &&
+         st.onsetRate <= SEC_FLOW_ONSET_DELTA && st.padRatio <= SEC_FLOW_PAD_DELTA)) return 'flow';
+    return 'tap';
+  }
+
+  /**
+   * sectionStats(F, taps, holds, start, end) -> {level, padRatio, onsetRate, meanOnset, holdDurRatio}
+   * Stats over [start, end). level/padRatio/holdDurRatio rounded to 3 decimals,
+   * onsetRate/meanOnset to 4.
+   */
+  function sectionStats(F, taps, holds, start, end) {
+    var fps = F.fps, n = F.kick.length, len = end - start;
+    var frames = 0, lvl = 0, padN = 0;
+    for (var i = Math.ceil(start * fps - 1e-9); i < n && i / fps < end; i++) {
+      if (i / fps < start) continue;
+      frames++;
+      lvl += (F.kick[i] + F.bass[i]) / 2 / 255;
+      if (F.pad[i] >= SEC_PAD_FRAME) padN++;
+    }
+    var cnt = 0, sum = 0;
+    for (var t = 0; t < taps.length; t++) {
+      if (taps[t].time >= start && taps[t].time < end) { cnt++; sum += taps[t].strength; }
+    }
+    var hd = 0;
+    for (var h = 0; h < holds.length; h++) {
+      if (holds[h].time >= start && holds[h].time < end) hd += holds[h].dur;
+    }
+    return {
+      level: round(frames ? lvl / frames : 0, 3),
+      padRatio: round(frames ? padN / frames : 0, 3),
+      onsetRate: round(len > 0 ? cnt / len : 0, 4),
+      meanOnset: round(cnt ? sum / cnt : 0, 4),
+      holdDurRatio: round(len > 0 ? hd / len : 0, 3)
+    };
+  }
+
+  /**
+   * classifySections(analysis) -> {sections:[{index,start,end,mech,stats}], pseudo, dur}
+   * Section k covers [start, end). Edges are rounded to 3 decimals first and all
+   * stats are computed on the rounded edges. Long sections are subdivided (A4),
+   * then mech is decided from the rounded stats plus deltas vs the previous
+   * section (A7), so the returned stats always reproduce the returned mech.
+   */
+  function classifySections(analysis) {
+    analysis = analysis || {};
+    var F = decodeFeatures(analysis);
+    var dur = F.dur;
+    var pseudo = !(analysis.sections && analysis.sections.length);
+    if (!isFinite(dur) || dur <= 0) return { sections: [], pseudo: true, dur: 0 };
+    var bounds = [];
+    if (!pseudo) {
+      bounds = analysis.sections.filter(function (s) { return s > 0 && s < dur; })
+        .slice().sort(function (a, b) { return a - b; });
+    } else {
+      for (var b = PSEUDO_SEC_LEN; b < dur && bounds.length < PSEUDO_MAX_BOUNDS; b += PSEUDO_SEC_LEN) bounds.push(b);
+    }
+    var edges = [0].concat(bounds, [dur]).map(function (x) { return round(x, 3); });
+    var taps = tapCandidates(F);
+    var holds = holdCandidates(F);
+    var stats = function (s, e) { return sectionStats(F, taps, holds, s, e); };
+
+    var secs = [];
+    for (var k = 0; k + 1 < edges.length; k++) {
+      if (!(edges[k + 1] > edges[k])) continue; // drop empty pieces (duplicate bounds)
+      secs.push({ start: edges[k], end: edges[k + 1], stats: stats(edges[k], edges[k + 1]), noSplit: false });
+    }
+
+    // A4 subdivision.
+    for (;;) {
+      if (secs.length >= SEC_MAX_SECTIONS) break;
+      var si = -1;
+      for (var q = 0; q < secs.length; q++) {
+        if (!secs[q].noSplit && secs[q].end - secs[q].start > SEC_SPLIT_LEN) { si = q; break; }
+      }
+      if (si < 0) break;
+      var S = secs[si];
+      var best = -Infinity, bestS = null, bestL = null, bestR = null;
+      // Bounded candidate count: step is 1s for real sections (len <= 200s).
+      var step = Math.max(1, Math.ceil((S.end - S.start) / 200));
+      for (var j = 0; ; j++) {
+        var sp = round(S.start + SEC_SPLIT_MIN + j * step, 3);
+        if (sp > S.end - SEC_SPLIT_MIN) break;
+        var L = stats(S.start, sp), R = stats(sp, S.end);
+        var gain = Math.abs(L.level - R.level) + Math.abs(L.padRatio - R.padRatio) +
+          0.25 * Math.abs(L.onsetRate - R.onsetRate);
+        if (gain > best) { best = gain; bestS = sp; bestL = L; bestR = R; }
+      }
+      if (bestS === null || best < SEC_SPLIT_MIN_GAIN) { S.noSplit = true; continue; }
+      secs.splice(si, 1,
+        { start: S.start, end: bestS, stats: bestL, noSplit: false },
+        { start: bestS, end: S.end, stats: bestR, noSplit: false });
+    }
+
+    var sections = secs.map(function (s, i) {
+      return {
+        index: i, start: s.start, end: s.end,
+        mech: classifyMech(s.stats, i > 0 ? secs[i - 1].stats : null),
+        stats: s.stats
+      };
+    });
+    return { sections: sections, pseudo: pseudo, dur: dur };
+  }
+
+  // Index of the section containing t (by start time; t past the end -> last).
+  function sectionIndexAt(sections, t) {
+    var idx = 0;
+    for (var i = 0; i < sections.length; i++) {
+      if (t >= sections[i].start) idx = i; else break;
+    }
+    return idx;
+  }
+
+  function median(a) {
+    var s = a.slice().sort(function (x, y) { return x - y; });
+    var m = s.length >> 1;
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  }
+
+  /**
+   * buildSectionLayer(analysis, events) -> {sections, pseudo, events, decoys, flow}
+   * events: one difficulty's generateEvents(...).events (array; a {events} object
+   * is accepted too). Returns tagged copies; the input array is not modified.
+   */
+  function buildSectionLayer(analysis, events) {
+    if (events && !Array.isArray(events) && Array.isArray(events.events)) events = events.events;
+    events = events || [];
+    var cls = classifySections(analysis);
+    var secs = cls.sections;
+
+    var tagged = events.map(function (e) {
+      var o = {};
+      for (var k in e) if (Object.prototype.hasOwnProperty.call(e, k)) o[k] = e[k];
+      o.mech = secs.length ? secs[sectionIndexAt(secs, o.time)].mech : 'tap';
+      return o;
+    });
+    var judged = tagged.filter(function (e) { return !e.decoy; });
+
+    // Dual: per-section alternating mring (time order) + opposite-side decoys.
+    var order = tagged.map(function (e, i) { return i; }).filter(function (i) { return !tagged[i].decoy; });
+    order.sort(function (a, b) { return tagged[a].time - tagged[b].time || a - b; });
+    var perSec = {};
+    order.forEach(function (i) {
+      var e = tagged[i];
+      if (e.mech !== 'dual') return;
+      var si = sectionIndexAt(secs, e.time);
+      (perSec[si] = perSec[si] || []).push(e);
+    });
+    var decoys = [];
+    Object.keys(perSec).forEach(function (si) {
+      var sec = secs[si];
+      function ok(t) {
+        if (t < sec.start || t > sec.end) return false;
+        for (var j = 0; j < judged.length; j++) {
+          if (Math.abs(judged[j].time - t) < DECOY_MIN_SEP) return false;
+        }
+        return true;
+      }
+      perSec[si].forEach(function (e, k) {
+        e.mring = k % 2;
+        var mag = DECOY_BASE + DECOY_SCALE * e.strength;
+        var sign = k % 2 === 0 ? 1 : -1;
+        var t = round(e.time + sign * mag, 3);
+        if (!ok(t)) {
+          t = round(e.time - sign * mag, 3);
+          if (!ok(t)) return;
+        }
+        decoys.push({ time: t, type: 'tap', ring: 1 - e.mring, strength: e.strength, decoy: true });
+      });
+    });
+    decoys.forEach(function (d, i) { d._ord = i; });
+    decoys.sort(function (a, b) { return a.time - b.time || a._ord - b._ord; });
+    decoys.forEach(function (d) { delete d._ord; });
+
+    // Flow: phase-drift model per Flow section.
+    var breath = FLOW_BREATH_DEFAULT;
+    if (analysis.bars && analysis.bars.length >= 2) {
+      var gaps = [];
+      for (var bi = 1; bi < analysis.bars.length; bi++) gaps.push(analysis.bars[bi] - analysis.bars[bi - 1]);
+      breath = round(median(gaps) * 2, 3);
+    }
+    var flow = secs.filter(function (s) { return s.mech === 'flow'; }).map(function (s) {
+      return {
+        sectionIndex: s.index, start: s.start, end: s.end,
+        breathPeriod: breath,
+        driftAmp: FLOW_DRIFT_AMP, driftPeriod: FLOW_DRIFT_PERIOD,
+        driftPhase: round(s.index * FLOW_PHASE_STEP, 3)
+      };
+    });
+
+    return { sections: secs, pseudo: cls.pseudo, events: tagged, decoys: decoys, flow: flow };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Flow phase-error model
+  // ---------------------------------------------------------------------------
+
+  function flowRawErr(fs, t) {
+    return fs.driftAmp * Math.sin(2 * Math.PI * (t - fs.start) / fs.driftPeriod + fs.driftPhase);
+  }
+
+  // Sorted 'down' times inside [start, end).
+  function flowDowns(fs, inputs) {
+    var d = [];
+    (inputs || []).forEach(function (x) {
+      if (x.kind === 'down' && x.t >= fs.start && x.t < fs.end) d.push(x.t);
+    });
+    return d.sort(function (a, b) { return a - b; });
+  }
+
+  function flowRawDeriv(fs, t) {
+    return fs.driftAmp * (2 * Math.PI / fs.driftPeriod) *
+      Math.cos(2 * Math.PI * (t - fs.start) / fs.driftPeriod + fs.driftPhase);
+  }
+
+  // v0.4 (A2): shared correction step. Returns the new C, or null when the tap
+  // is unnecessary (|eff| < FLOW_BAND; C stays unchanged).
+  function flowCorrect(fs, C, d) {
+    var eff = flowRawErr(fs, d) - C;
+    if (Math.abs(eff) < FLOW_BAND) return null;
+    return C + FLOW_CORRECT * eff + FLOW_LEAD * flowRawDeriv(fs, d);
+  }
+
+  /** flowErrorAt(flowSec, inputs, t) -> effective phase error (rad) at t. */
+  function flowErrorAt(fs, inputs, t) {
+    t = clamp(t, fs.start, fs.end);
+    var downs = flowDowns(fs, inputs), C = 0;
+    for (var i = 0; i < downs.length && downs[i] <= t; i++) {
+      var nc = flowCorrect(fs, C, downs[i]);
+      if (nc !== null) C = nc;
+    }
+    return flowRawErr(fs, t) - C;
+  }
+
+  /** judgeFlow(flowSec, inputs) -> {score, meanAbsErr, maxAbsErr, corrections, unnecessary, penalty, duration} */
+  function judgeFlow(fs, inputs) {
+    var downs = flowDowns(fs, inputs);
+    var C = 0, di = 0, corrections = 0, unnecessary = 0, penalty = 0;
+    function applyUpTo(t) {
+      while (di < downs.length && downs[di] <= t) {
+        var nc = flowCorrect(fs, C, downs[di]);
+        if (nc !== null) { corrections++; C = nc; }
+        else { penalty += FLOW_PEN0 * Math.pow(FLOW_PEN_DECAY, unnecessary); unnecessary++; }
+        di++;
+      }
+    }
+    var duration = fs.end - fs.start;
+    var nS = Math.floor(duration * FLOW_SAMPLE_HZ + 1e-9) + 1;
+    var sumAbs = 0, maxAbs = 0;
+    for (var i = 0; i < nS; i++) {
+      var t = fs.start + i / FLOW_SAMPLE_HZ;
+      applyUpTo(t);
+      var a = Math.abs(flowRawErr(fs, t) - C);
+      sumAbs += a; if (a > maxAbs) maxAbs = a;
+    }
+    applyUpTo(Infinity); // count any downs after the last sample (still < end)
+    var meanAbs = sumAbs / nS;
+    penalty = Math.min(FLOW_PEN_CAP, penalty);
+    var score = Math.max(0, clamp(100 * (1 - meanAbs / FLOW_ERR_REF), 0, 100) - penalty);
+    return {
+      score: round(score, 1),
+      meanAbsErr: round(meanAbs, 4),
+      maxAbsErr: round(maxAbs, 4),
+      corrections: corrections,
+      unnecessary: unnecessary,
+      penalty: round(penalty, 1),
+      duration: round(duration, 3)
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Whole-game judging
+  // ---------------------------------------------------------------------------
+
+  function perMechCounts(events, perEvent) {
+    var pm = {};
+    ['tap', 'hold', 'dual', 'flow'].forEach(function (m) { pm[m] = { perfect: 0, good: 0, miss: 0 }; });
+    perEvent.forEach(function (r, i) {
+      if (!r || r.inactive) return;
+      var m = events[i].mech || 'tap';
+      if (!pm[m]) pm[m] = { perfect: 0, good: 0, miss: 0 };
+      pm[m][r.grade]++;
+    });
+    return pm;
+  }
+
+  /**
+   * flowRoutedInputs(events, inputs, layer) -> down inputs routed to the Flow model.
+   * Decoys are ignored. A down is routed iff it lies inside some flow section
+   * [start, end) AND is not within ±MATCH_MS of any active (non-flow) event.
+   * Returns the same input object references, in input order.
+   */
+  function flowRoutedInputs(events, inputs, layer) {
+    var flowSecs = layer && layer.flow ? layer.flow : [];
+    if (!flowSecs.length) return [];
+    var active = (events || []).filter(function (e) { return !e.decoy && e.mech !== 'flow'; });
+    var win = JUDGE_WINDOWS.MATCH_MS / 1000;
+    return (inputs || []).filter(function (x) {
+      if (x.kind !== 'down') return false;
+      var inFlow = flowSecs.some(function (fs) { return x.t >= fs.start && x.t < fs.end; });
+      if (!inFlow) return false;
+      return !active.some(function (e) { return Math.abs(e.time - x.t) <= win; });
+    });
+  }
+
+  /**
+   * judgeGame(events, inputs, layer) -> judgeAll-shaped result + {flow, perMech, activeCount}
+   * events: layer.events (mech-tagged). Decoys are ignored, as in judgeAll;
+   * perEvent indices refer to the non-decoy list.
+   */
+  function judgeGame(events, inputs, layer) {
+    inputs = inputs || [];
+    events = (events || []).filter(function (e) { return !e.decoy; });
+    var flowSecs = layer && layer.flow ? layer.flow : [];
+
+    if (!flowSecs.length) {
+      var r0 = judgeAll(events, inputs);
+      r0.flow = null;
+      r0.perMech = perMechCounts(events, r0.perEvent);
+      r0.activeCount = events.length;
+      return r0;
+    }
+
+    var activeIdx = [];
+    events.forEach(function (e, i) { if (e.mech !== 'flow') activeIdx.push(i); });
+    var active = activeIdx.map(function (i) { return events[i]; });
+
+    // Route inputs: stray downs inside a Flow section go to the Flow model
+    // (single implementation: flowRoutedInputs).
+    var flowIn = flowRoutedInputs(events, inputs, layer);
+    var flowSet = new Set(flowIn);
+    var normalIn = [], totalDowns = 0;
+    inputs.forEach(function (x) {
+      if (x.kind === 'down') totalDowns++;
+      if (!flowSet.has(x)) normalIn.push(x);
+    });
+
+    var base = judgeAll(active, normalIn);
+
+    var perEvent = new Array(events.length);
+    events.forEach(function (e, i) {
+      if (e.mech === 'flow') {
+        perEvent[i] = { index: i, type: e.type, grade: 'inactive', score: 0, matched: false, inactive: true };
+      }
+    });
+    base.perEvent.forEach(function (r, j) { r.index = activeIdx[j]; perEvent[activeIdx[j]] = r; });
+
+    var perSection = flowSecs.map(function (fs) {
+      var jf = judgeFlow(fs, flowIn);
+      jf.sectionIndex = fs.sectionIndex;
+      return jf;
+    });
+    var flowCorr = 0, dSum = 0, sSum = 0, tSum = 0;
+    perSection.forEach(function (p) {
+      flowCorr += p.corrections; dSum += p.duration; sSum += p.score * p.duration;
+      tSum += p.duration * p.score * clamp(p.corrections / 2, 0, 1); // A3 engagement
+    });
+    var flowScore = dSum > 0 ? sSum / dSum : 0;
+    var flowTerm = dSum > 0 ? tSum / dSum : 0;
+
+    // A3: flowShare = flow duration / all-section duration.
+    var allDur = 0;
+    var flowShare = 0;
+    if (layer && Array.isArray(layer.sections)) {
+      layer.sections.forEach(function (s) { allDur += s.end - s.start; });
+      flowShare = allDur > 0 ? clamp(dSum / allDur, 0, 1) : 0;
+    }
+
+    var normalDowns = normalIn.filter(function (x) { return x.kind === 'down'; }).length;
+    var usedBase = normalDowns - base.strayPresses;
+    var economy = totalDowns ? 100 * (usedBase + flowCorr) / totalDowns : 0;
+    var baseTotal = (0.40 * base.timing + 0.20 * base.stability + 0.25 * economy + 0.15 * base.adaptation) *
+      (0.30 + 0.70 * base.coverage);
+    var total = (1 - flowShare) * baseTotal + flowShare * flowTerm;
+
+    return {
+      perEvent: perEvent,
+      counts: base.counts,
+      maxCombo: base.maxCombo,
+      timing: base.timing,
+      stability: base.stability,
+      economy: round(economy, 1),
+      adaptation: base.adaptation,
+      coverage: base.coverage,
+      total: round(total, 1),
+      strayPresses: base.strayPresses,
+      flow: { score: round(flowScore, 1), weight: round(flowShare, 3), term: round(flowTerm, 1), perSection: perSection },
+      perMech: perMechCounts(events, perEvent),
+      activeCount: active.length,
+      flowInputs: flowIn.length
+    };
+  }
+
+  return {
+    JUDGE_WINDOWS: JUDGE_WINDOWS,
+    THIN_PARAMS: THIN_PARAMS,
+    SECTION_PARAMS: SECTION_PARAMS,
+    HOLD_PARAMS: HOLD_PARAMS,
+    decodeFeatures: decodeFeatures,
+    generateEvents: generateEvents,
+    hashEvents: hashEvents,
+    judgeAll: judgeAll,
+    classifySections: classifySections,
+    buildSectionLayer: buildSectionLayer,
+    flowErrorAt: flowErrorAt,
+    judgeFlow: judgeFlow,
+    judgeGame: judgeGame,
+    flowRoutedInputs: flowRoutedInputs
+  };
+});
+/* === RESONANCE CORE END === */
+</script>
+<script>
+/* === RESONANCE LOCAL BEGIN === */
+/*
+ * resonance-local-analysis.js — lightweight analysis of a local (user-supplied) track.
+ *
+ * Turns decoded mono PCM into the same feature schema as the bundled analysis JSON
+ * ({fps:20, f:{kick,bass,snare,hat,pad,vocal}} with base64 Uint8 arrays), so that
+ * ResonanceCore.generateEvents() can be applied unchanged (same generation rules
+ * and difficulty thinning as the bundled tracks).
+ *
+ * No DOM / browser dependencies, no external libraries. Works as:
+ *   - browser global: window.ResonanceLocal
+ *   - Node module:    require('./resonance-local-analysis.js')
+ *
+ * API: analyzeSamples(samples: Float32Array (-1..1, mono), sampleRate: number)
+ *        -> { analysis: {fps, f}, meta: {frames, seconds} }
+ *
+ * Fully deterministic: same input -> byte-identical output.
+ */
+(function (root, factory) {
+  'use strict';
+  var api = factory();
+  if (typeof module === 'object' && module.exports) {
+    module.exports = api;
+  } else {
+    root.ResonanceLocal = api;
+  }
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  var FPS = 20;
+  var WIN = 2048;                 // FFT window (samples), centred on each frame time
+  var PAD_TAU = 0.4;              // pad one-pole low-pass time constant (s)
+
+  // Band edges (Hz). pad is computed from its band and then smoothed.
+  var BANDS = {
+    kick: [30, 120],
+    bass: [120, 350],
+    snare: [350, 1200],
+    vocal: [1000, 3400],
+    hat: [6000, 12000],
+    pad: [300, 2400]
+  };
+  // Percentile scaling: band value at percentile P maps to TARGET (then clamp 0..255).
+  var SCALE = {
+    kick: { p: 0.99, target: 240 },
+    bass: { p: 0.99, target: 240 },
+    snare: { p: 0.99, target: 240 },
+    vocal: { p: 0.99, target: 240 },
+    hat: { p: 0.99, target: 240 },
+    pad: { p: 0.90, target: 200 }
+  };
+  var OUT_KEYS = ['kick', 'bass', 'snare', 'hat', 'pad', 'vocal'];
+  var SILENT_REF = 1e-7;          // percentile reference below this => band treated as silent
+
+  // ---------------------------------------------------------------------------
+  // Radix-2 iterative FFT (in place, re/im Float64Array of length N = 2^k)
+  // ---------------------------------------------------------------------------
+  function makeFFT(N) {
+    var levels = Math.round(Math.log(N) / Math.LN2);
+    if ((1 << levels) !== N) throw new Error('FFT size must be a power of 2');
+    var rev = new Uint32Array(N);
+    for (var i = 0; i < N; i++) {
+      var r = 0, x = i;
+      for (var b = 0; b < levels; b++) { r = (r << 1) | (x & 1); x >>= 1; }
+      rev[i] = r;
+    }
+    var cosT = new Float64Array(N / 2), sinT = new Float64Array(N / 2);
+    for (var k = 0; k < N / 2; k++) {
+      cosT[k] = Math.cos(2 * Math.PI * k / N);
+      sinT[k] = -Math.sin(2 * Math.PI * k / N);
+    }
+    return function fft(re, im) {
+      for (var i = 0; i < N; i++) {
+        var j = rev[i];
+        if (j > i) {
+          var t = re[i]; re[i] = re[j]; re[j] = t;
+          t = im[i]; im[i] = im[j]; im[j] = t;
+        }
+      }
+      for (var size = 2; size <= N; size <<= 1) {
+        var half = size >> 1, step = N / size;
+        for (var s = 0; s < N; s += size) {
+          for (var m = 0, ti = 0; m < half; m++, ti += step) {
+            var a = s + m, bb = a + half;
+            var wr = cosT[ti], wi = sinT[ti];
+            var xr = re[bb] * wr - im[bb] * wi;
+            var xi = re[bb] * wi + im[bb] * wr;
+            re[bb] = re[a] - xr; im[bb] = im[a] - xi;
+            re[a] += xr; im[a] += xi;
+          }
+        }
+      }
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
+  function percentile(arr, p) {
+    var n = arr.length;
+    if (!n) return 0;
+    var sorted = Float64Array.from(arr).sort();
+    var idx = Math.min(n - 1, Math.max(0, Math.floor(p * (n - 1))));
+    return sorted[idx];
+  }
+
+  function bytesToB64(bytes) {
+    if (typeof Buffer !== 'undefined' && typeof Buffer.from === 'function') {
+      return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.length).toString('base64');
+    }
+    var s = '';
+    var CH = 0x8000;
+    for (var i = 0; i < bytes.length; i += CH) {
+      s += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
+    }
+    return btoa(s);
+  }
+
+  function quantize(values, p, target) {
+    var n = values.length;
+    var out = new Uint8Array(n);
+    var ref = percentile(values, p);
+    if (!(ref > SILENT_REF) || !isFinite(ref)) return out; // silent band -> all zeros
+    var k = target / ref;
+    for (var i = 0; i < n; i++) {
+      var v = Math.round(values[i] * k);
+      out[i] = v > 255 ? 255 : v < 0 || v !== v ? 0 : v;
+    }
+    return out;
+  }
+
+  /**
+   * analyzeSamples(samples, sampleRate) -> { analysis: {fps:20, f:{...base64}}, meta:{frames, seconds} }
+   * Frame i is centred at time i/20 s (window zero-padded at the edges), matching the
+   * core's convention that an event at frame j has time j/fps.
+   */
+  function analyzeSamples(samples, sampleRate) {
+    if (!samples || typeof samples.length !== 'number') throw new Error('samples must be an array');
+    if (!(sampleRate > 0)) throw new Error('sampleRate must be > 0');
+    var len = samples.length;
+    var seconds = len / sampleRate;
+    var frames = Math.round(seconds * FPS);
+    var hop = sampleRate / FPS;
+    var half = WIN / 2;
+    var binHz = sampleRate / WIN;
+    var nyqBin = WIN / 2;
+
+    // Bin ranges per band (inclusive lo, exclusive hi), clipped to Nyquist.
+    var keys = Object.keys(BANDS);
+    var ranges = {};
+    keys.forEach(function (k) {
+      var lo = Math.max(1, Math.ceil(BANDS[k][0] / binHz));
+      var hi = Math.min(nyqBin, Math.floor(BANDS[k][1] / binHz) + 1);
+      ranges[k] = [lo, hi];
+    });
+
+    var hann = new Float64Array(WIN);
+    for (var w = 0; w < WIN; w++) hann[w] = 0.5 - 0.5 * Math.cos(2 * Math.PI * w / (WIN - 1));
+    var fft = makeFFT(WIN);
+    var re = new Float64Array(WIN), im = new Float64Array(WIN);
+    var mag = new Float64Array(nyqBin + 1);
+
+    var raw = {};
+    keys.forEach(function (k) { raw[k] = new Float64Array(frames); });
+
+    for (var f = 0; f < frames; f++) {
+      var start = Math.round(f * hop) - half;
+      for (var i = 0; i < WIN; i++) {
+        var si = start + i;
+        var v = si >= 0 && si < len ? samples[si] : 0;
+        re[i] = (v === v ? v : 0) * hann[i];
+        im[i] = 0;
+      }
+      fft(re, im);
+      for (var b = 0; b <= nyqBin; b++) mag[b] = Math.sqrt(re[b] * re[b] + im[b] * im[b]);
+      for (var ki = 0; ki < keys.length; ki++) {
+        var key = keys[ki], rg = ranges[key];
+        var sum = 0, cnt = rg[1] - rg[0];
+        for (var bb = rg[0]; bb < rg[1]; bb++) sum += mag[bb];
+        raw[key][f] = cnt > 0 ? sum / cnt : 0;
+      }
+    }
+
+    // pad: sustained level via one-pole low-pass (tau = PAD_TAU).
+    var alpha = 1 - Math.exp(-1 / (FPS * PAD_TAU));
+    var padRaw = raw.pad, y = 0;
+    for (var pf = 0; pf < frames; pf++) {
+      y += alpha * (padRaw[pf] - y);
+      padRaw[pf] = y;
+    }
+
+    var out = {};
+    OUT_KEYS.forEach(function (k) {
+      out[k] = bytesToB64(quantize(raw[k], SCALE[k].p, SCALE[k].target));
+    });
+
+    return {
+      analysis: { fps: FPS, f: out },
+      meta: { frames: frames, seconds: seconds }
+    };
+  }
+
+  return {
+    FPS: FPS,
+    WIN: WIN,
+    BANDS: BANDS,
+    analyzeSamples: analyzeSamples
+  };
+});
+/* === RESONANCE LOCAL END === */
+</script>
+<script>
+/* === RESONANCE LIVE BEGIN === */
+/*
+ * resonance-live-v07.js — streaming LIVE engine for TECHNODELIC RESONANCE (v0.7).
+ *
+ * DOM-free engine behind LIVE mode: captured audio (tab/mic) is analysed frame by
+ * frame, quantized adaptively, and turned into events / sections on the fly.
+ * All times are "musical time" = seconds since capture start. The shell plays the
+ * captured audio through a DELAY_SEC delay line, so the game clock runs DELAY_SEC
+ * behind the stream and everything generated here is ahead of the player.
+ *
+ * Works as:
+ *   - browser global: window.ResonanceLive
+ *   - Node module:    require('./resonance-live-v07.js')
+ *
+ * API:
+ *   createFrameAnalyzer(sampleRate, onRawFrame) -> {pushSamples(Float32Array), framesEmitted()}
+ *   createEngine({RC, difficulty}) -> engine (see createEngine below)
+ *
+ * Live approximations vs the offline path (resonance-core generateEvents), all accepted:
+ *   - quantization uses percentiles over the history received so far (frozen with a
+ *     FREEZE_LAG-frame lag; frozen bytes are never recomputed);
+ *   - hold pieces are emitted incrementally (fixed-length pieces while a segment is open);
+ *   - tap/hold conflict resolution uses a pending queue with a force-release age;
+ *   - thinning is a single pass with THIN_PARAMS[difficulty] (offline: nested
+ *     hard -> normal -> easy);
+ *   - live is endless: no song-phase rules. Holds are eligible from HOLD_WARMUP_SEC,
+ *     and gaps follow trailing energy instead of the offline late-song gap scale;
+ *   - sections are fixed WINDOW_SEC windows classified from the PREVIOUS window.
+ *
+ * v0.7 A2 generation rules (live only):
+ *   - accent taps from snare / hat / vocal onsets (ACCENT_PARAMS), deduped against
+ *     low (kick/bass) candidates, priority low > snare > vocal > hat;
+ *   - energy-adaptive density: gaps scale with R/E (trailing 2 s energy vs session
+ *     mean), plus a higher tap threshold in quiet passages (ENERGY_PARAMS);
+ *   - section classification also reacts to part changes (LIVE_STEP_PARAMS).
+ */
+(function (root, factory) {
+  'use strict';
+  var api = factory();
+  if (typeof module === 'object' && module.exports) {
+    module.exports = api;
+  } else {
+    root.ResonanceLive = api;
+  }
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  var FPS = 20;
+  var WIN = 2048;
+  var DELAY_SEC = 5.0;
+  var WINDOW_SEC = 12;
+  var PAD_TAU = 0.4;
+
+  // Same bands / scaling as resonance-local-analysis.js.
+  var BANDS = {
+    kick: [30, 120],
+    bass: [120, 350],
+    snare: [350, 1200],
+    vocal: [1000, 3400],
+    hat: [6000, 12000],
+    pad: [300, 2400]
+  };
+  var SCALE = {
+    kick: { p: 0.99, target: 240 },
+    bass: { p: 0.99, target: 240 },
+    snare: { p: 0.99, target: 240 },
+    vocal: { p: 0.99, target: 240 },
+    hat: { p: 0.99, target: 240 },
+    pad: { p: 0.90, target: 200 }
+  };
+  var OUT_KEYS = ['kick', 'bass', 'snare', 'hat', 'pad', 'vocal'];
+  var SILENT_REF = 1e-7;
+
+  // Not exported by resonance-core (copied from its source).
+  var HOLD_MAX_DUR = 6.0;        // core HOLD_MAX_DUR
+  var HOLD_SPLIT_GAP = 1.2;      // core HOLD_SPLIT_GAP
+
+  // Live-only constants.
+  var FREEZE_LAG = 10;           // frames behind newest before a frame is quantized
+  var WARMUP_SEC = 3.0;          // no events from frames earlier than this
+  var HOLD_WARMUP_SEC = 15.0;    // hold pieces starting earlier are never emitted as events
+  var PENDING_MAX_AGE = 2.0;     // force-release age (s of stream time) of a pending tap
+  var DEDUPE_HOLD_FRAMES = 3;    // a pending tap is released only once frozen >= frame + this
+                                 // (so a neighbouring candidate can still dedupe it)
+  var DECOY_BASE = 0.40;
+  var DECOY_SCALE = 0.45;
+  var DECOY_MIN_SEP = 0.30;
+  var DECOY_REVEAL = 0.9;        // decoy published once streamTime >= t + this
+
+  // Literal core values, used if RC.generateEvents() cannot provide them.
+  var CORE_FALLBACK = {
+    onsetMin: 0.10, levelMin: 35, padStart: 100, padSustain: 80, padMaxDip: 5,
+    holdMinSeg: 1.2, conflictPre: 0.40, conflictPost: 0.20, holdGap: 0.4
+  };
+
+  // Accent candidates (snare / hat / vocal onsets). onset = max(band[j]-band[j-1],0)/255,
+  // local peak; candidate if onset >= onsetMin && band[j] >= levelMin.
+  var ACCENT_PARAMS = {
+    snare: { onsetMin: 0.14, levelMin: 45 },
+    hat: { onsetMin: 0.14, levelMin: 45 },
+    vocal: { onsetMin: 0.16, levelMin: 50 },
+    strengthScale: 0.8,          // accent strength = onset * this
+    dedupeSec: 0.06,             // accent within this of a low candidate is dropped
+    priority: ['snare', 'vocal', 'hat']   // low always wins; then this order
+  };
+
+  // Energy-adaptive density. E = mean (kick+bass)/2/255 over the trailing window,
+  // R = running mean of E. gapMul = clamp(R / max(E, eFloor), gapMulMin, gapMulMax).
+  var ENERGY_PARAMS = {
+    windowFrames: 40,            // 2 s
+    eFloor: 0.02,
+    gapMulMin: 0.65,
+    gapMulMax: 1.60,
+    quietE: 0.10,                // E below this -> tap threshold * quietThreshMul
+    quietThreshMul: 1.5
+  };
+
+  // Section part-change (step) sensitivity — tune here.
+  var LIVE_STEP_PARAMS = {
+    // stepUp   = (dLevel >= UP_DLEVEL && dOnset >= UP_DONSET) || dOnset >= UP_DONSET_ALONE
+    UP_DLEVEL: 0.15,
+    UP_DONSET: 0.8,
+    UP_DONSET_ALONE: 1.6,
+    // stepDown = dLevel <= DOWN_DLEVEL
+    DOWN_DLEVEL: -0.15,
+    // stepPad  = dPad >= PAD_DPAD
+    PAD_DPAD: 0.25,
+    // dual: stepUp && onsetRate >= DUAL_ONSET
+    DUAL_ONSET: 2.2,
+    // hold: stepPad && padRatio >= HOLD_PAD (and holdDurRatio >= SEC_HOLD_DUR_MIN)
+    HOLD_PAD: 0.35,
+    // flow: stepDown && level <= FLOW_LEVEL && onsetRate <= FLOW_ONSET
+    FLOW_LEVEL: 0.22,
+    FLOW_ONSET: 2.0
+  };
+
+  function round(x, d) {
+    var m = Math.pow(10, d);
+    return Math.round(x * m) / m;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Radix-2 iterative FFT (copied from resonance-local-analysis.js)
+  // ---------------------------------------------------------------------------
+  function makeFFT(N) {
+    var levels = Math.round(Math.log(N) / Math.LN2);
+    if ((1 << levels) !== N) throw new Error('FFT size must be a power of 2');
+    var rev = new Uint32Array(N);
+    for (var i = 0; i < N; i++) {
+      var r = 0, x = i;
+      for (var b = 0; b < levels; b++) { r = (r << 1) | (x & 1); x >>= 1; }
+      rev[i] = r;
+    }
+    var cosT = new Float64Array(N / 2), sinT = new Float64Array(N / 2);
+    for (var k = 0; k < N / 2; k++) {
+      cosT[k] = Math.cos(2 * Math.PI * k / N);
+      sinT[k] = -Math.sin(2 * Math.PI * k / N);
+    }
+    return function fft(re, im) {
+      for (var i = 0; i < N; i++) {
+        var j = rev[i];
+        if (j > i) {
+          var t = re[i]; re[i] = re[j]; re[j] = t;
+          t = im[i]; im[i] = im[j]; im[j] = t;
+        }
+      }
+      for (var size = 2; size <= N; size <<= 1) {
+        var half = size >> 1, step = N / size;
+        for (var s = 0; s < N; s += size) {
+          for (var m = 0, ti = 0; m < half; m++, ti += step) {
+            var a = s + m, bb = a + half;
+            var wr = cosT[ti], wi = sinT[ti];
+            var xr = re[bb] * wr - im[bb] * wi;
+            var xi = re[bb] * wi + im[bb] * wr;
+            re[bb] = re[a] - xr; im[bb] = im[a] - xi;
+            re[a] += xr; im[a] += xi;
+          }
+        }
+      }
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // 1) Streaming frame analyzer
+  // ---------------------------------------------------------------------------
+  function createFrameAnalyzer(sampleRate, onRawFrame) {
+    if (!(sampleRate > 0)) throw new Error('sampleRate must be > 0');
+    var hop = sampleRate / FPS;
+    var half = WIN / 2;
+    var binHz = sampleRate / WIN;
+    var nyqBin = WIN / 2;
+    var keys = Object.keys(BANDS);
+    var ranges = {};
+    keys.forEach(function (k) {
+      var lo = Math.max(1, Math.ceil(BANDS[k][0] / binHz));
+      var hi = Math.min(nyqBin, Math.floor(BANDS[k][1] / binHz) + 1);
+      ranges[k] = [lo, hi];
+    });
+    var hann = new Float64Array(WIN);
+    for (var w = 0; w < WIN; w++) hann[w] = 0.5 - 0.5 * Math.cos(2 * Math.PI * w / (WIN - 1));
+    var fft = makeFFT(WIN);
+    var re = new Float64Array(WIN), im = new Float64Array(WIN);
+    var mag = new Float64Array(nyqBin + 1);
+
+    // Sample buffer: buf[0] is absolute sample index bufStart; bufLen valid samples.
+    var buf = new Float32Array(WIN + Math.ceil(hop) * 4);
+    var bufStart = 0, bufLen = 0;
+    var total = 0;
+    var nextFrame = 0;
+
+    function sampleAt(abs) {
+      // zero outside the received range (and before the retained buffer)
+      var i = abs - bufStart;
+      if (abs < 0 || abs >= total || i < 0 || i >= bufLen) return 0;
+      var v = buf[i];
+      return v === v ? v : 0;
+    }
+
+    function computeFrame(f) {
+      var start = Math.round(f * hop) - half;
+      for (var i = 0; i < WIN; i++) {
+        re[i] = sampleAt(start + i) * hann[i];
+        im[i] = 0;
+      }
+      fft(re, im);
+      for (var b = 0; b <= nyqBin; b++) mag[b] = Math.sqrt(re[b] * re[b] + im[b] * im[b]);
+      var out = {};
+      for (var ki = 0; ki < keys.length; ki++) {
+        var key = keys[ki], rg = ranges[key];
+        var sum = 0, cnt = rg[1] - rg[0];
+        for (var bb = rg[0]; bb < rg[1]; bb++) sum += mag[bb];
+        out[key] = cnt > 0 ? sum / cnt : 0;
+      }
+      return out;
+    }
+
+    function compact() {
+      // Keep samples from the next frame's window start onward.
+      var keepFrom = Math.round(nextFrame * hop) - half;
+      var drop = keepFrom - bufStart;
+      if (drop <= 0) return;
+      // bufStart must stay equal to the absolute index of the next appended sample.
+      if (drop >= bufLen) { bufStart += bufLen; bufLen = 0; return; }
+      buf.copyWithin(0, drop, bufLen);
+      bufLen -= drop;
+      bufStart += drop;
+    }
+
+    function pushSamples(samples) {
+      if (!samples || !samples.length) return;
+      var n = samples.length, off = 0;
+      while (off < n) {
+        compact();
+        if (bufLen === buf.length) {
+          // Buffer full (only happens if the window spans more than the buffer): grow.
+          var nb = new Float32Array(buf.length * 2);
+          nb.set(buf.subarray(0, bufLen));
+          buf = nb;
+        }
+        var take = Math.min(n - off, buf.length - bufLen);
+        buf.set(samples.subarray ? samples.subarray(off, off + take) :
+          Array.prototype.slice.call(samples, off, off + take), bufLen);
+        bufLen += take;
+        total += take;
+        off += take;
+        while (Math.round(nextFrame * hop) + half <= total) {
+          var raw = computeFrame(nextFrame);
+          var idx = nextFrame;
+          nextFrame++;
+          if (onRawFrame) onRawFrame(raw, idx);
+        }
+      }
+      compact();
+    }
+
+    return {
+      pushSamples: pushSamples,
+      framesEmitted: function () { return nextFrame; },
+      totalSamples: function () { return total; }
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Growable typed storage + sorted multiset for running percentiles
+  // ---------------------------------------------------------------------------
+  function GrowU8() { this.a = new Uint8Array(1024); this.n = 0; }
+  GrowU8.prototype.push = function (v) {
+    if (this.n === this.a.length) { var b = new Uint8Array(this.a.length * 2); b.set(this.a); this.a = b; }
+    this.a[this.n++] = v;
+  };
+  GrowU8.prototype.view = function () { return this.a.subarray(0, this.n); };
+
+  function GrowF64() { this.a = new Float64Array(1024); this.n = 0; }
+  GrowF64.prototype.push = function (v) {
+    if (this.n === this.a.length) { var b = new Float64Array(this.a.length * 2); b.set(this.a); this.a = b; }
+    this.a[this.n++] = v;
+  };
+
+  // Sorted values (ascending) with binary insertion; percentile mirrors
+  // resonance-local-analysis percentile(): sorted[floor(p*(n-1))].
+  function Sorted() { this.a = new Float64Array(1024); this.n = 0; }
+  Sorted.prototype.insert = function (v) {
+    if (this.n === this.a.length) { var b = new Float64Array(this.a.length * 2); b.set(this.a); this.a = b; }
+    var lo = 0, hi = this.n;
+    while (lo < hi) { var mid = (lo + hi) >> 1; if (this.a[mid] <= v) lo = mid + 1; else hi = mid; }
+    this.a.copyWithin(lo + 1, lo, this.n);
+    this.a[lo] = v;
+    this.n++;
+  };
+  Sorted.prototype.percentile = function (p) {
+    if (!this.n) return 0;
+    var idx = Math.min(this.n - 1, Math.max(0, Math.floor(p * (this.n - 1))));
+    return this.a[idx];
+  };
+
+  function finiteOr0(v) { return (typeof v === 'number' && isFinite(v)) ? v : 0; }
+
+  // ---------------------------------------------------------------------------
+  // 2) Live engine
+  // ---------------------------------------------------------------------------
+  function createEngine(opts) {
+    opts = opts || {};
+    var RC = opts.RC;
+    if (!RC) throw new Error('createEngine: opts.RC (ResonanceCore) is required');
+    var difficulty = opts.difficulty || 'normal';
+    var THIN = RC.THIN_PARAMS && RC.THIN_PARAMS[difficulty];
+    if (!THIN) throw new Error('unknown difficulty: ' + difficulty);
+    var SP = RC.SECTION_PARAMS;
+
+    var P = {};
+    var coreParams = null;
+    try { coreParams = RC.generateEvents({ fps: 20, f: {} }, 'normal').params; } catch (e) { coreParams = null; }
+    Object.keys(CORE_FALLBACK).forEach(function (k) {
+      P[k] = (coreParams && typeof coreParams[k] === 'number') ? coreParams[k] : CORE_FALLBACK[k];
+    });
+
+    var padAlpha = 1 - Math.exp(-1 / (FPS * PAD_TAU));
+    var WIN_FRAMES = WINDOW_SEC * FPS;
+    var emitLen = Math.max(P.holdMinSeg, THIN.holdMinDur);
+    var emitFrames = Math.round(emitLen * FPS);
+    var splitGapFrames = Math.round(HOLD_SPLIT_GAP * FPS);
+    var minSegFrames = P.holdMinSeg * FPS;
+
+    // Raw history (pad = smoothed) and sorted copies for percentiles.
+    var rawHist = {}, sorted = {}, bytes = {};
+    OUT_KEYS.forEach(function (k) { rawHist[k] = new GrowF64(); sorted[k] = new Sorted(); bytes[k] = new GrowU8(); });
+    var padY = 0;
+    var pushed = 0;      // frames pushed
+    var frozen = 0;      // frames quantized
+
+    var onset = new GrowF64();       // low (kick/bass) onset per frozen frame
+    var onsetA = { snare: new GrowF64(), hat: new GrowF64(), vocal: new GrowF64() };
+    var energyPre = new GrowF64();   // prefix sum of (kick+bass)/2/255; energyPre.a[f+1] = sum to f
+    energyPre.push(0);
+    var Earr = new GrowF64();        // trailing energy E per frozen frame
+    var Rarr = new GrowF64();        // session reference R per frozen frame
+    var eSum = 0;                    // sum of all E samples so far
+    var tapCands = [];               // low tap candidates (incl. warm-up), for section stats
+    var accentCands = [];            // accent candidates (incl. warm-up)
+    var holdPieces = [];             // all emitted hold pieces (candidate proxy)
+    var pending = [];                // tap candidates awaiting conflict resolution
+    var decoyQueue = [];             // decoys waiting for their reveal time
+    var lastKept = -Infinity;
+    var dualCount = {};              // per-section dual counter (mring / decoy n)
+
+    // Hold segment state machine.
+    var seg = { open: false, start: 0, lastHigh: 0, dip: 0, cursor: 0 };
+
+    var engine = {
+      difficulty: difficulty,
+      params: P,
+      events: [],
+      decoys: [],
+      sections: [],
+      flow: [],
+      holdPieces: holdPieces,
+      pushRawFrame: pushRawFrame,
+      getFeatures: getFeatures,
+      streamTime: streamTime,
+      stats: stats
+    };
+
+    function zeroStats() { return { level: 0, padRatio: 0, onsetRate: 0, meanOnset: 0, holdDurRatio: 0 }; }
+    engine.sections.push({ index: 0, start: 0, end: WINDOW_SEC, mech: 'tap', stats: zeroStats() });
+
+    function streamTime() { return pushed / FPS; }
+
+    function stats() {
+      return { frames: pushed, frozen: frozen, events: engine.events.length,
+        decoys: engine.decoys.length, sections: engine.sections.length,
+        accents: engine.events.filter(function (e) { return e.accent === true; }).length };
+    }
+
+    function getFeatures() {
+      var out = { fps: FPS };
+      OUT_KEYS.forEach(function (k) { out[k] = new Uint8Array(bytes[k].view()); });
+      return out;
+    }
+
+    // --- quantization (mirror of resonance-local-analysis quantize()) -------
+    function freezeFrame(f) {
+      for (var i = 0; i < OUT_KEYS.length; i++) {
+        var k = OUT_KEYS[i];
+        var ref = sorted[k].percentile(SCALE[k].p);
+        var b = 0;
+        if (ref > SILENT_REF && isFinite(ref)) {
+          var v = Math.round(rawHist[k].a[f] * (SCALE[k].target / ref));
+          b = v > 255 ? 255 : v < 0 || v !== v ? 0 : v;
+        }
+        bytes[k].push(b);
+      }
+      var K = bytes.kick.a, B = bytes.bass.a;
+      onset.push(f > 0 ? Math.max(K[f] - K[f - 1], B[f] - B[f - 1], 0) / 255 : 0);
+      for (var ai = 0; ai < ACCENT_PARAMS.priority.length; ai++) {
+        var band = ACCENT_PARAMS.priority[ai], A = bytes[band].a;
+        onsetA[band].push(f > 0 ? Math.max(A[f] - A[f - 1], 0) / 255 : 0);
+      }
+      // Energy E (trailing window ending at f) and session reference R.
+      energyPre.push(energyPre.a[f] + (K[f] + B[f]) / 2 / 255);
+      var w0 = Math.max(0, f + 1 - ENERGY_PARAMS.windowFrames);
+      var E = (energyPre.a[f + 1] - energyPre.a[w0]) / (f + 1 - w0);
+      eSum += E;
+      Earr.push(E);
+      Rarr.push(f + 1 < ENERGY_PARAMS.windowFrames ? E : eSum / (f + 1));
+      frozen = f + 1;
+    }
+
+    function gapMulAt(f) {
+      var g = Rarr.a[f] / Math.max(Earr.a[f], ENERGY_PARAMS.eFloor);
+      return Math.min(ENERGY_PARAMS.gapMulMax, Math.max(ENERGY_PARAMS.gapMulMin, g));
+    }
+    function threshMulAt(f) {
+      return Earr.a[f] < ENERGY_PARAMS.quietE ? ENERGY_PARAMS.quietThreshMul : 1.0;
+    }
+
+    // --- section of a time -------------------------------------------------
+    function sectionAt(t) {
+      var k = Math.floor(t / WINDOW_SEC);
+      return (k >= 0 && k < engine.sections.length) ? engine.sections[k] : null;
+    }
+
+    // --- event output ------------------------------------------------------
+    function isJudgedTime(t) {
+      var i;
+      for (i = engine.events.length - 1; i >= 0; i--) {
+        if (Math.abs(engine.events[i].time - t) < DECOY_MIN_SEP) return true;
+      }
+      for (i = 0; i < pending.length; i++) {
+        if (Math.abs(pending[i].time - t) < DECOY_MIN_SEP) return true;
+      }
+      return false;
+    }
+
+    function makeDecoy(ev, sec, n) {
+      var mag = DECOY_BASE + DECOY_SCALE * ev.strength;
+      var sign = n % 2 === 0 ? 1 : -1;
+      function ok(t) { return t >= sec.start && t <= sec.end && !isJudgedTime(t); }
+      var t = round(ev.time + sign * mag, 3);
+      if (!ok(t)) {
+        t = round(ev.time - sign * mag, 3);
+        if (!ok(t)) return;
+      }
+      decoyQueue.push({ time: t, type: 'tap', ring: 1 - ev.mring, strength: ev.strength, decoy: true });
+    }
+
+    function keep(e) {
+      var o = {
+        time: round(e.time, 3),
+        type: e.type,
+        strength: round(e.strength, 4),
+        confidence: round(Math.min(1, e.strength * 1.8), 4)
+      };
+      if (e.type === 'hold') o.dur = round(e.dur, 3);
+      if (e.accent === true) o.accent = true;
+      if (e.src) o.src = e.src;
+      var sec = sectionAt(o.time);
+      o.mech = sec ? sec.mech : 'tap';
+      engine.events.push(o);
+      if (o.mech === 'dual') {
+        var n = dualCount[sec.index] || 0;
+        dualCount[sec.index] = n + 1;
+        o.mring = n % 2;
+        makeDecoy(o, sec, n);
+      }
+    }
+
+    // Single-pass stateful thinning with THIN_PARAMS[difficulty]. NOTE: the offline
+    // path thins nested (hard -> normal -> easy); live uses one pass (accepted approx).
+    // Gaps / threshold are energy-adaptive (ENERGY_PARAMS), evaluated at the
+    // candidate's own frame.
+    function thinTap(t) {
+      var f = t.frame;
+      if (t.strength >= THIN.tapThresh * threshMulAt(f) && (t.time - lastKept) >= THIN.tapGap * gapMulAt(f)) {
+        lastKept = t.time;
+        keep(t);
+      }
+    }
+    function holdEligible(h) { return h.time >= HOLD_WARMUP_SEC; }
+    function thinHold(h) {
+      if (!holdEligible(h)) return;
+      if (h.strength >= THIN.holdThresh && h.dur >= THIN.holdMinDur &&
+          (h.time - lastKept) >= P.holdGap * gapMulAt(h.frame)) {
+        lastKept = h.time;
+        keep(h);
+      }
+    }
+
+    // --- pending tap queue ---------------------------------------------------
+    function inHoldConflict(t) {
+      for (var i = holdPieces.length - 1; i >= 0; i--) {
+        var h = holdPieces[i];
+        if (!h.eligible) continue;
+        if (t >= h.time - P.conflictPre && t <= h.time + h.dur - P.conflictPost) return true;
+        if (h.time + h.dur < t - 10) break;
+      }
+      return false;
+    }
+    function blockedByOpenSegment(t) {
+      return seg.open && (seg.cursor / FPS - P.conflictPre) <= t;
+    }
+    // Resolve pending taps. beforeTime: if given, only taps earlier than it are
+    // released (used right before a hold is thinned, to keep time order).
+    function resolvePending(beforeTime) {
+      var rest = [];
+      var now = streamTime();
+      for (var i = 0; i < pending.length; i++) {
+        var t = pending[i];
+        if (inHoldConflict(t.time)) continue;                     // (b) dropped
+        var release;
+        if (t.frame + DEDUPE_HOLD_FRAMES > frozen) release = false; // dedupe window still open
+        else if (beforeTime !== undefined) release = t.time < beforeTime;
+        else release = !blockedByOpenSegment(t.time);              // (a)/(b) release
+        if (!release && now - t.time > PENDING_MAX_AGE) release = true; // (c) force
+        if (release) thinTap(t); else rest.push(t);
+      }
+      pending = rest;
+    }
+
+    // --- hold pieces (incremental live approximation of core holdCandidates) --
+    // While a segment is open, every emitLen seconds a piece [cursor, cursor+emitFrames)
+    // is emitted and the cursor skips HOLD_SPLIT_GAP; on close the remaining piece is
+    // emitted if >= holdMinSeg (offline: pieces up to HOLD_MAX_DUR, decided at close).
+    function emitPiece(startF, frames) {
+      var pad = bytes.pad.a, sum = 0;
+      for (var k = startF; k < startF + frames; k++) sum += pad[k];
+      var dur = Math.min(HOLD_MAX_DUR, frames / FPS);
+      var h = { time: startF / FPS, frame: startF, type: 'hold', dur: dur, strength: sum / frames / 255, src: 'pad' };
+      h.eligible = holdEligible(h);
+      holdPieces.push(h);
+      resolvePending(h.time);
+      thinHold(h);
+    }
+
+    function stepHold(f) {
+      var p = bytes.pad.a[f];
+      if (!seg.open) {
+        if (p < P.padStart) return;
+        seg.open = true; seg.start = f; seg.lastHigh = f; seg.dip = 0; seg.cursor = f;
+      } else if (p >= P.padSustain) {
+        seg.lastHigh = f; seg.dip = 0;
+      } else if (++seg.dip > P.padMaxDip) {
+        var len = seg.lastHigh - seg.cursor + 1;
+        seg.open = false;
+        if (len >= minSegFrames) emitPiece(seg.cursor, Math.min(len, Math.round(HOLD_MAX_DUR * FPS)));
+        return;
+      }
+      if (seg.lastHigh - seg.cursor + 1 >= emitFrames) {
+        var c = seg.cursor;
+        seg.cursor = c + emitFrames + splitGapFrames;
+        emitPiece(c, emitFrames);
+      }
+    }
+
+    // --- tap candidates (mirror core tapCandidates; needs frame j+1 frozen) --
+    // Dedupe (ACCENT_PARAMS.dedupeSec): a low candidate removes nearby accent
+    // candidates (still pending thanks to DEDUPE_HOLD_FRAMES); an accent near a low
+    // candidate is dropped; among accent bands at one frame the first in
+    // ACCENT_PARAMS.priority wins.
+    function near(a, b) { return Math.abs(a - b) < ACCENT_PARAMS.dedupeSec - 1e-9; }
+    function checkTap(j) {
+      if (j < 1) return;
+      var on = onset.a, K = bytes.kick.a, B = bytes.bass.a, i;
+      var t = j / FPS;
+      if (on[j] >= on[j - 1] && on[j] >= on[j + 1] && on[j] >= P.onsetMin &&
+          (K[j] + B[j]) / 2 >= P.levelMin) {
+        var c = { time: t, frame: j, type: 'tap', strength: on[j], src: 'low' };
+        tapCands.push(c);
+        // drop accents this low candidate shadows
+        var dropped = null;
+        for (i = accentCands.length - 1; i >= 0 && accentCands[i].time > t - 1; i--) {
+          if (near(accentCands[i].time, t)) { (dropped = dropped || []).push(accentCands[i]); accentCands.splice(i, 1); }
+        }
+        if (dropped) pending = pending.filter(function (p) { return dropped.indexOf(p) < 0; });
+        if (c.time >= WARMUP_SEC) pending.push(c);
+      }
+      // accent candidate: highest-priority band passing at this frame
+      var acc = null;
+      for (var bi = 0; bi < ACCENT_PARAMS.priority.length && !acc; bi++) {
+        var band = ACCENT_PARAMS.priority[bi], ap = ACCENT_PARAMS[band];
+        var oa = onsetA[band].a;
+        if (oa[j] >= oa[j - 1] && oa[j] >= oa[j + 1] && oa[j] >= ap.onsetMin &&
+            bytes[band].a[j] >= ap.levelMin) {
+          acc = { time: t, frame: j, type: 'tap', strength: oa[j] * ACCENT_PARAMS.strengthScale,
+            accent: true, src: band };
+        }
+      }
+      if (!acc) return;
+      for (i = tapCands.length - 1; i >= 0 && tapCands[i].time > t - 1; i--) {
+        if (near(tapCands[i].time, t)) return;     // low wins
+      }
+      accentCands.push(acc);
+      if (accentCands.length > 256) accentCands.splice(0, 128);   // only recent ones matter
+      if (acc.time >= WARMUP_SEC) pending.push(acc);
+    }
+
+    // --- sections ------------------------------------------------------------
+    // holdDurRatio uses emitted hold pieces (plus the in-progress piece of an open
+    // segment) as the proxy for core hold candidates.
+    function windowStats(w) {
+      var s = w * WIN_FRAMES, e = s + WIN_FRAMES;
+      var K = bytes.kick.a, B = bytes.bass.a, PD = bytes.pad.a;
+      var lvl = 0, padN = 0, frames = 0;
+      for (var i = s; i < e && i < frozen; i++) {
+        frames++;
+        lvl += (K[i] + B[i]) / 2 / 255;
+        if (PD[i] >= SP.SEC_PAD_FRAME) padN++;
+      }
+      var t0 = w * WINDOW_SEC, t1 = t0 + WINDOW_SEC;
+      var cnt = 0, sum = 0, i2;
+      for (i2 = tapCands.length - 1; i2 >= 0; i2--) {
+        var c = tapCands[i2];
+        if (c.time < t0) break;
+        if (c.time < t1) { cnt++; sum += c.strength; }
+      }
+      var hd = 0;
+      for (i2 = 0; i2 < holdPieces.length; i2++) {
+        var h = holdPieces[i2];
+        if (h.time >= t0 && h.time < t1) hd += h.dur;
+      }
+      if (seg.open) {
+        var ct = seg.cursor / FPS, plen = seg.lastHigh - seg.cursor + 1;
+        if (ct >= t0 && ct < t1 && plen > 0) hd += plen / FPS;
+      }
+      return {
+        level: round(frames ? lvl / frames : 0, 3),
+        padRatio: round(frames ? padN / frames : 0, 3),
+        onsetRate: round(cnt / WINDOW_SEC, 4),
+        meanOnset: round(cnt ? sum / cnt : 0, 4),
+        holdDurRatio: round(hd / WINDOW_SEC, 3)
+      };
+    }
+
+    // Core classifyMech (v0.4 A7) structure, extended with part-change (step)
+    // clauses (LIVE_STEP_PARAMS). Section 1 has no previous window -> deltas 0.
+    function classifyMech(st, prev) {
+      var LS = LIVE_STEP_PARAMS;
+      var dLevel = prev ? round(st.level - prev.level, 3) : 0;
+      var dPad = prev ? round(st.padRatio - prev.padRatio, 3) : 0;
+      var dOnset = prev ? round(st.onsetRate - prev.onsetRate, 3) : 0;
+      var stepUp = (dLevel >= LS.UP_DLEVEL && dOnset >= LS.UP_DONSET) || dOnset >= LS.UP_DONSET_ALONE;
+      var stepDown = dLevel <= LS.DOWN_DLEVEL;
+      var stepPad = dPad >= LS.PAD_DPAD;
+      if (st.onsetRate >= SP.SEC_DUAL_ONSET ||
+          (st.onsetRate >= SP.SEC_DUAL_ONSET_DELTA && dOnset >= SP.SEC_DUAL_DELTA) ||
+          (stepUp && st.onsetRate >= LS.DUAL_ONSET)) return 'dual';
+      if ((st.padRatio >= SP.SEC_HOLD_PAD || (st.padRatio >= SP.SEC_HOLD_PAD_DELTA && dPad >= SP.SEC_HOLD_DELTA) ||
+           (stepPad && st.padRatio >= LS.HOLD_PAD)) &&
+          st.holdDurRatio >= SP.SEC_HOLD_DUR_MIN) return 'hold';
+      if ((st.level <= SP.SEC_FLOW_LEVEL && st.padRatio <= SP.SEC_FLOW_PAD && st.onsetRate <= SP.SEC_FLOW_ONSET) ||
+          (st.level <= SP.SEC_FLOW_LEVEL_DELTA && dLevel <= SP.SEC_FLOW_DLEVEL &&
+           st.onsetRate <= SP.SEC_FLOW_ONSET_DELTA && st.padRatio <= SP.SEC_FLOW_PAD_DELTA) ||
+          (stepDown && st.level <= LS.FLOW_LEVEL && st.onsetRate <= LS.FLOW_ONSET)) return 'flow';
+      return 'tap';
+    }
+
+    function classifyNext() {
+      var k = engine.sections.length;          // section to create
+      var st = windowStats(k - 1);
+      var prev = k >= 2 ? engine.sections[k - 1].stats : null;
+      var mech = classifyMech(st, prev);
+      var start = k * WINDOW_SEC, end = (k + 1) * WINDOW_SEC;
+      engine.sections.push({ index: k, start: start, end: end, mech: mech, stats: st });
+      if (mech === 'flow') {
+        engine.flow.push({ sectionIndex: k, start: start, end: end,
+          breathPeriod: SP.FLOW_BREATH_DEFAULT, driftAmp: SP.FLOW_DRIFT_AMP,
+          driftPeriod: SP.FLOW_DRIFT_PERIOD, driftPhase: round(k * SP.FLOW_PHASE_STEP, 3) });
+      }
+    }
+
+    function flushDecoys() {
+      if (!decoyQueue.length) return;
+      var now = streamTime(), rest = [];
+      for (var i = 0; i < decoyQueue.length; i++) {
+        var d = decoyQueue[i];
+        if (now >= d.time + DECOY_REVEAL) engine.decoys.push(d); else rest.push(d);
+      }
+      decoyQueue = rest;
+    }
+
+    // --- main entry ----------------------------------------------------------
+    function pushRawFrame(raw) {
+      raw = raw || {};
+      padY += padAlpha * (finiteOr0(raw.pad) - padY);
+      for (var i = 0; i < OUT_KEYS.length; i++) {
+        var k = OUT_KEYS[i];
+        var v = k === 'pad' ? padY : finiteOr0(raw[k]);
+        rawHist[k].push(v);
+        sorted[k].insert(v);
+      }
+      pushed++;
+      while (pushed - frozen >= FREEZE_LAG + 1) {
+        var f = frozen;
+        freezeFrame(f);
+        stepHold(f);
+        if (f >= 1) checkTap(f - 1);
+        if (frozen % WIN_FRAMES === 0) classifyNext();
+        resolvePending();
+      }
+      flushDecoys();
+    }
+
+    return engine;
+  }
+
+  return {
+    FPS: FPS,
+    WIN: WIN,
+    BANDS: BANDS,
+    DELAY_SEC: DELAY_SEC,
+    WINDOW_SEC: WINDOW_SEC,
+    HOLD_WARMUP_SEC: HOLD_WARMUP_SEC,
+    ACCENT_PARAMS: ACCENT_PARAMS,
+    ENERGY_PARAMS: ENERGY_PARAMS,
+    LIVE_STEP_PARAMS: LIVE_STEP_PARAMS,
+    createFrameAnalyzer: createFrameAnalyzer,
+    createEngine: createEngine
+  };
+});
+/* === RESONANCE LIVE END === */
+</script>
+<script>
+(function () {
+  'use strict';
+  var RC = window.ResonanceCore;
+  var $ =function (id) { return document.getElementById(id); };
+
+  var APPROACH = 1.8;        // ring convergence time (s)
+  var FALL = 2.0;            // classic note fall time (s)
+  var TAP_RESOLVE = 0.160;   // tap resolves at ev.time + this
+  var HOLD_RESOLVE = 0.35;   // hold resolves at ev.time + ev.dur + this
+  var HOLD_EXPAND = 0.45;    // hold release expansion duration
+  var LEAD_IN = 2.0;         // seconds before song time 0 on (re)start
+  var GRADE_COLOR = { perfect: '#7dffce', good: '#ffe27a', miss: '#ff7d9c' };
+  var DUAL_OFFSET = 0.21;    // dual-ring centre offset (× min(VW, VH)); ring 0 = left, ring 1 = right
+  var DUAL_BLEND = 1.0;      // v0.3: centres split over the first / merge over the last this many s of a dual section
+  var DIM_OTHER = 0.45;      // alpha multiplier for the non-target ring
+  // v0.3: per-section mechanics
+  var MECH_ACCENT = { tap: '#3fd9ff', hold: '#ffd27a', dual: '#b78cff', flow: '#54ffb4' };
+  var MECH_NAME = { tap: 'TAP', hold: 'HOLD', dual: 'DUAL', flow: 'FLOW' };
+  var SEC_BANNER_S = 1.6;    // section banner duration (s, wall clock)
+  var SEC_PREVIEW = 2.0;     // next-section preview lead (s)
+  var FLOW_BREATH_AMP = 0.05; // flow ring radius modulation (× R_T)
+  function hexRgb(h) {
+    var n = parseInt(h.slice(1), 16);
+    return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255];
+  }
+  function mixHex(a, b, t) {
+    var x = hexRgb(a), y = hexRgb(b), s = '#';
+    for (var i = 0; i < 3; i++) {
+      var v = Math.round(255 * (x[i] + (y[i] - x[i]) * t));
+      s += (v < 16 ? '0' : '') + v.toString(16);
+    }
+    return s;
+  }
+
+  // =====================================================================
+  // Asset loading
+  // =====================================================================
+  var DIFFS = ['easy', 'normal', 'hard'];
+  // Current track (copied from tracks[trackSource] by applyTrack()).
+  var analysis = null, F = null, trackDur = 0, trackBpm = null, trackName = 'CATACOMB';
+  var eventsByDiff = {}, decoysByDiff = {}, dualStartByDiff = {}, layerByDiff = {}, genMs = null;
+  var audioBytes = null, audioBuffer = null;
+  var loadError = null, decoding = false;
+  // Track sources: the bundled CATACOMB and (optionally) a user-supplied local file.
+  var trackSource = 'bundled';
+  var tracks = { bundled: { name: 'CATACOMB', bpm: null, buffer: null }, local: null };
+  var localBusy = false, localToken = 0;
+
+  // Fill a track object from an analysis (same generation path for bundled and local).
+  function buildTrack(t, a, dur) {
+    var t0 = performance.now();
+    t.analysis = a;
+    t.F = RC.decodeFeatures(a);
+    t.dur = dur != null ? dur : t.F.dur;
+    t.eventsByDiff = {}; t.decoysByDiff = {}; t.dualStartByDiff = {}; t.layerByDiff = {};
+    DIFFS.forEach(function (d) {
+      var g = RC.generateEvents(a, d);
+      t.eventsByDiff[d] = g.events;
+      t.decoysByDiff[d] = g.decoys || [];
+      t.dualStartByDiff[d] = g.params && g.params.dualStart != null ? g.params.dualStart : null;
+      // v0.3: section layer (mech-tagged events, dual-section decoys, flow sections)
+      t.layerByDiff[d] = RC.buildSectionLayer(a, t.eventsByDiff[d]);
+    });
+    t.genMs = performance.now() - t0;
+    return t;
+  }
+
+  function applyTrack() {
+    // v0.7: never clobber the running live session (e.g. a late bundled decode calling applyTrack)
+    if (liveMode) return;
+    // v0.7: live has no tracks entry -> clear the per-track state (start screen shows the live placeholder)
+    if (trackSource === 'live') {
+      analysis = null; F = null; trackDur = 0; trackBpm = null; trackName = 'LIVE';
+      eventsByDiff = {}; decoysByDiff = {}; dualStartByDiff = {}; layerByDiff = {}; genMs = null;
+      audioBuffer = null;
+      return;
+    }
+    var t = trackSource === 'local' ? tracks.local : tracks.bundled;
+    if (t && t.analysis) {
+      analysis = t.analysis; F = t.F; trackDur = t.dur; trackBpm = t.bpm; trackName = t.name;
+      eventsByDiff = t.eventsByDiff; decoysByDiff = t.decoysByDiff; dualStartByDiff = t.dualStartByDiff;
+      layerByDiff = t.layerByDiff; genMs = t.genMs;
+    } else {
+      analysis = null; F = null; trackDur = 0; trackBpm = null; trackName = t ? t.name : '—';
+      eventsByDiff = {}; decoysByDiff = {}; dualStartByDiff = {}; layerByDiff = {}; genMs = null;
+    }
+    audioBuffer = t ? t.buffer : null;
+  }
+
+  function showError(msg) {
+    var el = $('errMsg');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+
+  function loadAssets() {
+    fetch(ASSET_BASE + 'tracks.json')
+      .then(function (r) { if (!r.ok) throw new Error('tracks.json: HTTP ' + r.status); return r.json(); })
+      .then(function (list) {
+        var t = null;
+        for (var i = 0; i < list.length; i++) if (list[i].name === 'CATACOMB') { t = list[i]; break; }
+        if (!t) throw new Error('tracks.json に CATACOMB がありません');
+        tracks.bundled.name = t.name; tracks.bundled.bpm = t.bpm;
+        var pa = fetch(ASSET_BASE + t.analysis)
+          .then(function (r) { if (!r.ok) throw new Error('analysis: HTTP ' + r.status); return r.json(); })
+          .then(function (a) {
+            buildTrack(tracks.bundled, a);
+            applyTrack();
+            updateStartUI();
+          });
+        var pb = fetch(ASSET_BASE + encodeURI(t.file))
+          .then(function (r) { if (!r.ok) throw new Error('audio: HTTP ' + r.status); return r.arrayBuffer(); })
+          .then(function (buf) { audioBytes = buf; tryDecode(); updateStartUI(); });
+        return Promise.all([pa, pb]);
+      })
+      .catch(function (e) { loadError = e; showError('読み込みエラー: ' + (e && e.message ? e.message : e)); updateStartUI(); });
+  }
+
+  // =====================================================================
+  // Audio
+  // =====================================================================
+  var actx = null, source = null, songStartCtx = 0;
+
+  function ensureAudio() {
+    if (!actx) {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) { showError('Web Audio API が使えません'); return null; }
+      actx = new AC({ latencyHint: 'interactive' });
+      tryDecode();
+    }
+    if (actx.state === 'suspended' && state !== 'paused') actx.resume();
+    updateLatencyInfo();
+    return actx;
+  }
+
+  function tryDecode() {
+    if (!actx || !audioBytes || tracks.bundled.buffer || decoding) return;
+    decoding = true;
+    var bytes = audioBytes.slice(0);
+    var onOk = function (b) { tracks.bundled.buffer = b; decoding = false; applyTrack(); updateStartUI(); };
+    var onErr = function (e) { decoding = false; showError('音声デコード失敗: ' + (e && e.message ? e.message : e)); };
+    var p = actx.decodeAudioData(bytes, onOk, onErr);
+    if (p && p.catch) p.catch(function () { /* handled by onErr */ });
+  }
+
+  // ---- Local track: decode (same decodeAudioData path) → mono → ResonanceLocal → generateEvents ----
+  function decodeBytes(buf) {
+    return new Promise(function (resolve, reject) {
+      var p = actx.decodeAudioData(buf, resolve, reject);
+      if (p && p.catch) p.catch(function () { /* handled by reject callback */ });
+    });
+  }
+
+  function toMono(ab) {
+    var n = ab.length, ch = ab.numberOfChannels;
+    var mono = new Float32Array(n);
+    for (var c = 0; c < ch; c++) {
+      var d = ab.getChannelData(c);
+      for (var i = 0; i < n; i++) mono[i] += d[i];
+    }
+    if (ch > 1) for (var j = 0; j < n; j++) mono[j] /= ch;
+    return mono;
+  }
+
+  function setLocalInfo(msg, isErr) {
+    var el = $('localInfo');
+    el.textContent = msg;
+    el.style.color = isErr ? '#ff7d9c' : '';
+  }
+
+  // buf: ArrayBuffer of an encoded audio file; name: display name (extension stripped).
+  function loadLocalBuffer(buf, name) {
+    if (!ensureAudio()) return Promise.reject(new Error('no audio'));
+    var token = ++localToken;
+    tracks.local = null; localBusy = true;
+    applyTrack();
+    setLocalInfo('デコード中…');
+    updateStartUI();
+    return decodeBytes(buf).then(function (ab) {
+      if (token !== localToken) return null;
+      setLocalInfo('解析中…');
+      // let the status paint before the (synchronous) analysis
+      return new Promise(function (r) { setTimeout(r, 30); }).then(function () {
+        if (token !== localToken) return null;
+        var t0 = performance.now();
+        var mono = toMono(ab);
+        var res = window.ResonanceLocal.analyzeSamples(mono, ab.sampleRate);
+        var t = buildTrack({ name: name, bpm: null, buffer: ab }, res.analysis, ab.duration);
+        t.genMs = performance.now() - t0;   // mono + analysis + event generation
+        tracks.local = t; localBusy = false;
+        applyTrack();
+        setLocalInfo('解析完了: ' + (t.genMs / 1000).toFixed(1) + ' 秒 / イベント Easy ' + t.eventsByDiff.easy.length +
+          '・Normal ' + t.eventsByDiff.normal.length + '・Hard ' + t.eventsByDiff.hard.length + ' 件');
+        updateStartUI();
+        return t;
+      });
+    }).catch(function (e) {
+      if (token !== localToken) return null;
+      localBusy = false; tracks.local = null; applyTrack();
+      setLocalInfo('読み込み失敗: ' + (e && e.message ? e.message : e || 'デコードできない形式です'), true);
+      updateStartUI();
+      return null;
+    });
+  }
+
+  function outLatency() { return actx ? (actx.outputLatency || 0) : 0; }
+
+  function updateLatencyInfo() {
+    if (!actx) return;
+    var ol = actx.outputLatency;
+    $('latInfo').textContent = 'outputLatency: ' + (typeof ol === 'number' ? (ol * 1000).toFixed(1) + ' ms' : '未対応（0 ms として扱う）') +
+      (actx.baseLatency ? '　/ baseLatency: ' + (actx.baseLatency * 1000).toFixed(1) + ' ms' : '');
+  }
+
+  function songTime() { return actx ? actx.currentTime - songStartCtx : 0; }
+
+  function stopSource() {
+    if (source) {
+      try { source.onended = null; source.stop(); } catch (e) { /* already stopped */ }
+      try { source.disconnect(); } catch (e2) { /* ignore */ }
+      source = null;
+    }
+  }
+
+  function startSource() {
+    stopSource();
+    source = actx.createBufferSource(); // one-shot: always fresh
+    source.buffer = audioBuffer;
+    source.connect(actx.destination);
+    var t0 = actx.currentTime + LEAD_IN;
+    songStartCtx = t0;
+    source.start(t0);
+  }
+
+  // =====================================================================
+  // Settings (start screen)
+  // =====================================================================
+  var mode = 'resonance', diff = 'normal';
+  var userOffsetMs = 0;
+  try {
+    var saved = localStorage.getItem('resonance.offsetMs');
+    if (saved !== null && !isNaN(parseFloat(saved))) userOffsetMs = Math.max(-200, Math.min(200, parseFloat(saved)));
+  } catch (e) { /* storage unavailable */ }
+  $('offSlider').value = String(userOffsetMs);
+
+  function updateOffsetUI() {
+    $('offVal').textContent = (userOffsetMs > 0 ? '+' : '') + userOffsetMs + ' ms';
+  }
+  $('offSlider').addEventListener('input', function () {
+    userOffsetMs = parseFloat(this.value) || 0;
+    try { localStorage.setItem('resonance.offsetMs', String(userOffsetMs)); } catch (e) { /* ignore */ }
+    updateOffsetUI();
+  });
+  updateOffsetUI();
+
+  function setSeg(segId, attr, val) {
+    var bs = $(segId).querySelectorAll('button');
+    for (var i = 0; i < bs.length; i++) bs[i].classList.toggle('on', bs[i].getAttribute(attr) === val);
+  }
+  $('modeSeg').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    mode = b.getAttribute('data-mode'); setSeg('modeSeg', 'data-mode', mode);
+  });
+  $('diffSeg').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    diff = b.getAttribute('data-diff'); setSeg('diffSeg', 'data-diff', diff);
+  });
+  function setTrackSource(src) {
+    trackSource = src === 'local' ? 'local' : src === 'live' ? 'live' : 'bundled';
+    setSeg('srcSeg', 'data-src', trackSource);
+    $('localRow').classList.toggle('show', trackSource === 'local');
+    $('liveRow').classList.toggle('show', trackSource === 'live');
+    applyTrack();
+    updateStartUI();
+  }
+  // v0.7: live input kind (tab audio via getDisplayMedia / microphone via getUserMedia)
+  var liveKind = 'tab';
+  var liveErr = '';           // last runtime capture failure (shown in #liveInfo until the next attempt / kind change)
+  var liveBusy = false;       // waiting for the browser's capture permission dialog
+  $('liveKindSeg').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b || state !== 'title') return;
+    liveKind = b.getAttribute('data-kind') === 'mic' ? 'mic' : 'tab';
+    setSeg('liveKindSeg', 'data-kind', liveKind);
+    liveErr = '';
+    updateStartUI();
+  });
+  // v0.7: honest feature detection (no capture is attempted here)
+  function liveSupport() {
+    var md = typeof navigator !== 'undefined' ? navigator.mediaDevices : null;
+    var tab = !!(md && typeof md.getDisplayMedia === 'function');
+    var mic = !!(md && typeof md.getUserMedia === 'function');
+    var embedded = false;
+    try { embedded = window.self !== window.top; } catch (e) { embedded = true; }   // cross-origin parent throws
+    return {
+      tab: tab, mic: mic, embedded: embedded,
+      tabReason: tab ? '' : 'このブラウザ/環境ではタブ音声の取り込み（getDisplayMedia）が使えません',
+      micReason: mic ? '' : 'このブラウザ/環境ではマイク入力（getUserMedia）が使えません'
+    };
+  }
+  function liveKindSupported(sup) { return liveKind === 'mic' ? sup.mic : sup.tab; }
+  function renderLiveInfo(sup) {
+    var parts = [];
+    if (!liveKindSupported(sup)) parts.push(liveKind === 'mic' ? sup.micReason : sup.tabReason);
+    if (sup.embedded) parts.push('埋め込み表示では取り込みがブロックされることがあります。単独ページ（GitHub Pages 等）で開くと使えます');
+    if (liveErr) parts.push(liveErr);
+    $('liveInfo').textContent = parts.join('\n');
+  }
+  $('srcSeg').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b || state !== 'title') return;
+    setTrackSource(b.getAttribute('data-src'));
+  });
+  $('fileInput').addEventListener('change', function () {
+    var f = this.files && this.files[0];
+    if (!f) return;
+    var name = f.name.replace(/\.[^.]+$/, '') || f.name;
+    f.arrayBuffer().then(function (buf) { return loadLocalBuffer(buf, name); })
+      .catch(function (e) { setLocalInfo('読み込み失敗: ' + (e && e.message ? e.message : e), true); });
+  });
+
+  function fmtDur(s) {
+    var m = Math.floor(s / 60), r = Math.floor(s % 60);
+    return m + ':' + (r < 10 ? '0' : '') + r;
+  }
+
+  function isReady() { return hasThree && !!analysis && !!audioBuffer; }
+
+  // v0.3: start-screen section map (classification does not depend on difficulty -> use normal)
+  var secMapKey = null;
+  function renderSecMap() {
+    if (trackSource === 'live') {
+      // v0.7: live sections are classified while playing -> single placeholder block
+      if (secMapKey === 'live') { fitSecMapLabels(); return; }
+      secMapKey = 'live';
+      var elL = $('secMap');
+      while (elL.firstChild) elL.removeChild(elL.firstChild);
+      $('secNote').style.display = 'none';
+      var ph = document.createElement('div');
+      ph.className = 'sg';
+      ph.style.flexGrow = '1';
+      ph.style.color = '#e8e6f4'; ph.style.opacity = '0.75';
+      ph.style.fontWeight = '500'; ph.style.letterSpacing = '0.04em';
+      ph.textContent = 'セクションは演奏中に分類されます';
+      ph.setAttribute('data-label', 'セクションは演奏中に分類されます');
+      elL.appendChild(ph);
+      fitSecMapLabels();
+      return;
+    }
+    var L = layerByDiff && layerByDiff.normal ? layerByDiff.normal : null;
+    if (L === secMapKey) { fitSecMapLabels(); return; }
+    secMapKey = L;
+    var el = $('secMap');
+    while (el.firstChild) el.removeChild(el.firstChild);
+    $('secNote').style.display = L && L.pseudo ? 'block' : 'none';
+    if (!L) return;
+    L.sections.forEach(function (s) {
+      var acc = MECH_ACCENT[s.mech] || '#ffffff';
+      var d = document.createElement('div');
+      d.className = 'sg';
+      d.style.flexGrow = String(Math.max(0.001, s.end - s.start));
+      d.style.background = mixHex('#05040a', acc, 0.32);
+      d.style.color = acc;
+      d.textContent = MECH_NAME[s.mech] || s.mech;
+      d.setAttribute('data-label', MECH_NAME[s.mech] || s.mech);
+      d.title = (MECH_NAME[s.mech] || s.mech) + ' ' + fmtDur(s.start) + '–' + fmtDur(s.end);
+      el.appendChild(d);
+    });
+    fitSecMapLabels();
+  }
+
+  // v0.6: shrink (or, as a last resort, hide) section-map labels that would clip inside narrow segments
+  function fitSecMapLabels() {
+    var el = $('secMap');
+    if (!el || !el.clientWidth) return;
+    var kids = el.children;
+    if (!kids.length) return;
+    var meas = document.createElement('span');
+    meas.style.cssText = 'position:absolute;left:-9999px;top:0;visibility:hidden;white-space:nowrap;font-weight:600;';
+    document.body.appendChild(meas);
+    for (var i = 0; i < kids.length; i++) {
+      var d = kids[i];
+      var label = d.getAttribute('data-label');
+      if (label == null) { label = d.textContent; d.setAttribute('data-label', label); }
+      if (d.textContent !== label) d.textContent = label;
+      d.style.fontSize = ''; d.style.letterSpacing = '';
+      var avail = d.clientWidth - 2, size = 9, ls = 0.08, w = Infinity;
+      while (true) {
+        meas.style.fontSize = size + 'px';
+        meas.style.letterSpacing = ls + 'em';
+        meas.textContent = label;
+        w = meas.offsetWidth;
+        if (w <= avail || size <= 6) break;
+        size -= 0.5; if (size < 8.5) ls = 0.03;
+      }
+      if (w > avail) { d.textContent = ''; }
+      else if (size !== 9) { d.style.fontSize = size + 'px'; d.style.letterSpacing = ls + 'em'; }
+    }
+    document.body.removeChild(meas);
+  }
+  window.addEventListener('resize', fitSecMapLabels);
+
+  function updateStartUI() {
+    renderSecMap();
+    var names ={ easy: 'Easy', normal: 'Normal', hard: 'Hard' };
+    var bs = $('diffSeg').querySelectorAll('button');
+    if (trackSource === 'live') {
+      // v0.7: live start-screen state
+      $('trackLine').textContent = 'ライブ入力 / リアルタイム解析';
+      for (var iL = 0; iL < bs.length; iL++) bs[iL].textContent = names[bs[iL].getAttribute('data-diff')];
+      var sup = liveSupport();
+      renderLiveInfo(sup);
+      var okL = hasThree && liveKindSupported(sup) && !liveBusy;
+      var btnL = $('btnStart');
+      btnL.classList.toggle('dis', !okL);
+      if (!hasThree) btnL.textContent = 'three.js を読み込めません';
+      else if (!liveKindSupported(sup)) btnL.textContent = liveKind === 'mic' ? 'マイク入力 非対応' : 'タブ音声 非対応';
+      else if (liveBusy) btnL.textContent = '入力の許可を待っています…';
+      else btnL.textContent = 'ライブ開始';
+      return;
+    }
+    if (analysis) {
+      $('trackLine').textContent = trackName + ' / BPM ' + (trackBpm != null ? trackBpm : '—') + ' / ' + fmtDur(trackDur);
+      for (var i = 0; i < bs.length; i++) {
+        var d = bs[i].getAttribute('data-diff');
+        bs[i].textContent = names[d] + ' · ' + eventsByDiff[d].length + ' events';
+      }
+    } else {
+      $('trackLine').textContent = trackSource === 'local' ? 'ローカル曲 / 未選択' : 'CATACOMB / BPM — / —';
+      for (var i2 = 0; i2 < bs.length; i2++) bs[i2].textContent = names[bs[i2].getAttribute('data-diff')];
+    }
+    var btn = $('btnStart');
+    var ready = isReady();
+    btn.classList.toggle('dis', !ready);
+    if (!hasThree) btn.textContent = 'three.js を読み込めません';
+    else if (trackSource === 'local') {
+      if (localBusy) btn.textContent = '解析中…';
+      else if (!ready) btn.textContent = 'ローカル曲を選択してください';
+      else btn.textContent = 'START';
+    }
+    else if (loadError) btn.textContent = 'LOAD ERROR';
+    else if (!analysis || !audioBytes) btn.textContent = 'LOADING…';
+    else if (!actx) btn.textContent = 'クリックで音声を初期化';
+    else if (!audioBuffer) btn.textContent = 'DECODING…';
+    else btn.textContent = 'START';
+  }
+
+  // First user gesture on the start screen creates the AudioContext.
+  function onStartGesture() { if (state === 'title') { ensureAudio(); updateStartUI(); } }
+  $('ovStart').addEventListener('pointerdown', onStartGesture, true);
+  window.addEventListener('keydown', function (e) {
+    if (state === 'title' && !e.repeat) onStartGesture();
+  }, true);
+
+  $('btnStart').addEventListener('click', function () {
+    if (state !== 'title') return;
+    if (trackSource === 'live') { startLiveFlow(); return; }   // v0.7: live does its own ensureAudio
+    ensureAudio();
+    if (!isReady()) { updateStartUI(); return; }
+    startGame(mode, diff);
+  });
+
+  // =====================================================================
+  // Three setup
+  // =====================================================================
+  var hasThree = typeof THREE !== 'undefined';
+  var renderer = null, scene = null, camera = null;
+  var VW = window.innerWidth, VH = window.innerHeight, R_T = 0.11 * Math.min(VW, VH);
+  var bgMat = null, bgMesh = null;
+  var ringGeo = null, ringPool = [], lineMesh = null, barPool = [], notePool = [];
+
+  var GLSL_SPECTRAL =
+    'vec3 spectral(float x) {\n' +
+    '  x = fract(x);\n' +
+    '  vec3 c = 0.5 + 0.5 * cos(6.28318 * (x + vec3(0.0, 0.33, 0.67)));\n' +
+    '  return mix(c, smoothstep(0.0, 1.0, c), 0.5);\n' +
+    '}\n';
+
+  var VERT = 'varying vec2 vUv;\nvoid main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }';
+
+  var BG_FRAG = [
+    'precision highp float;',
+    'varying vec2 vUv;',
+    'uniform vec2 uRes; uniform float uTime, uBass, uMid, uHigh, uCoh, uHold, uPhase, uDim, uBloom;',
+    'uniform vec3 uAccent;',
+    GLSL_SPECTRAL,
+    'float hash(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }',
+    'float noise(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);',
+    '  return mix(mix(hash(i), hash(i + vec2(1,0)), u.x), mix(hash(i + vec2(0,1)), hash(i + vec2(1,1)), u.x), u.y); }',
+    'float fbm(vec2 p){ float v = 0.0, a = 0.5; mat2 m = mat2(1.6, 1.2, -1.2, 1.6);',
+    '  for (int i = 0; i < 5; i++) { v += a * noise(p); p = m * p; a *= 0.5; } return v; }',
+    'void main(){',
+    '  vec2 p = (vUv - 0.5) * vec2(uRes.x / uRes.y, 1.0) * 2.0;',
+    '  float bang = atan(p.y, p.x) + uBloom * 0.30 * sin(uTime * 0.07);',
+    '  float brad = length(p);',
+    '  float seg = 6.28318 / mix(2.0, 8.0, uBloom);',
+    '  float fa = mod(bang, seg);',
+    '  fa = abs(fa - seg * 0.5);',
+    '  vec2 pk = brad * vec2(cos(fa), sin(fa));',
+    '  p = mix(p, pk, uBloom * 0.85);',
+    '  float t = uTime * 0.06;',
+    '  float turb = mix(1.15, 0.45, uCoh) * (0.8 + 0.5 * uBass);',
+    '  vec2 q = vec2(fbm(p * 1.3 + vec2(t, -t * 0.7)), fbm(p * 1.3 + vec2(-t * 0.8, t * 0.5) + 5.2));',
+    '  vec2 r = vec2(fbm(p * 1.1 + turb * 2.2 * q + vec2(1.7, 9.2) + t * 1.4 + uPhase), fbm(p * 1.1 + turb * 2.2 * q + vec2(8.3, 2.8) - t));',
+    '  float f = fbm(p * 1.2 + turb * 2.0 * r);',
+    '  float spread = mix(1.1, 0.22, uCoh) * (1.0 + 1.1 * uBloom);',
+    '  float drift = uTime * 0.018 + uPhase * 0.5;',
+    '  float hue = drift + spread * (f + 0.35 * r.x) + 0.08 * uMid + uBloom * 0.22 * sin(uTime * 0.11 + f * 2.0);',
+    '  vec3 col = spectral(hue);',
+    '  float lum = 0.18 + 0.42 * smoothstep(0.25, 0.85, f) + 0.12 * uBass;',
+    '  col *= lum;',
+    '  col += 0.06 * spectral(hue + 0.33) * length(q);',
+    '  float interf = pow(0.5 + 0.5 * sin((r.x - r.y) * 16.0 + f * 9.0 - uTime * 0.6), 3.0);',
+    '  col += uBloom * 0.12 * interf * spectral(hue + 0.45);',
+    // prism sparkle: sparse high-frequency glints, gated by highs
+    '  vec2 sp = vUv * uRes / 3.0;',
+    '  float h = hash(floor(sp) + floor(uTime * 6.0));',
+    // v0.6: glint is a soft round dot inside its 3px cell (same cells / timing / color / center peak as v0.5)
+    '  float glint = step(0.996 - 0.004 * uHigh - 0.002 * uBloom, h) * (0.3 + 0.7 * uHigh) * smoothstep(0.52, 0.06, length(fract(sp) - 0.5));',
+    '  col += glint * spectral(h * 3.0 + drift) * 0.55;',
+    // center vignette & hold glow (soft, local — no fullscreen flash)
+    '  float d = length(p);',
+    '  col *= 1.0 - 0.45 * smoothstep(0.6, 1.8, d);',
+    '  col += uHold * 0.10 * vec3(1.0, 0.82, 0.48) * exp(-d * 2.5);',
+    '  col *= uDim;',
+    '  col += uAccent * 0.05;',   // v0.3: weak section-accent tint
+    '  gl_FragColor = vec4(col, 1.0);',
+    '}'
+  ].join('\n');
+
+  // Anti-aliased ring/disc drawn by distance from the plane centre (px).
+  var RING_FRAG = [
+    'precision highp float;',
+    'varying vec2 vUv;',
+    'uniform float uSize, uRadius, uWidth, uAlpha, uProgress, uDouble, uGlow, uTime, uSpectral, uFill;',
+    'uniform vec3 uColor;',
+    GLSL_SPECTRAL,
+    'float band(float d, float r, float w){ float aa = max(fwidth(d), 0.75); return 1.0 - smoothstep(w * 0.5 - aa, w * 0.5 + aa, abs(d - r)); }',
+    'void main(){',
+    '  vec2 p = (vUv - 0.5) * uSize;',
+    '  float d = length(p);',
+    '  float ang = atan(p.y, p.x) / 6.28318 + 0.5;',
+    '  vec3 sc = spectral(ang + uTime * 0.08);',
+    '  vec3 base = mix(uColor, mix(uColor, sc, 0.75), uSpectral);',
+    '  float a = 0.0; vec3 col = vec3(0.0);',
+    '  if (uFill > 0.5) {',
+    '    float aa = max(fwidth(d), 0.75);',
+    '    float disc = 1.0 - smoothstep(uRadius - aa, uRadius + aa, d);',
+    '    float core = 1.0 - smoothstep(0.0, uRadius * 0.55, d);',
+    '    float glow = exp(-max(d - uRadius, 0.0) / (6.0 + 8.0 * uGlow)) * 0.55;',
+    '    col = base * (disc * 0.75 + glow) + vec3(1.0) * core * 0.6;',
+    '    a = max(disc * 0.85, glow);',
+    '  } else {',
+    '    float ring = band(d, uRadius, uWidth);',
+    '    float glow = exp(-abs(d - uRadius) / (4.0 + 10.0 * uGlow)) * (0.25 + 0.5 * uGlow);',
+    '    float ring2 = uDouble > 0.5 ? band(d, uRadius * 0.86, uWidth * 0.7) * 0.8 : 0.0;',
+    '    col = base * (ring + ring2) + base * glow;',
+    '    a = max(max(ring, ring2), glow);',
+    '    if (uProgress > 0.0) {',
+    '      float ang2 = fract(0.25 - atan(p.y, p.x) / 6.28318);', // clockwise from 12 o'clock
+    '      float inside = 1.0 - smoothstep(uRadius * 0.78 - 1.0, uRadius * 0.78 + 1.0, d);',
+    '      float filled = step(ang2, uProgress) * inside;',
+    '      float arc = band(d, uRadius * 0.7, 3.0) * step(ang2, uProgress);',
+    '      col += uColor * (filled * 0.22 + arc * 0.9);',
+    '      a = max(a, max(filled * 0.28, arc));',
+    '    }',
+    '  }',
+    '  gl_FragColor = vec4(col, a * uAlpha);',
+    '}'
+  ].join('\n');
+
+  // Soft bar (judgement line / hold bodies). uVertical: spectral along x (line) or solid colour.
+  var BAR_FRAG = [
+    'precision highp float;',
+    'varying vec2 vUv;',
+    'uniform vec3 uColor; uniform float uAlpha, uSpectral, uTime, uAcross;',
+    GLSL_SPECTRAL,
+    'void main(){',
+    '  float across = uAcross > 0.5 ? vUv.x : vUv.y;',
+    '  float along = uAcross > 0.5 ? vUv.y : vUv.x;',
+    '  float e = 1.0 - abs(across * 2.0 - 1.0);',
+    '  float a = smoothstep(0.0, 0.6, e);',
+    '  vec3 c = mix(uColor, spectral(along * 1.2 + uTime * 0.05), uSpectral);',
+    '  c += vec3(1.0) * pow(e, 6.0) * 0.5;',
+    '  gl_FragColor = vec4(c, a * uAlpha);',
+    '}'
+  ].join('\n');
+
+  function makeRing() {
+    var m = new THREE.Mesh(ringGeo, new THREE.ShaderMaterial({
+      vertexShader: VERT, fragmentShader: RING_FRAG, transparent: true, depthTest: false, depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      uniforms: {
+        uSize: { value: 100 }, uRadius: { value: 40 }, uWidth: { value: 3 }, uAlpha: { value: 1 },
+        uProgress: { value: 0 }, uDouble: { value: 0 }, uGlow: { value: 0 }, uTime: { value: 0 },
+        uSpectral: { value: 1 }, uFill: { value: 0 }, uColor: { value: new THREE.Color(1, 1, 1) }
+      }
+    }));
+    m.frustumCulled = false; m.visible = false; m.renderOrder = 2;
+    scene.add(m);
+    return m;
+  }
+  function makeBar() {
+    var m = new THREE.Mesh(ringGeo, new THREE.ShaderMaterial({
+      vertexShader: VERT, fragmentShader: BAR_FRAG, transparent: true, depthTest: false, depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      uniforms: { uColor: { value: new THREE.Color(1, 0.82, 0.48) }, uAlpha: { value: 1 }, uSpectral: { value: 0 },
+        uTime: { value: 0 }, uAcross: { value: 1 } }
+    }));
+    m.frustumCulled = false; m.visible = false; m.renderOrder = 1;
+    scene.add(m);
+    return m;
+  }
+
+  // Draw a ring with plane centred at (x, y) in px (origin = screen centre, y up).
+  function setRing(m, x, y, radius, o) {
+    var u = m.material.uniforms;
+    var size = 2 * (radius + 40);
+    m.position.set(x, y, 0);
+    m.scale.set(size, size, 1);
+    u.uSize.value = size; u.uRadius.value = radius;
+    u.uWidth.value = o.width || 3; u.uAlpha.value = o.alpha != null ? o.alpha : 1;
+    u.uProgress.value = o.progress || 0; u.uDouble.value = o.double ? 1 : 0;
+    u.uGlow.value = o.glow || 0; u.uSpectral.value = o.spectral != null ? o.spectral : 1;
+    u.uFill.value = o.fill ? 1 : 0;
+    u.uColor.value.set(o.color || '#ffffff');
+    u.uTime.value = clock;
+    m.visible = true;
+  }
+
+  function initThree() {
+    renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setClearColor(0x05040a, 1);
+    $('stage').appendChild(renderer.domElement);
+    scene = new THREE.Scene();
+    camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -10, 10);
+    ringGeo = new THREE.PlaneGeometry(1, 1);
+    bgMat = new THREE.ShaderMaterial({
+      vertexShader: VERT, fragmentShader: BG_FRAG, depthTest: false, depthWrite: false,
+      uniforms: { uRes: { value: new THREE.Vector2(1, 1) }, uTime: { value: 0 }, uBass: { value: 0 }, uMid: { value: 0 },
+        uHigh: { value: 0 }, uCoh: { value: 0.5 }, uHold: { value: 0 }, uPhase: { value: 0 }, uDim: { value: 1 }, uBloom: { value: 0 },
+        uAccent: { value: new THREE.Vector3(0, 0, 0) } }
+    });
+    bgMesh = new THREE.Mesh(ringGeo, bgMat);
+    bgMesh.frustumCulled = false; bgMesh.renderOrder = 0;
+    scene.add(bgMesh);
+    for (var i = 0; i < 28; i++) ringPool.push(makeRing());    // resonance: targets + events + decoys + fx + flow/preview
+    for (var j = 0; j < 32; j++) notePool.push(makeRing());    // classic: heads/tails (fill mode)
+    for (var k = 0; k < 12; k++) barPool.push(makeBar());      // classic: hold bodies
+    lineMesh = makeBar();
+    lineMesh.material.uniforms.uSpectral.value = 1;
+    lineMesh.material.uniforms.uAcross.value = 0;
+    onResize();
+  }
+
+  function onResize() {
+    VW = window.innerWidth; VH = window.innerHeight;
+    R_T = 0.11 * Math.min(VW, VH);
+    if (!renderer) return;
+    renderer.setSize(VW, VH, false);
+    camera.left = -VW / 2; camera.right = VW / 2; camera.top = VH / 2; camera.bottom = -VH / 2;
+    camera.updateProjectionMatrix();
+    bgMesh.scale.set(VW, VH, 1);
+    bgMat.uniforms.uRes.value.set(VW, VH);
+  }
+  window.addEventListener('resize', onResize);
+
+  // =====================================================================
+  // Game state
+  // =====================================================================
+  var state = 'title';        // title | playing | paused | result
+  var events = [], inputs = [], live = null, resolved = [], lastFeedbackIdx = -1;
+  var decoys = [];            // visual-only decoys of the current game (dual sections only)
+  var layer = null;           // v0.3: section layer of the current game (layerByDiff[curDiff])
+  var curSecIdx = -1, bannerUntil = -Infinity;
+  var curMode = 'resonance', curDiff = 'normal';
+  var activeSources = {}, pressing = false, lastDownT = -Infinity;
+  var combo = 0, cP = 0, cG = 0, cM = 0;
+  var cohTarget = 0.5, coh = 0.5, phase = 0, holdGlow = 0;
+  // v0.5: optic bloom (render-only; reads judgement results, never feeds judging/scoring)
+  var bloom = 0, bloomTarget = 0, prevStrayCount = 0, lastFlowStrayT = -10;
+  var sBass = 0, sMid = 0, sHigh = 0;
+  var fx = [];                // short tap-hit rings: {t0, color}
+  var clock = 0;              // wall clock for animation (s)
+
+  function showOv(id) {
+    ['ovStart', 'ovPause', 'ovResult'].forEach(function (o) { $(o).classList.toggle('show', o === id); });
+  }
+
+  function startGame(m, d) {
+    if (!isReady()) return Promise.reject(new Error('not ready'));
+    mode = m || mode; diff = d || diff;
+    curMode = mode; curDiff = diff;
+    lastWasLive = false;
+    setSeg('modeSeg', 'data-mode', mode); setSeg('diffSeg', 'data-diff', diff);
+    layer = layerByDiff[curDiff];
+    events = layer.events;
+    decoys = layer.decoys || [];
+    inputs = [];
+    resolved = new Array(events.length);
+    // flow-section events are inactive: pre-resolved so every loop skips them
+    for (var i = 0; i < events.length; i++) resolved[i] = events[i].mech === 'flow';
+    activeSources = {}; pressing = false; lastDownT = -Infinity;
+    combo = 0; cP = cG = cM = 0; cohTarget = 0.5; coh = 0.5; phase = 0; holdGlow = 0; fx = []; bloom = 0; bloomTarget = 0; prevStrayCount = 0; lastFlowStrayT = -10;
+    curSecIdx = -1; bannerUntil = -Infinity;
+    live = RC.judgeGame(events, inputs, layer);
+    hidePopup();
+    var p = actx.state === 'suspended' ? actx.resume() : Promise.resolve();
+    return p.then(function () {
+      startSource();
+      state = 'playing';
+      showOv(null);
+      $('hud').classList.add('show');
+      $('hudMode').textContent = (curMode === 'resonance' ? 'Resonance' : 'Classic Tap') + ' · ' +
+        curDiff.charAt(0).toUpperCase() + curDiff.slice(1);
+      bgMat.uniforms.uDim.value = curMode === 'classic' ? 0.65 : 1.0;
+    });
+  }
+
+  function pauseGame() {
+    if (liveMode) return;       // v0.7: no pause in live (Esc / P / blur are inert)
+    if (state !== 'playing') return;
+    state = 'paused';
+    activeSources = {}; pressing = false; // inputs during pause are ignored; held press is dropped
+    actx.suspend();
+    showOv('ovPause');
+  }
+  function resumeGame() {
+    if (state !== 'paused') return;
+    actx.resume().then(function () { state = 'playing'; showOv(null); });
+  }
+  function toTitle() {
+    stopSource();
+    // v0.7: tear down any live session (no-op when not live)
+    if (liveMode || liveStream || liveNodes || liveTimer) {
+      teardownLiveAudio();
+      liveMode = false;
+      applyTrack();             // restore the start-screen track state (live globals were overwritten)
+    }
+    $('btnPause').style.display = ''; $('btnStop').style.display = 'none';
+    state = 'title';
+    if (actx && actx.state === 'suspended') actx.resume();
+    $('hud').classList.remove('show');
+    hidePopup(); $('combo').style.display = 'none'; hideSecLabels();
+    hideAllMeshes();
+    bgMat.uniforms.uDim.value = 1;
+    showOv('ovStart');
+    updateStartUI();
+  }
+  function restartGame() {
+    stopSource();
+    state = 'title';
+    startGame(curMode, curDiff);
+  }
+
+  function finishGame() {
+    if (state !== 'playing' && state !== 'paused') return;
+    stopSource();
+    // v0.7: live -> stop capture/monitoring first; events / inputs / layer stay intact for the results
+    var wasLive = liveMode;
+    if (wasLive) { adoptLive(); teardownLiveAudio(); }
+    if (actx.state === 'suspended') actx.resume();
+    state = 'result';
+    var fin = RC.judgeGame(events, inputs, layer);
+    $('hud').classList.remove('show');
+    hidePopup(); $('combo').style.display = 'none'; hideSecLabels();
+    hideAllMeshes();
+    $('resLabel').textContent = trackName + ' · ' + (curMode === 'resonance' ? 'Resonance' : 'Classic Tap') + ' · ' + curDiff.toUpperCase();
+    $('resTotal').textContent = fin.total.toFixed(1);
+    $('resTiming').textContent = fin.timing.toFixed(1); $('resTimingBar').style.width = fin.timing + '%';
+    $('resStab').textContent = fin.stability.toFixed(1); $('resStabBar').style.width = fin.stability + '%';
+    $('resEcon').textContent = fin.economy.toFixed(1); $('resEconBar').style.width = fin.economy + '%';
+    var adapt = fin.adaptation != null ? fin.adaptation : 0;
+    $('resAdapt').textContent = adapt.toFixed(1); $('resAdaptBar').style.width = adapt + '%';
+    $('resP').textContent = fin.counts.perfect; $('resG').textContent = fin.counts.good; $('resM').textContent = fin.counts.miss;
+    $('resCov').textContent = (fin.coverage * 100).toFixed(1) + '%';
+    $('resCombo').textContent = fin.maxCombo;
+    $('resStray').textContent = fin.strayPresses;
+    // v0.3: flow score (only when the game had flow sections) + per-mechanic breakdown
+    if (fin.flow) {
+      $('resFlowRow').style.display = '';
+      $('resFlow').textContent = fin.flow.score.toFixed(1); $('resFlowBar').style.width = fin.flow.score + '%';
+      $('resFlowNote').textContent = 'Flow は曲中の Flow 節の割合（' + Math.round(fin.flow.weight * 100) + '%）に応じて Total に反映されます';
+      $('resFlowNote').style.display = 'block';
+    } else {
+      $('resFlowRow').style.display = 'none';
+      $('resFlowNote').style.display = 'none';
+    }
+    var rm = $('resMech');
+    while (rm.firstChild) rm.removeChild(rm.firstChild);
+    var pm = fin.perMech || {}, nPart = 0;
+    ['tap', 'hold', 'dual', 'flow'].forEach(function (k) {
+      var c = pm[k];
+      if (!c || c.perfect + c.good + c.miss === 0) return;
+      if (nPart++) rm.appendChild(document.createTextNode(' · '));
+      var sp = document.createElement('span');
+      sp.style.color = MECH_ACCENT[k]; sp.textContent = MECH_NAME[k];
+      rm.appendChild(sp);
+      rm.appendChild(document.createTextNode(' P' + c.perfect + ' G' + c.good + ' M' + c.miss));
+    });
+    rm.style.display = nPart ? '' : 'none';
+    // v0.4: per-mechanic grid (P n · G n · M n; — for mechanics absent from the song)
+    var mg = $('resMechGrid');
+    while (mg.firstChild) mg.removeChild(mg.firstChild);
+    var present = {};
+    (layer && layer.sections || []).forEach(function (s) { present[s.mech] = true; });
+    ['tap', 'hold', 'dual', 'flow'].forEach(function (k) {
+      var c = pm[k], cell = document.createElement('div'), nm = document.createElement('b');
+      nm.style.color = MECH_ACCENT[k]; nm.textContent = MECH_NAME[k];
+      cell.appendChild(nm);
+      var has = c && (present[k] || c.perfect + c.good + c.miss > 0);
+      // Flow has no P/G/M counts (its events are judgement-inactive); show its score instead.
+      var txt = (k === 'flow' && fin.flow) ? 'Score ' + fin.flow.score.toFixed(1)
+        : has ? 'P ' + c.perfect + ' · G ' + c.good + ' · M ' + c.miss : '—';
+      cell.appendChild(document.createTextNode(txt));
+      mg.appendChild(cell);
+    });
+    if (wasLive) {
+      liveMode = false;         // after the results are captured
+      $('btnPause').style.display = ''; $('btnStop').style.display = 'none';
+    }
+    showOv('ovResult');
+    return fin;
+  }
+
+  $('btnPause').addEventListener('click', function (e) { e.stopPropagation(); pauseGame(); });
+  $('btnPause').addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+  $('btnResume').addEventListener('click', resumeGame);
+  $('btnRestart').addEventListener('click', function () { actx.resume().then(restartGame); });
+  $('btnQuit').addEventListener('click', toTitle);
+  // v0.7: a live session cannot be replayed (no recorded audio, no determinism) and needs a fresh capture
+  // permission prompt, so Retry after a live game returns to the title screen instead of restarting.
+  $('btnRetry').addEventListener('click', function () {
+    if (lastWasLive) { toTitle(); return; }
+    state = 'title'; startGame(curMode, curDiff);
+  });
+  $('btnStop').addEventListener('click', function (e) { e.stopPropagation(); if (liveMode && state === 'playing') finishGame(); });
+  $('btnStop').addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+  $('btnTitle').addEventListener('click', toTitle);
+
+  // =====================================================================
+  // v0.7: Live session (tab audio / mic -> ResonanceLive engine -> delayed monitoring)
+  // =====================================================================
+  // All live event / section times are MUSICAL times (s since capture start). The captured
+  // audio is monitored through a DELAY_SEC delay line and songStartCtx = capture start + DELAY_SEC,
+  // so songTime() equals the musical time of the audio the player hears.
+  var liveMode = false, liveStream = null, liveNodes = null, liveEngine = null, liveTimer = null;
+  var liveF = null;           // features snapshot (frozen prefix) of the last adoption
+  var liveC0 = 0;             // actx time of capture start
+  var lastWasLive = false;    // the most recently started game was live (Retry -> title)
+  var resolvedByEvent = new Map();   // live: event object -> resolved (engine arrays are re-synced wholesale)
+  var LIVE_EMPTY_F = { fps: 20, kick: new Uint8Array(0), bass: new Uint8Array(0), snare: new Uint8Array(0),
+    hat: new Uint8Array(0), pad: new Uint8Array(0), vocal: new Uint8Array(0) };
+
+  function liveErrText(e) {
+    var name = e && e.name && e.name !== 'Error' ? e.name : '';
+    var msg = e && e.message ? e.message : String(e || '不明なエラー');
+    return (name ? name + ': ' : '') + msg;
+  }
+  // Honest runtime failure: #liveInfo + errMsg, stay on the title screen, never throw.
+  function liveFail(e) {
+    var txt = 'ライブ入力を開始できませんでした — ' + liveErrText(e) + '。ライブ入力は単独ページを PC の Chrome で開くと利用できます';
+    liveErr = txt;
+    try { showError(txt); } catch (err) { /* ignore */ }
+    try { updateStartUI(); } catch (err2) { /* ignore */ }
+  }
+  function stopStreamTracks(stream) {
+    if (!stream || !stream.getTracks) return;
+    stream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) { /* ignore */ } });
+  }
+
+  function startLiveFlow() {
+    if (state !== 'title' || liveBusy) return;
+    ensureAudio(); if (!actx) return;
+    var kind = liveKind, sup = liveSupport();
+    if (!(kind === 'mic' ? sup.mic : sup.tab)) { updateStartUI(); return; }   // reason already shown in #liveInfo; button disabled
+    liveErr = ''; $('errMsg').style.display = 'none';
+    var md = navigator.mediaDevices, p;
+    try {
+      p = kind === 'tab'
+        ? md.getDisplayMedia({ video: true, audio: true })
+        : md.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+    } catch (e) { liveFail(e); return; }
+    liveBusy = true; updateStartUI();
+    Promise.resolve(p).then(function (stream) {
+      liveBusy = false;
+      if (kind === 'tab') {
+        // keep audio only: stop the (unused) video tracks of the tab share
+        stream.getVideoTracks().forEach(function (t) { try { t.stop(); } catch (e) { /* ignore */ } });
+        if (!stream.getAudioTracks().length) {
+          stopStreamTracks(stream);
+          throw new Error('音声トラックが取得できませんでした（共有時に「タブの音声を共有」を有効にしてください）');
+        }
+      }
+      if (state !== 'title' || trackSource !== 'live') { stopStreamTracks(stream); updateStartUI(); return; }
+      if (!beginLive(stream, kind)) stopStreamTracks(stream);
+    }).catch(function (e) { liveBusy = false; liveFail(e); });
+  }
+
+  // Steps 3-4 of the live flow: audio graph + game state. Returns true when the session started.
+  function beginLive(stream, kind) {
+    if (state !== 'title' || liveMode) return false;
+    kind = kind === 'mic' ? 'mic' : 'tab';
+    try {
+      var LV = window.ResonanceLive;
+      if (!LV) throw new Error('ResonanceLive モジュールが読み込まれていません');
+      if (!hasThree) throw new Error('three.js / WebGL が使えません');
+      ensureAudio(); if (!actx) throw new Error('Web Audio API が使えません');
+      if (!stream || !stream.getAudioTracks || !stream.getAudioTracks().length) throw new Error('音声トラックがありません');
+      curMode = mode; curDiff = diff;
+      setSeg('modeSeg', 'data-mode', mode); setSeg('diffSeg', 'data-diff', diff);
+
+      // 3. graph: src -> delay(DELAY_SEC) -> monitor gain -> out; src -> scriptProcessor -> gain 0 -> out (tap)
+      var engine = LV.createEngine({ RC: RC, difficulty: curDiff });
+      var analyzer = LV.createFrameAnalyzer(actx.sampleRate, function (raw) { engine.pushRawFrame(raw); });
+      var srcNode = actx.createMediaStreamSource(stream);
+      var delayNode = actx.createDelay(10);
+      delayNode.delayTime.value = LV.DELAY_SEC;
+      var monGain = actx.createGain();
+      monGain.gain.value = kind === 'mic' ? 0.8 : 1.0;
+      var tapGain = actx.createGain();
+      tapGain.gain.value = 0;
+      var scriptNode = actx.createScriptProcessor(4096, 2, 1);
+      var nodes = { src: srcNode, delay: delayNode, mon: monGain, tap: tapGain, script: scriptNode, analyzer: analyzer, warned: false };
+      scriptNode.onaudioprocess = function (ev) {
+        if (liveNodes !== nodes) return;
+        try {
+          var ib = ev.inputBuffer, n = ib.length, ch = ib.numberOfChannels;
+          var mono = new Float32Array(n);
+          for (var c = 0; c < ch; c++) {
+            var d = ib.getChannelData(c);
+            for (var i = 0; i < n; i++) mono[i] += d[i];
+          }
+          if (ch > 1) for (var j = 0; j < n; j++) mono[j] /= ch;
+          analyzer.pushSamples(mono);
+        } catch (err) {
+          if (!nodes.warned) { nodes.warned = true; if (window.console) console.warn('live analysis error', err); }
+        }
+      };
+      liveC0 = actx.currentTime;   // capture start (set before connecting; first samples arrive within a quantum or two)
+      liveNodes = nodes; liveStream = stream; liveEngine = engine;
+      srcNode.connect(delayNode); delayNode.connect(monGain); monGain.connect(actx.destination);
+      srcNode.connect(scriptNode); scriptNode.connect(tapGain); tapGain.connect(actx.destination);
+
+      // 4. game state (mirrors startGame's shared-state reset)
+      liveMode = true; lastWasLive = true;
+      layer = { sections: [], pseudo: true, events: [], decoys: [], flow: [] };
+      events = layer.events; decoys = layer.decoys; resolved = []; resolvedByEvent = new Map();
+      inputs = [];
+      flowInCache.len = -1; flowInCache.list = []; strayCache.len = -1; strayCache.count = 0;
+      activeSources = {}; pressing = false; lastDownT = -Infinity;
+      combo = 0; cP = cG = cM = 0; cohTarget = 0.5; coh = 0.5; phase = 0; holdGlow = 0; fx = []; bloom = 0; bloomTarget = 0; prevStrayCount = 0; lastFlowStrayT = -10;
+      curSecIdx = -1; bannerUntil = -Infinity;
+      trackDur = Infinity; trackBpm = null;
+      trackName = kind === 'tab' ? 'LIVE（タブ音声）' : 'LIVE（マイク）';
+      F = LIVE_EMPTY_F; liveF = F;
+      songStartCtx = liveC0 + LV.DELAY_SEC;   // no buffer source: startSource() is not used in live
+      live = RC.judgeGame(events, inputs, layer);
+      hidePopup();
+      liveErr = ''; $('errMsg').style.display = 'none';
+      state = 'playing';
+      showOv(null);
+      $('hud').classList.add('show');
+      $('hudMode').textContent = 'Live · ' + (curMode === 'resonance' ? 'Resonance' : 'Classic') + ' · ' +
+        curDiff.charAt(0).toUpperCase() + curDiff.slice(1);
+      bgMat.uniforms.uDim.value = curMode === 'classic' ? 0.65 : 1.0;
+      $('btnPause').style.display = 'none'; $('btnStop').style.display = 'inline-block';
+      stream.getAudioTracks().forEach(function (t) {
+        t.addEventListener('ended', function () { if (liveMode && liveStream === stream && state === 'playing') finishGame(); });
+      });
+      if (actx.state === 'suspended') actx.resume();
+      adoptLive();
+      liveTimer = setInterval(adoptLive, 200);
+      return true;
+    } catch (e) {
+      teardownLiveAudio();
+      liveMode = false;
+      if (state === 'title') applyTrack();
+      liveFail(e);
+      return false;
+    }
+  }
+
+  // Pull the engine's live arrays into the shell (every 200 ms, and once before results).
+  function adoptLive() {
+    if (!liveMode || !liveEngine) return;
+    var E = liveEngine;
+    // fold the per-index resolved[] of the OLD arrays back into the identity map first
+    for (var i = 0; i < events.length; i++) if (resolved[i]) resolvedByEvent.set(events[i], true);
+    layer.sections = E.sections;   // sectionAt() reads layer.sections fresh each call
+    layer.flow = E.flow;
+    // Engine events arrive in generation order (holds may be slightly out of order); the shell's
+    // per-frame loops assume time order, so adopt a stable time-sorted copy (identities preserved).
+    events = E.events.slice().sort(function (a, b) { return a.time - b.time; });
+    decoys = E.decoys.slice().sort(function (a, b) { return a.time - b.time; });
+    layer.events = events; layer.decoys = decoys;
+    resolved = events.map(function (e) { return resolvedByEvent.get(e) === true || e.mech === 'flow'; });
+    flowInCache.len = -1; strayCache.len = -1;   // layer.flow / events changed -> drop per-inputs caches
+    // Features: frozen prefix indexed by musical frame (frame j = j / FPS s), i.e. the same clock as songTime().
+    var gf = E.getFeatures();
+    liveF = { fps: 20, kick: gf.kick, bass: gf.bass, snare: gf.snare, hat: gf.hat, pad: gf.pad, vocal: gf.vocal };
+    F = liveF;
+    live = RC.judgeGame(events, inputs, layer);
+    recountResolved();
+  }
+
+  function teardownLiveAudio() {
+    if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
+    var n = liveNodes;
+    liveNodes = null;
+    if (n) {
+      try { n.script.onaudioprocess = null; } catch (e) { /* ignore */ }
+      ['src', 'delay', 'mon', 'script', 'tap'].forEach(function (k) {
+        try { if (n[k]) n[k].disconnect(); } catch (e) { /* ignore */ }
+      });
+    }
+    if (liveStream) { stopStreamTracks(liveStream); liveStream = null; }
+    // liveEngine is kept (liveState() inspection after the results) and replaced by the next session
+  }
+
+  // =====================================================================
+  // Input
+  // =====================================================================
+  // v0.4: flow drawing / fx use the same routed flow inputs as RC.judgeGame (cached per inputs length)
+  var flowInCache = { len: -1, list: [] };
+  function routedFlowInputs() {
+    if (!layer) return [];
+    if (inputs.length !== flowInCache.len) {
+      flowInCache.list = RC.flowRoutedInputs(events, inputs, layer);
+      flowInCache.len = inputs.length;
+    }
+    return flowInCache.list;
+  }
+  function judgedNow() {
+    return songTime() - outLatency() + userOffsetMs / 1000;
+  }
+  function press(src) {
+    if (state !== 'playing') return;
+    var was = pressing;
+    activeSources[src] = true;
+    pressing = true;
+    if (!was) {
+      var t = judgedNow();
+      // v0.3: a tap inside a flow section that corrects a large phase error gets a flow-accent fx ring
+      if (curMode === 'resonance' && layer) {
+        var fsec = flowSecFor(sectionAt(songTime()));
+        if (fsec && t >= fsec.start && t < fsec.end) {
+          if (Math.abs(RC.flowErrorAt(fsec, routedFlowInputs(), t)) >= RC.SECTION_PARAMS.FLOW_BAND) {
+            fx.push({ t0: clock, color: MECH_ACCENT.flow, ring: 0 });
+            bloomTarget = Math.min(1, bloomTarget + 0.02);   // v0.5: real correction tap
+          } else {
+            lastFlowStrayT = clock;                          // v0.5: unnecessary tap inside flow
+          }
+        }
+      }
+      inputs.push({ t: t, kind: 'down' });
+      lastDownT = t;
+      updateLive();
+    }
+  }
+  function release(src) {
+    if (state !== 'playing') return;
+    if (!activeSources[src]) return;
+    delete activeSources[src];
+    if (Object.keys(activeSources).length === 0 && pressing) {
+      pressing = false;
+      inputs.push({ t: judgedNow(), kind: 'up' });
+      updateLive();
+    }
+  }
+
+  window.addEventListener('keydown', function (e) {
+    var tag = e.target && e.target.tagName;
+    if (state === 'playing' || state === 'paused') {
+      if (e.code === 'Space' || (e.code || '').indexOf('Arrow') === 0) e.preventDefault();
+    } else if (e.code === 'Space' && tag !== 'BUTTON' && tag !== 'INPUT') {
+      e.preventDefault();
+    }
+    if (e.code === 'Escape' || e.code === 'KeyP') {
+      if (state === 'playing') pauseGame(); else if (state === 'paused') resumeGame();
+      return;
+    }
+    if (e.repeat) return;
+    if (e.code === 'Space' || e.code === 'KeyZ') press('key:' + e.code);
+  });
+  window.addEventListener('keyup', function (e) {
+    if (e.code === 'Space' || e.code === 'KeyZ') { if (state === 'playing') e.preventDefault(); release('key:' + e.code); }
+  });
+  var stageEl = $('stage');
+  stageEl.addEventListener('pointerdown', function (e) {
+    if (state !== 'playing') return;
+    e.preventDefault();
+    try { stageEl.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    press('ptr:' + e.pointerId);
+  });
+  function ptrUp(e) { release('ptr:' + e.pointerId); }
+  stageEl.addEventListener('pointerup', ptrUp);
+  stageEl.addEventListener('pointercancel', ptrUp);
+  stageEl.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  window.addEventListener('blur', function () { if (state === 'playing') pauseGame(); });
+
+  // =====================================================================
+  // Live judging / feedback
+  // =====================================================================
+  function resolveTime(ev) {
+    return ev.type === 'tap' ? ev.time + TAP_RESOLVE : ev.time + ev.dur + HOLD_RESOLVE;
+  }
+
+  // v0.5: stray taps outside flow sections (bloom only; cached per inputs length like routedFlowInputs)
+  var strayCache = { len: -1, count: 0 };
+  function countStrays() {
+    if (inputs.length === strayCache.len) return strayCache.count;
+    strayCache.len = inputs.length;
+    var win = RC.JUDGE_WINDOWS.MATCH_MS / 1000, n = 0;
+    var flowSecs = (layer && layer.flow) || [];
+    for (var di = 0; di < inputs.length; di++) {
+      var d = inputs[di];
+      if (d.kind !== 'down') continue;
+      var inFlow = false;
+      for (var fi = 0; fi < flowSecs.length; fi++)
+        if (d.t >= flowSecs[fi].start && d.t < flowSecs[fi].end) { inFlow = true; break; }
+      if (inFlow) continue;
+      var hit = false;
+      for (var ei = 0; ei < events.length; ei++) {
+        var ev = events[ei];
+        if (ev.mech === 'flow') continue;
+        if (Math.abs(ev.time - d.t) <= win) { hit = true; break; }
+        if (ev.time - d.t > win) break;   // events are time-sorted
+      }
+      if (!hit) n++;
+    }
+    strayCache.count = n;
+    return n;
+  }
+
+  function updateLive() {
+    live = RC.judgeGame(events, inputs, layer);
+    var sc = countStrays();
+    if (sc > prevStrayCount) bloomTarget = Math.max(0, bloomTarget - 0.03 * (sc - prevStrayCount));
+    prevStrayCount = sc;
+    var now = songTime();
+    var newly = [];
+    for (var i = 0; i < events.length; i++) {
+      if (!resolved[i] && now > resolveTime(events[i])) { resolved[i] = true; newly.push(i); }
+    }
+    if (newly.length) {
+      newly.sort(function (a, b) { return events[a].time - events[b].time; });
+      for (var k = 0; k < newly.length; k++) onResolved(newly[k]);
+      recountResolved();
+    }
+  }
+
+  function recountResolved() {
+    // counts & current combo over resolved events in time order (events are time-sorted)
+    cP = cG = cM = 0; combo = 0;
+    for (var i = 0; i < events.length; i++) {
+      if (!resolved[i]) continue;
+      var g = live.perEvent[i].grade;
+      if (g === 'inactive') continue;   // flow-section events: not counted, combo untouched
+      if (g === 'perfect') cP++; else if (g === 'good') cG++; else cM++;
+      if (g === 'miss') combo = 0; else combo++;
+    }
+  }
+
+  function onResolved(i) {
+    var r = live.perEvent[i], ev = events[i];
+    if (!r || r.grade === 'inactive') return;
+    var err = null;
+    if (r.matched) err = ev.type === 'tap' ? r.errMs : r.errEndMs;
+    cohTarget = cohTarget * 0.8 + (r.grade === 'miss' ? 0 : r.score) * 0.2;
+    if (r.grade === 'perfect') bloomTarget += 0.05;
+    else if (r.grade === 'good') bloomTarget += 0.025;
+    else if (r.grade === 'miss') bloomTarget -= 0.07;
+    bloomTarget = Math.max(0, Math.min(1, bloomTarget));
+    if (r.grade === 'miss') phase += 0.2;
+    else if (ev.type === 'tap' && curMode === 'resonance') fx.push({ t0: clock, color: GRADE_COLOR[r.grade], ring: evRing(ev) });
+    showPopup(r.grade, err, ev, i);
+  }
+
+  var popEl = $('popup'), comboEl = $('combo');
+  function hidePopup() { popEl.classList.remove('anim'); popEl.style.opacity = 0; }
+  function showPopup(grade, errMs, ev, idx) {
+    var x, y;
+    if (curMode === 'resonance') { x = VW / 2 + ringCX(evRing(ev), dualMix(songTime())); y = VH / 2 + R_T + 34; }
+    else { x = VW / 2 + Math.sin(idx * 2.39) * 0.3 * VW; y = VH * 0.8 - 46; }
+    popEl.style.left = x + 'px'; popEl.style.top = y + 'px';
+    popEl.style.color = GRADE_COLOR[grade];
+    var ms = '';
+    if (errMs != null) ms = (errMs > 0 ? '+' : errMs < 0 ? '−' : '±') + Math.abs(Math.round(errMs)) + 'ms';
+    popEl.innerHTML = grade.toUpperCase() + (ms ? '<span class="ms">' + ms + '</span>' : '');
+    popEl.classList.remove('anim'); void popEl.offsetWidth; popEl.classList.add('anim');
+  }
+
+  // =====================================================================
+  // Per-frame visuals
+  // =====================================================================
+  function hideAllMeshes() {
+    if (!renderer) return;
+    ringPool.forEach(function (m) { m.visible = false; });
+    notePool.forEach(function (m) { m.visible = false; });
+    barPool.forEach(function (m) { m.visible = false; });
+    lineMesh.visible = false;
+  }
+
+  function sampleFeatures(t) {
+    if (!F) return [0, 0, 0];
+    var n = F.kick.length;
+    var i = Math.floor(t * F.fps);
+    if (i < 0 || i >= n) return [0, 0, 0];
+    return [(F.kick[i] + F.bass[i]) / 2 / 255, (F.snare[i] + F.vocal[i]) / 2 / 255, F.hat[i] / 255];
+  }
+
+  function currentHoldInProgress(now) {
+    for (var i = 0; i < events.length; i++) {
+      var ev = events[i];
+      if (ev.mech === 'flow') { if (ev.time > now) break; continue; }   // inactive
+      if (ev.type === 'hold' && now >= ev.time && now <= ev.time + ev.dur) return i;
+      if (ev.time > now) break;
+    }
+    return -1;
+  }
+
+  // ---- v0.3 section helpers ----
+  // Section containing now (before the first -> first, after the last -> last); null without a layer.
+  function sectionAt(now) {
+    if (!layer || !layer.sections || !layer.sections.length) return null;
+    var secs = layer.sections, s = secs[0];
+    for (var i = 0; i < secs.length; i++) { if (now >= secs[i].start) s = secs[i]; else break; }
+    return s;
+  }
+  function nextSection(sec) {
+    return sec && layer ? layer.sections[sec.index + 1] || null : null;
+  }
+  function flowSecFor(sec) {
+    if (!sec || sec.mech !== 'flow' || !layer || !layer.flow) return null;
+    for (var i = 0; i < layer.flow.length; i++) if (layer.flow[i].sectionIndex === sec.index) return layer.flow[i];
+    return null;
+  }
+  function curMech(now) { var s = sectionAt(now); return s ? s.mech : 'tap'; }
+  // Display ring of an event: only dual-section events use their alternating mring.
+  function evRing(ev) { return ev.mech === 'dual' ? (ev.mring || 0) : 0; }
+
+  // Dual-ring split: 0 = single centred ring, 1 = fully split. Only inside a dual section:
+  // 0→1 over the first DUAL_BLEND s, 1→0 over the last DUAL_BLEND s (unless the neighbour is dual too).
+  function dualMix(now) {
+    if (curMode !== 'resonance') return 0;
+    var sec = sectionAt(now);
+    if (!sec || sec.mech !== 'dual') return 0;
+    var prev = layer.sections[sec.index - 1], next = layer.sections[sec.index + 1];
+    var mIn = prev && prev.mech === 'dual' ? 1 : (now - sec.start) / DUAL_BLEND;
+    var mOut = next && next.mech === 'dual' ? 1 : (sec.end - now) / DUAL_BLEND;
+    return Math.max(0, Math.min(1, mIn, mOut));
+  }
+  // x of a ring centre in px (origin = screen centre). Both rings share the same progress.
+  function ringCX(r, mix) {
+    var off = DUAL_OFFSET * Math.min(VW, VH) * mix;
+    return r === 1 ? off : -off;
+  }
+  function flowRadius(now, fs, eps) {
+    return R_T * (1 + FLOW_BREATH_AMP * Math.sin(2 * Math.PI * now / fs.breathPeriod + (eps || 0)));
+  }
+  // Flow guide (white, thin) + optional main ring (flow accent, phase-shifted by ε) with phase dots.
+  function drawFlowRings(now, fs, guideAlpha, withMain, ri) {
+    var th = 2 * Math.PI * now / fs.breathPeriod;
+    var rg = flowRadius(now, fs, 0);
+    if (ri < ringPool.length) setRing(ringPool[ri++], 0, 0, rg, { width: 1.5, alpha: guideAlpha, spectral: 0, color: '#ffffff', glow: 0 });
+    if (ri < ringPool.length) setRing(ringPool[ri++], rg * Math.cos(th), rg * Math.sin(th), 3.5,
+      { fill: true, alpha: guideAlpha * 1.6, spectral: 0, color: '#ffffff', glow: 0 });
+    if (!withMain) return ri;
+    var eps = RC.flowErrorAt(fs, routedFlowInputs(), now);
+    var rm = flowRadius(now, fs, eps), tm = th + eps;
+    if (ri < ringPool.length) setRing(ringPool[ri++], 0, 0, rm, { width: 3, alpha: 0.9, spectral: 0.1, color: MECH_ACCENT.flow, glow: 0.3 });
+    if (ri < ringPool.length) setRing(ringPool[ri++], rm * Math.cos(tm), rm * Math.sin(tm), 5,
+      { fill: true, alpha: 0.95, spectral: 0, color: MECH_ACCENT.flow, glow: 0.4 });
+    return ri;
+  }
+
+  function drawResonance(now) {
+    var ri = 0;
+    var mix = dualMix(now);
+    var cx = [ringCX(0, mix), ringCX(1, mix)];
+    var sec = sectionAt(now), mech = sec ? sec.mech : 'tap', acc = MECH_ACCENT[mech];
+    var fsCur = flowSecFor(sec);
+    // next pending events per ring (holds past their end are drawn as expansions instead);
+    // the ring of the first pending event overall is the target ring. Flow events are pre-resolved.
+    var perRing = [[], []], first = -1;
+    for (var i = 0; i < events.length; i++) {
+      var ev = events[i];
+      if (resolved[i]) continue;
+      if (ev.type === 'hold' && now > ev.time + ev.dur) continue;
+      if (first < 0) first = i;
+      else if (ev.time - now > APPROACH + 0.5) break;
+      var pr = perRing[evRing(ev)];
+      if (pr.length < 2) pr.push(i);
+      if (perRing[0].length >= 2 && perRing[1].length >= 2) break;
+    }
+    var target = first >= 0 ? evRing(events[first]) : 0;
+    var dim = function (r) { return r === target ? 1 : 1 - (1 - DIM_OTHER) * mix; };
+
+    if (fsCur) {
+      // flow section: breathing guide + phase-drifting main ring replace the fixed target ring
+      ri = drawFlowRings(now, fsCur, 0.35, true, ri);
+    } else {
+      // target ring (fixed circle), tinted by the section accent; faint guide on the other ring once split
+      var tOpt = mech === 'tap'
+        ? { width: 2, alpha: 0.7, spectral: 0.85, color: mixHex('#ffffff', acc, 0.35), glow: 0.1 }
+        : { width: 2, alpha: 0.75, spectral: 0.2, color: acc, glow: 0.15 };
+      setRing(ringPool[ri++], cx[target], 0, R_T, tOpt);
+      if (mix > 0) {
+        var o = 1 - target;
+        setRing(ringPool[ri++], cx[o], 0, R_T, { width: 1.5, alpha: 0.7 * DIM_OTHER * 0.5 * mix, spectral: tOpt.spectral, color: tOpt.color, glow: 0 });
+      }
+    }
+
+    // preview of the next section's mechanic (within SEC_PREVIEW s of its start)
+    var nx = nextSection(sec);
+    if (nx && nx.mech !== mech && nx.start - now < SEC_PREVIEW && nx.start >= now) {
+      var preMix = 1 - (nx.start - now) / SEC_PREVIEW, nAcc = MECH_ACCENT[nx.mech];
+      if (nx.mech === 'dual') {
+        var off = DUAL_OFFSET * Math.min(VW, VH);
+        for (var gr = 0; gr < 2 && ri < ringPool.length; gr++)
+          setRing(ringPool[ri++], gr ? off : -off, 0, R_T, { width: 2, alpha: 0.30 * preMix, spectral: 0, color: nAcc, glow: 0.1 });
+      } else if (nx.mech === 'flow') {
+        var fsNext = flowSecFor(nx);
+        if (fsNext) ri = drawFlowRings(now, fsNext, 0.35 * preMix, false, ri);
+      } else if (ri < ringPool.length) {
+        setRing(ringPool[ri++], cx[target], 0, R_T * 1.04, { width: 1.5, alpha: 0.35 * preMix, spectral: 0, color: nAcc, glow: 0.1 });
+      }
+    }
+
+    for (var r = 0; r < 2; r++) {
+      var slots = perRing[r], dm = dim(r);
+      for (var s = 0; s < slots.length && ri < ringPool.length; s++) {
+        var e = events[slots[s]];
+        var alpha = (s === 0 ? 0.95 : 0.4) * dm;
+        var isHold = e.type === 'hold';
+        if (isHold && now >= e.time) {
+          var prog = Math.min(1, (now - e.time) / e.dur);
+          setRing(ringPool[ri++], cx[r], 0, R_T, { width: 4, alpha: Math.min(1, alpha + 0.25 * holdGlow), double: true,
+            spectral: 0, color: '#ffd27a', progress: Math.max(prog, 0.001), glow: 0.2 + 0.8 * holdGlow });
+        } else {
+          var k = Math.max(0, Math.min(1, (e.time - now) / APPROACH));
+          var radius = R_T * (1 + 2.2 * k);
+          var fadeIn = Math.min(1, (APPROACH + 0.4 - (e.time - now)) / 0.4); // soft appear at the edge
+          setRing(ringPool[ri++], cx[r], 0, radius, isHold
+            ? { width: 3.5, alpha: alpha * Math.max(0, fadeIn), double: true, spectral: 0, color: '#ffd27a', glow: 0.15 + bloom * 0.3 }
+            : { width: 3, alpha: alpha * Math.max(0, fadeIn), spectral: Math.min(1, 0.55 + bloom * 0.6), color: '#ffffff', glow: 0.15 + bloom * 0.35 });
+        }
+      }
+    }
+    // hold release expansions (active holds only)
+    for (var h = 0; h < events.length && ri < ringPool.length - 1; h++) {
+      var he = events[h];
+      if (he.type !== 'hold' || he.mech === 'flow') continue;
+      var end = he.time + he.dur;
+      if (now >= end && now <= end + HOLD_EXPAND) {
+        var q = (now - end) / HOLD_EXPAND;
+        setRing(ringPool[ri++], cx[evRing(he)], 0, R_T * (1 + 1.6 * q * (2 - q)), { width: 4 * (1 - q) + 1, alpha: 0.9 * (1 - q),
+          double: true, spectral: 0, color: '#ffd27a', glow: 0.5 });
+      }
+    }
+    // tap-hit fx (grade colour) and flow-correction fx (flow accent)
+    for (var f = fx.length - 1; f >= 0; f--) {
+      var a = (clock - fx[f].t0) / 0.3;
+      if (a >= 1) { fx.splice(f, 1); continue; }
+      if (ri < ringPool.length) setRing(ringPool[ri++], cx[fx[f].ring === 1 ? 1 : 0], 0, R_T * (1 + 0.35 * a), { width: 2.5, alpha: 0.7 * (1 - a), spectral: 0.3, color: fx[f].color, glow: 0.3 });
+    }
+    // decoys (visual only, dual sections only): thinner and darker than judged events, no target ring of their own
+    if (mix > 0) {
+      for (var di = 0; di < decoys.length && ri < ringPool.length; di++) {
+        var dc = decoys[di];
+        if (dc.time < now - 0.15) continue;
+        if (dc.time - now > APPROACH + 0.4) break;
+        var dk = Math.max(0, Math.min(1, (dc.time - now) / APPROACH));
+        var dFade = Math.min(1, (APPROACH + 0.4 - (dc.time - now)) / 0.4);
+        var dOut = now > dc.time ? 1 - (now - dc.time) / 0.15 : 1;
+        var dr = dc.ring === 1 ? 1 : 0;
+        var dAlpha = 0.42 * dim(dr) * mix * Math.max(0, dFade) * Math.max(0, dOut);
+        if (dAlpha <= 0.002) continue;
+        setRing(ringPool[ri++], cx[dr], 0, R_T * (1 + 2.2 * dk), { width: 1.6, alpha: dAlpha, spectral: 0.15, color: '#a9a4c8', glow: 0.05 });
+      }
+    }
+    // v0.5: bloom ghost afterimages on approaching rings (ornament only; drawn last, at the end of drawResonance, so the pool guard drops them first)
+    if (bloom > 0.05) {
+      for (var gR = 0; gR < 2; gR++) {
+        var gSlots = perRing[gR], gDm = dim(gR);
+        for (var gs = 0; gs < gSlots.length && ri < ringPool.length; gs++) {
+          var ge = events[gSlots[gs]];
+          if (ge.type === 'hold' && now >= ge.time) continue;
+          var gAlpha = (gs === 0 ? 0.95 : 0.4) * gDm;
+          var gk = Math.max(0, Math.min(1, (ge.time - now) / APPROACH));
+          var gRadius = R_T * (1 + 2.2 * gk);
+          var gFade = Math.max(0, Math.min(1, (APPROACH + 0.4 - (ge.time - now)) / 0.4));
+          var gA = gAlpha * gFade * bloom * 0.22;
+          if (ri < ringPool.length) setRing(ringPool[ri++], cx[gR], 0, gRadius * 1.07, { width: 2, alpha: gA, spectral: 0.8, color: '#ffffff', glow: 0.1 });
+          if (ri < ringPool.length) setRing(ringPool[ri++], cx[gR], 0, gRadius * 1.14, { width: 2, alpha: gA * 0.5, spectral: 0.8, color: '#ffffff', glow: 0.1 });
+        }
+      }
+    }
+    for (; ri < ringPool.length; ri++) ringPool[ri].visible = false;
+  }
+
+  function drawClassic(now) {
+    var lineY = VH / 2 - 0.8 * VH;              // three-space y of the judgement line
+    var topY = VH / 2 + 0.05 * VH;              // spawn y (-5% from top)
+    var D = topY - lineY;
+    var lu = lineMesh.material.uniforms;
+    lineMesh.position.set(0, lineY, 0); lineMesh.scale.set(VW, 8, 1);
+    lu.uAlpha.value = 0.9; lu.uTime.value = clock; lineMesh.visible = true;
+    var ni = 0, bi = 0;
+    var yAt = function (t) { return lineY + D * (t - now) / FALL; };
+    for (var i = 0; i < events.length; i++) {
+      var ev = events[i];
+      if (ev.time - FALL > now) break;
+      if (resolved[i]) continue;
+      var x = Math.sin(i * 2.39) * 0.3 * VW;
+      var isHold = ev.type === 'hold';
+      var yHead = yAt(ev.time);
+      if (isHold) {
+        var end = ev.time + ev.dur;
+        if (now > end) continue;
+        var yTail = Math.min(yAt(end), topY + 40);
+        var yBot = Math.max(yHead, now >= ev.time ? lineY : yHead);
+        if (bi < barPool.length && yTail > yBot) {
+          var bm = barPool[bi++], bu = bm.material.uniforms;
+          bm.position.set(x, (yTail + yBot) / 2, 0); bm.scale.set(18, yTail - yBot, 1);
+          bu.uAlpha.value = now >= ev.time && pressing ? 0.95 : 0.6; bu.uTime.value = clock; bm.visible = true;
+        }
+        if (ni < notePool.length) setRing(notePool[ni++], x, yBot, 16, { fill: true, color: '#ffd27a', spectral: 0, alpha: 0.95, glow: now >= ev.time ? holdGlow : 0.2 });
+        if (ni < notePool.length && yAt(end) <= topY + 40) setRing(notePool[ni++], x, yAt(end), 11, { fill: true, color: '#ffd27a', spectral: 0, alpha: 0.7, glow: 0.1 });
+      } else {
+        if (ni < notePool.length) setRing(notePool[ni++], x, yHead, 16, { fill: true, color: '#ffffff', spectral: 0.6, alpha: 0.95, glow: 0.3 });
+      }
+    }
+    for (; ni < notePool.length; ni++) notePool[ni].visible = false;
+    for (; bi < barPool.length; bi++) barPool[bi].visible = false;
+  }
+
+  var lastFrame = performance.now();
+  var hudCache = {};
+  function setText(id, v) { if (hudCache[id] !== v) { hudCache[id] = v; $(id).textContent = v; } }
+  function setStyle(id, prop, v) { var key = id + '.' + prop; if (hudCache[key] !== v) { hudCache[key] = v; $(id).style[prop] = v; } }
+  function hideSecLabels() { setStyle('secBanner', 'opacity', '0'); setStyle('secNext', 'opacity', '0'); }
+
+  // v0.3: section banner (on every section change, incl. game start), next-section preview, HUD label.
+  function updateSectionUI(now) {
+    var sec = sectionAt(now);
+    if (!sec) { hideSecLabels(); setText('hudSection', '—'); return; }
+    var acc = MECH_ACCENT[sec.mech] || '#ffffff';
+    if (sec.index !== curSecIdx) {
+      curSecIdx = sec.index;
+      bannerUntil = clock + SEC_BANNER_S;
+      setText('secBanner', MECH_NAME[sec.mech] || sec.mech);
+      setStyle('secBanner', 'color', acc);
+    }
+    var bl = bannerUntil - clock;
+    var ba = bl <= 0 ? 0 : Math.min(1, bl / 0.35, (SEC_BANNER_S - bl) / 0.12 + 0.2);
+    setStyle('secBanner', 'opacity', ba.toFixed(2));
+    var nx = nextSection(sec);
+    if (nx && nx.start - now < SEC_PREVIEW && nx.start >= now) {
+      setText('secNext', 'NEXT · ' + (MECH_NAME[nx.mech] || nx.mech));
+      setStyle('secNext', 'color', MECH_ACCENT[nx.mech] || '#ffffff');
+      setStyle('secNext', 'opacity', '0.9');
+    } else setStyle('secNext', 'opacity', '0');
+    setText('hudSection', MECH_NAME[sec.mech] || sec.mech);
+    setStyle('hudSection', 'color', acc);
+  }
+
+  function frame() {
+    requestAnimationFrame(frame);
+    var nowMs = performance.now();
+    var dt = Math.min(0.1, (nowMs - lastFrame) / 1000);
+    lastFrame = nowMs;
+    if (state !== 'paused') clock += dt;
+    if (state === 'playing' && actx && actx.currentTime - songStartCtx > trackDur + 1.0) finishGame();
+
+    var playing = state === 'playing' || state === 'paused';
+    var now = playing ? songTime() : 0;
+
+    if (state === 'playing') {
+      updateLive();
+      var hi = currentHoldInProgress(now);
+      var holding = hi >= 0 && pressing && Math.abs(lastDownT - events[hi].time) <= RC.JUDGE_WINDOWS.MATCH_MS / 1000;
+      holdGlow += ((holding ? 1 : 0) - holdGlow) * (1 - Math.exp(-dt * 12));
+    } else if (!playing) {
+      holdGlow *= Math.exp(-dt * 6);
+    }
+
+    if (state !== 'paused') {
+      var feat = playing ? sampleFeatures(now) : [0.15, 0.1, 0.05];
+      var kd = 1 - Math.exp(-dt * 8);
+      sBass += (feat[0] - sBass) * kd; sMid += (feat[1] - sMid) * kd; sHigh += (feat[2] - sHigh) * kd;
+      coh += (cohTarget - coh) * (1 - Math.exp(-dt * 2.5));
+      if (state === 'playing' && layer) {
+        var fsB = flowSecFor(sectionAt(now));
+        if (fsB && clock - lastFlowStrayT > 1.0 &&
+            Math.abs(RC.flowErrorAt(fsB, routedFlowInputs(), now)) < RC.SECTION_PARAMS.FLOW_BAND)
+          bloomTarget = Math.min(1, bloomTarget + dt * 0.03);
+      }
+      var bRate = bloomTarget > bloom ? 6.0 : 2.0;
+      bloom += (bloomTarget - bloom) * (1 - Math.exp(-dt / bRate));
+      phase *= Math.exp(-dt * 1.5);
+    }
+
+    if (renderer) {
+      var u = bgMat.uniforms;
+      u.uTime.value = clock; u.uBass.value = sBass; u.uMid.value = sMid; u.uHigh.value = sHigh;
+      u.uCoh.value = Math.max(0, Math.min(1, coh)); u.uHold.value = holdGlow; u.uPhase.value = phase; u.uBloom.value = bloom;
+      if (playing && layer) { var ac = hexRgb(MECH_ACCENT[curMech(now)] || '#000000'); u.uAccent.value.set(ac[0], ac[1], ac[2]); }
+      else u.uAccent.value.set(0, 0, 0);
+      if (playing) {
+        if (curMode === 'resonance') {
+          lineMesh.visible = false; notePool.forEach(function (m) { m.visible = false; }); barPool.forEach(function (m) { m.visible = false; });
+          drawResonance(now);
+        } else {
+          ringPool.forEach(function (m) { m.visible = false; });
+          drawClassic(now);
+        }
+      }
+      renderer.render(scene, camera);
+    }
+
+    if (playing && layer) updateSectionUI(now);
+    if (playing && live) {
+      setText('hudScore', String(Math.round(live.total * 1000)));
+      setText('hudCombo', String(combo));
+      setText('hudP', String(cP)); setText('hudG', String(cG)); setText('hudM', String(cM));
+      if (liveMode) $('progFill').style.width = '';   // v0.7: endless live session -> no progress
+      else $('progFill').style.width = (Math.max(0, Math.min(1, now / trackDur)) * 100).toFixed(2) + '%';
+      if (combo >= 5) {
+        comboEl.style.display = 'block';
+        if (curMode === 'resonance') { comboEl.style.left = VW / 2 + 'px'; comboEl.style.top = (VH / 2 - R_T - 26) + 'px'; }
+        else { comboEl.style.left = VW / 2 + 'px'; comboEl.style.top = (VH * 0.8 + 28) + 'px'; }
+        setText('combo', combo + ' COMBO');
+      } else comboEl.style.display = 'none';
+    }
+    if (state === 'title' && actx && (clock * 2 | 0) !== (hudCache.latTick | 0)) { hudCache.latTick = clock * 2 | 0; updateLatencyInfo(); }
+  }
+
+  // =====================================================================
+  // Boot + debug hook
+  // =====================================================================
+  if (hasThree) {
+    try { initThree(); } catch (e) { hasThree = false; showError('WebGL を初期化できません: ' + e.message); }
+  } else {
+    showError('three.js を読み込めませんでした（ネットワーク接続を確認してください）。');
+  }
+  updateStartUI();
+  loadAssets();
+  requestAnimationFrame(frame);
+
+  window.__resDebug = {
+    bloom: function () { return { bloom: bloom, target: bloomTarget }; },
+    events: function () { return events; },
+    decoys: function () { return decoys; },
+    trackInfo: function () {
+      var has = !!analysis;
+      return {
+        source: trackSource, name: trackName,
+        genMs: genMs != null ? Math.round(genMs * 10) / 10 : null,
+        counts: { easy: has ? eventsByDiff.easy.length : 0, normal: has ? eventsByDiff.normal.length : 0, hard: has ? eventsByDiff.hard.length : 0 },
+        dualStart: has ? dualStartByDiff[diff] : null
+      };
+    },
+    setTrackSource: function (src) { if (state === 'title') setTrackSource(src); },
+    loadLocal: function (buf, name) { return loadLocalBuffer(buf, name || 'local'); },
+    inputs: function () { return inputs; },
+    state: function () { return { songTime: songTime(), live: RC.judgeGame(events, inputs, layer), state: state }; },
+    sections: function () {
+      return layer ? { pseudo: layer.pseudo, sections: layer.sections.map(function (s) {
+        return { index: s.index, start: s.start, end: s.end, mech: s.mech }; }) } : null;
+    },
+    layer: function () { return layer; },
+    start: function (m, d) { ensureAudio(); return startGame(m || 'resonance', d || 'normal'); },
+    finish: function () { return finishGame(); },
+    // v0.7: live mode
+    liveSupport: function () { return liveSupport(); },
+    liveState: function () {
+      return { liveMode: liveMode, kind: liveKind, streamTime: liveEngine ? liveEngine.streamTime() : 0,
+        stats: liveEngine ? liveEngine.stats() : null, songTime: songTime() };
+    },
+    startLiveWithStream: function (stream, kind) { return beginLive(stream, kind || 'tab'); },
+    stopLive: function () { if (liveMode && (state === 'playing')) return finishGame(); }
+  };
+})();
+</script>
+</body>
+</html>
