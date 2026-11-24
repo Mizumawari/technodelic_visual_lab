@@ -2,11 +2,11 @@
 
 既存の音響生成スタジオ [`neural_mantra_studio_v6.html`](../neural_mantra/neural_mantra_studio_v6.html) および音マントラ音響工学（[`SRC_252_neural_mantra_acoustic_reconstruction.md`](../research_corpus/SRC_252_neural_mantra_acoustic_reconstruction.md)）の設計思想をベースに、**Three.js による連続的ビジュアル変調**を統合した実験的 Web アプリケーション設計プロジェクトです。
 
-## 現在の姿（v29 時点）
+## 現在の姿（v30 時点）
 
 単一 HTML ファイルで動く Web アプリです（Three.js + Web Audio）。設計の核は「音楽に反応して映像が動く」ではなく、**「音楽が映像世界の物理法則（粘性・曲率・渦の条件・微細構造）を変える」**こと。音響解析 → 時間処理 → Visual State Engine → 描画、という分離構造で、映像は状態エンジン経由でのみ音楽に影響されます。
 
-- 収録版：Phase 1 原型 〜 `technodelic_visual_lab_v29_crisp.html`（最新）。版ごとに新規ファイルで積み上げる方式で、旧版もそのまま残しています
+- 収録版：Phase 1 原型 〜 `technodelic_visual_lab_v30_organic.html`（最新）。版ごとに新規ファイルで積み上げる方式で、旧版もそのまま残しています
 - 入力：同梱8曲（事前解析つき）、手元のファイル／フォルダ、Google Drive、**ライブ入力**（PC の Chrome でタブ／システム音声キャプチャ、マイク）
 - 駆動モード：音駆動のほか、曲の構造（節の反復・規則性・新規性）で世界の規則性を組み替える構造駆動、音なしで内部生成だけで動く自律駆動、その中間のブレンド
 - Auto Shuffle（v25）：入力のとぎれ目（曲間の無音）を検出して、映像設定を安全な範囲でランダムに切り替える機能。ライブ入力で連続再生しているときに効きます。「初期設定に戻す」ボタンで起動直後の設定にもいつでも戻れます
@@ -14,6 +14,7 @@
 - 拍パルス＋露出トリム（v27）：拍に同期した明滅をスライダで調整できます（既定は穏やか、上げるほど強いストロボ感。平均の明るさは変わりません）。露出トリムは音が大きく続く区間でのみ輝度の天井を少し下げ、張り付きを緩めます
 - レイヤー別パルス（v28）：明滅を全体一律から、レイヤーごとに別のリズム（小節のうねり／2拍／毎拍／裏拍／バックビート／持続音）へ。土台は1つの拍グリッドで共通、深さは層ごとにゆっくり漂うので、有機的にずれながら全体の規律は保たれます
 - crisp の有機変調（v29）：効果ごとの鮮明さ（線の硬さ）が固定値から、音に合わせて呼吸する値へ。静かな局面では柔らかく、ヒットでカチッと硬くなり、効果ごとの性格（ぬるっと／ソリッド）は保たれます
+- 有機的な遷移まとめ（v30）：残っていた段差を一掃。曲替わりの正規化リセットを2秒に分散、応答の速さ自体が局面で変動、画質切替のポップを露出の瞬間ディップでマスク、光学LODの境界を連続フェード化、プリセットの残りパラメータも平滑化
 - 描画：6つの基本モード＋フラクタル変種・準結晶・モアレ等、光学レイヤー（微細グリント、回折、コースティクス、視差）
 
 起動方法は下の「Bundled tracks / 同梱曲」を参照（HTTP 配信で開くのが前提です）。
@@ -47,6 +48,6 @@ The 8 bundled tracks live in `audio/` (mp3), their pre-analysis
 (beats / bars / sections / per-part features / structure) in
 `analysis/track01-08.json`, indexed by `tracks.json` at the repo root.
 Serve this folder over HTTP (e.g. `python3 -m http.server`) and open
-`technodelic_visual_lab_v29_crisp.html` (latest) — the bundled
+`technodelic_visual_lab_v30_organic.html` (latest) — the bundled
 tracks then play with full pre-analysis. Opening via file:// will not
 load tracks.json / analysis due to browser fetch restrictions.
