@@ -2,11 +2,11 @@
 
 既存の音響生成スタジオ [`neural_mantra_studio_v6.html`](../neural_mantra/neural_mantra_studio_v6.html) および音マントラ音響工学（[`SRC_252_neural_mantra_acoustic_reconstruction.md`](../research_corpus/SRC_252_neural_mantra_acoustic_reconstruction.md)）の設計思想をベースに、**Three.js による連続的ビジュアル変調**を統合した実験的 Web アプリケーション設計プロジェクトです。
 
-## 現在の姿（v33 時点）
+## 現在の姿（v34 時点）
 
 単一 HTML ファイルで動く Web アプリです（Three.js + Web Audio）。設計の核は「音楽に反応して映像が動く」ではなく、**「音楽が映像世界の物理法則（粘性・曲率・渦の条件・微細構造）を変える」**こと。音響解析 → 時間処理 → Visual State Engine → 描画、という分離構造で、映像は状態エンジン経由でのみ音楽に影響されます。
 
-- 収録版：Phase 1 原型 〜 `technodelic_visual_lab_v33_stillness.html`（最新）。版ごとに新規ファイルで積み上げる方式で、旧版もそのまま残しています
+- 収録版：Phase 1 原型 〜 `technodelic_visual_lab_v34_bismuth.html`（最新）。版ごとに新規ファイルで積み上げる方式で、旧版もそのまま残しています
 - 入力：同梱8曲（事前解析つき）、手元のファイル／フォルダ、Google Drive、**ライブ入力**（PC の Chrome でタブ／システム音声キャプチャ、マイク）
 - 駆動モード：音駆動のほか、曲の構造（節の反復・規則性・新規性）で世界の規則性を組み替える構造駆動、音なしで内部生成だけで動く自律駆動、その中間のブレンド
 - Auto Shuffle（v25）：入力のとぎれ目（曲間の無音）を検出して、映像設定を安全な範囲でランダムに切り替える機能。ライブ入力で連続再生しているときに効きます。「初期設定に戻す」ボタンで起動直後の設定にもいつでも戻れます
@@ -18,6 +18,7 @@
 - 静けさの設計（v31）：予測誤差の適応が深まると、画面そのものが空いていく。構造の複雑さ・対称・グリント密度がゆっくり間引かれ、驚きが来ると速やかに戻る。「静けさ」を明るさではなく余白で表現する機構
 - 4K モード（v32）：画質設定に「4K（UHD・高負荷）」を追加。描画バッファが約 3840×2160 になるよう解像度比を自動計算（4K 画面では等倍、それ未満ではスーパーサンプリング）。リサイズしても 4K 目標を維持
 - 静の配分＋取り込み負荷軽減（v33）：大音量で規則的な区間が続くと、エネルギーの配分が空間移動から内部活動へ移る（模様の流れは絞られ、光学と色の内部運動は保たれる。「走っているのに進まない」状態の実装）。あわせてライブ取り込みの負荷を軽減（未使用の映像トラックを即停止、取り込み中は解像度比に上限）
+- 第7モード Bismuth Lattice（v34）：ビスマス結晶のような階段状の入れ子四角が、セルごとに位相のずれた量子化ピストンとして4段でジリジリ昇降。表面の薄膜干渉色は形と独立に這い、わずかに回した第2格子がモアレを作る。低音→高さ、中音→段数、高音→輪郭の微振動、ヒット→セル位相の跳ね。ミックス合成とレイヤーパルスも7層に拡張
 - 描画：6つの基本モード＋フラクタル変種・準結晶・モアレ等、光学レイヤー（微細グリント、回折、コースティクス、視差）
 
 起動方法は下の「Bundled tracks / 同梱曲」を参照（HTTP 配信で開くのが前提です）。
@@ -51,6 +52,6 @@ The 8 bundled tracks live in `audio/` (mp3), their pre-analysis
 (beats / bars / sections / per-part features / structure) in
 `analysis/track01-08.json`, indexed by `tracks.json` at the repo root.
 Serve this folder over HTTP (e.g. `python3 -m http.server`) and open
-`technodelic_visual_lab_v33_stillness.html` (latest) — the bundled
+`technodelic_visual_lab_v34_bismuth.html` (latest) — the bundled
 tracks then play with full pre-analysis. Opening via file:// will not
 load tracks.json / analysis due to browser fetch restrictions.
