@@ -2704,7 +2704,7 @@ function factoryReset() {
 
 // ---- Layer mixer state ----
 const LAYER_DEFAULT = { RAINBOW_FLOW: 'bg', FRACTAL_SPACE: 'bg', CONVERGENCE_DIFFUSION: 'kick', CYMATICS: 'hat', TORUS_MANDALA: 'snare', IRIDESCENT_MEMBRANE: 'vocal', BISMUTH_LATTICE: 'pad' };
-const MODE_SHORT = { RAINBOW_FLOW: 'Rainbow', FRACTAL_SPACE: 'Fractal', CONVERGENCE_DIFFUSION: 'Particles', CYMATICS: 'Cymatics', TORUS_MANDALA: 'Mandala', IRIDESCENT_MEMBRANE: 'Membrane' };
+const MODE_SHORT = { RAINBOW_FLOW: 'Rainbow', FRACTAL_SPACE: 'Fractal', CONVERGENCE_DIFFUSION: 'Particles', CYMATICS: 'Cymatics', TORUS_MANDALA: 'Mandala', IRIDESCENT_MEMBRANE: 'Membrane', BISMUTH_LATTICE: 'Bismuth' };  // v34 fix: 短縮名が無いとレイヤー行に undefined と出る
 const mix = { layers: [], bgIdx: 0, secIdx: -1, beatIdx: -1, barIdx: -1, lastSecBar: 0 };
 
 // beat / bar index from analysis (exact) or the live tempo estimate
